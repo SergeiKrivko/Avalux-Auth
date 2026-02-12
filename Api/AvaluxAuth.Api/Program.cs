@@ -82,4 +82,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+await app.Services.GetRequiredService<AvaluxAuthDbContext>().Database.MigrateAsync();
+
 app.Run();
