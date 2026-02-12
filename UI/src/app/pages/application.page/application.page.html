@@ -1,0 +1,21 @@
+<div class="container">
+  <div class="header-container">
+    <h2>{{ (selectedApplication$ | async)?.parameters?.name }}</h2>
+    <tui-segmented size="l">
+      <a routerLinkActive [routerLinkActiveOptions]="options" routerLink="./config">
+        Конфигурация
+      </a>
+      <a routerLinkActive [routerLinkActiveOptions]="options" routerLink="./providers">
+        Провайдеры
+      </a>
+      <a routerLinkActive [routerLinkActiveOptions]="options" routerLink="./tokens">
+        Токены
+      </a>
+    </tui-segmented>
+  </div>
+  <tui-scrollbar>
+    <div class="content-wrapper">
+      <router-outlet></router-outlet>
+    </div>
+  </tui-scrollbar>
+</div>

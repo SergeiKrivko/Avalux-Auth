@@ -1,0 +1,11 @@
+<div [formArray]="control" class="container">
+  @for (item of control.controls; track item; let i = $index) {
+    <div class="field-container">
+      <tui-textfield class="value">
+        <input tuiTextfield [formControlName]="i"/>
+      </tui-textfield>
+      <button tuiIconButton iconStart="@tui.trash" appearance="flat-destructive" (click)="removeItem(i)"></button>
+    </div>
+  }
+  <button tuiButton appearance="flat" iconStart="@tui.plus" (click)="addItem()">Добавить</button>
+</div>

@@ -1,0 +1,10 @@
+<form class="container" [formGroup]="control">
+  <label tuiLabel>Название:</label>
+  <tui-textfield>
+    <input tuiTextfield formControlName="name"/>
+  </tui-textfield>
+
+  <div class="bottom-container" (click)="submit()">
+    <button tuiButton [loading]="loading">Создать</button>
+  </div>
+</form>

@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Api/">
+    <Project Path="Api/AvaluxAuth.Abstractions/AvaluxAuth.Abstractions.csproj" />
+    <Project Path="Api/AvaluxAuth.Api/AvaluxAuth.Api.csproj" />
+    <Project Path="Api/AvaluxAuth.DataAccess/AvaluxAuth.DataAccess.csproj" />
+    <Project Path="Api/AvaluxAuth.Models/AvaluxAuth.Models.csproj" />
+    <Project Path="Api/AvaluxAuth.Providers/AvaluxAuth.Providers.csproj" />
+    <Project Path="Api/AvaluxAuth.Services/AvaluxAuth.Services.csproj" />
+    <Project Path="Api/AvaluxAuth.Utils/AvaluxAuth.Utils.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".dockerignore" />
+    <File Path=".github/workflows/main.yml" />
+    <File Path="Dockerfile" />
+  </Folder>
+</Solution>

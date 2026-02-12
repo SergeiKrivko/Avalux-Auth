@@ -1,0 +1,20 @@
+<div class="container">
+  <app-logo />
+  <div
+    tuiAppearance="floating"
+    tuiCardLarge
+  >
+    <form class="card-container" [formGroup]="control" (ngSubmit)="authorize()">
+      <h2>Авторизация</h2>
+      <label tuiLabel>Логин</label>
+      <tui-textfield>
+        <input tuiTextfield formControlName="login"/>
+      </tui-textfield>
+      <label tuiLabel>Пароль</label>
+      <tui-textfield>
+        <input tuiTextfield type="password" formControlName="password"/>
+      </tui-textfield>
+      <button tuiButton type="submit">Войти</button>
+    </form>
+  </div>
+</div>

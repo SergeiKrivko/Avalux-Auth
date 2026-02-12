@@ -1,0 +1,19 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+
+  .apps-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+
+    .container {
+      width: 400px;
+
+      display: flex;
+      flex-direction: column;
+    }
+  }
+}

@@ -1,0 +1,18 @@
+<div class="container">
+  <div class="tools-container">
+    <button tuiButton iconStart="@tui.plus" size="m" (click)="newApp()">Создать</button>
+  </div>
+  <div class="apps-container">
+    @for (application of applications$ | async; track application.id) {
+      <a
+        tuiCardLarge
+        tuiHeader
+        tuiSurface="floating"
+        class="container"
+        [routerLink]="'app/' + application.id + '/config'"
+      >
+        <h3>{{ application.parameters.name }}</h3>
+      </a>
+    }
+  </div>
+</div>

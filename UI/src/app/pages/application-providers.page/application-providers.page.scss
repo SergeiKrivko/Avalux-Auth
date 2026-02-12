@@ -1,0 +1,20 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  .provider-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    button {
+      margin: 0;
+    }
+
+    h2 {
+      margin: 0;
+    }
+  }
+}

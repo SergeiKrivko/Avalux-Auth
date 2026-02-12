@@ -1,0 +1,10 @@
+<div class="container">
+  <form class="grid-container" *tuiLet="selectedApplication$ | async as selectedApplication">
+    <label tuiLabel class="label">Client ID:</label>
+    <tui-copy class="value">{{ selectedApplication?.clientId }}</tui-copy>
+    <label tuiLabel class="label">Client Secret:</label>
+    <tui-copy class="value">{{ selectedApplication?.clientSecret }}</tui-copy>
+    <label tuiLabel class="label">Redirect URLs:</label>
+    <app-input-string-array />
+  </form>
+</div>

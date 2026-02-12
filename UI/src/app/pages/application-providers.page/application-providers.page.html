@@ -1,0 +1,14 @@
+<div class="container">
+  @for (provider of addedProviders$ | async; track provider.provider.id) {
+    <div tuiCardLarge class="provider-card">
+      <h2>{{ provider.info?.name }}</h2>
+      <a tuiButton [routerLink]="'./' + provider.provider.id">Настроить</a>
+    </div>
+  }
+  @for (provider of availableProviders$ | async; track provider.id) {
+    <div tuiCardLarge class="provider-card">
+      <h2>{{ provider.name }}</h2>
+      <button tuiButton appearance="info" (click)="createNewProvider(provider.id)">Подключить</button>
+    </div>
+  }
+</div>

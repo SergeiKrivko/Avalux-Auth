@@ -1,0 +1,32 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+
+  align-items: start;
+
+  .grid-container {
+    display: grid;
+    grid-template-columns: min(40%, 15rem) auto;
+    grid-template-rows: repeat(5, auto);
+    grid-row-gap: 1rem;
+    align-items: center;
+    width: 100%;
+
+    .label {
+      grid-column-start: 1;
+      grid-column-end: 2;
+    }
+
+    .value {
+      grid-column-start: 2;
+      grid-column-end: 3;
+    }
+
+    .release-lifetime-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+}
