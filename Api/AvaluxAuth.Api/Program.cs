@@ -27,7 +27,7 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<AvaluxAuthDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
+    options.UseNpgsql(builder.Configuration["ConnectionStrings.Postgres"]);
 });
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

@@ -113,13 +113,13 @@ public class AuthorizationService(
     }
 
     private SymmetricSecurityKey GetSymmetricSecurityKey() =>
-        new(Encoding.UTF8.GetBytes(configuration["Security:JwtSecret"] ??
+        new(Encoding.UTF8.GetBytes(configuration["Security.JwtSecret"] ??
                                    throw new Exception("JWT secret not found")));
 
     private string CreateJwt(User user, Application application, DateTime expiresAt)
     {
         var jwt = new JwtSecurityToken(
-            issuer: configuration["Security:Issuer"],
+            issuer: configuration["Security.Issuer"],
             audience: application.Parameters.Name,
             claims:
             [
@@ -161,6 +161,6 @@ public class AuthorizationService(
     private string GetCallbackUrl(string providerKey)
     {
         return
-            $"{configuration["Api:ApiUrl"] ?? throw new Exception("Api url not found")}/api/v1/auth/{providerKey}/callback";
+            $"{configuration["Api.ApiUrl"] ?? throw new Exception("Api url not found")}/api/v1/auth/{providerKey}/callback";
     }
 }
