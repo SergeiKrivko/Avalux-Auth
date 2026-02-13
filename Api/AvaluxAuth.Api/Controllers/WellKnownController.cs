@@ -37,7 +37,7 @@ public class WellKnownController(ISigningKeyService signingKeyService, IConfigur
     [HttpGet("openid-configuration")]
     public ActionResult<OpenIdConfigurationResponse> GetOpenIdConfiguration()
     {
-        var apiUrl = configuration["Api:ApiUrl"];
+        var apiUrl = configuration["Api.ApiUrl"];
         return Ok(new OpenIdConfigurationResponse
         {
             Issuer = configuration["Security.Issuer"] ?? "",
