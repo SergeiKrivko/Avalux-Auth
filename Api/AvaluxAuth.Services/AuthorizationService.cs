@@ -1,7 +1,6 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
 using AvaluxAuth.Utils;
@@ -63,7 +62,7 @@ public class AuthorizationService(
         var credentials = await provider.GetTokenAsync(p.Parameters, query, GetCallbackUrl(provider.Key), ct);
         var info = await provider.GetUserInfoAsync(credentials, ct);
 
-        var account = await accountRepository.GetAccountByProviderIdAsync(info.Id, ct);
+        var account = await accountRepository.GetAccountByProviderIdAsync(parameters.ApplicationId, info.Id, ct);
         Guid accountId;
         Guid userId;
         if (account == null)

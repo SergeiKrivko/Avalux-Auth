@@ -15,10 +15,12 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
         return res is null ? null : FromEntity(res);
     }
 
-    public async Task<Account?> GetAccountByProviderIdAsync(string id, CancellationToken ct = default)
+    public async Task<Account?> GetAccountByProviderIdAsync(Guid applicationId, string id, CancellationToken ct = default)
     {
         var res = await dbContext.Accounts
             .Where(a => a.ProviderUserId == id && a.DeletedAt == null)
+            .Include(a => a.User)
+            .Where(a => a.User.ApplicationId == applicationId)
             .FirstOrDefaultAsync(ct);
         return res is null ? null : FromEntity(res);
     }

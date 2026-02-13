@@ -5,7 +5,7 @@ namespace AvaluxAuth.Abstractions;
 public interface IAccountRepository
 {
     public Task<Account?> GetAccountByIdAsync(Guid id, CancellationToken ct = default);
-    public Task<Account?> GetAccountByProviderIdAsync(string id, CancellationToken ct = default);
+    public Task<Account?> GetAccountByProviderIdAsync(Guid applicationId, string id, CancellationToken ct = default);
     public Task<IEnumerable<Account>> GetAccountsOfUserAsync(Guid userId, CancellationToken ct = default);
 
     public Task<Guid> CreateAccountAsync(Guid userId, Guid providerId, UserInfo account, AccountCredentials accountCredentials,
