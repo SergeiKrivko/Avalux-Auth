@@ -29,6 +29,10 @@ public class AuthorizationService(
         var application = await applicationRepository.GetApplicationByClientIdAsync(clientId, ct);
         if (application == null)
             throw new Exception("Client not found");
+
+        if (!application.Parameters.RedirectUrls.Contains(redirectUrl))
+            throw new Exception("Invalid redirect url");
+
         if (!providerFactory.TryGetProvider(providerKey, out var provider))
             throw new Exception("Provider not found");
         var p = await providerRepository.GetProviderByProviderIdAsync(application.Id, provider.Id, ct);
