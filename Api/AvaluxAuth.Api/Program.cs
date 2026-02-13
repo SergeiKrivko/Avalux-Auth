@@ -95,7 +95,6 @@ if (app.Environment.IsDevelopment())
 await using (var scope = app.Services.CreateAsyncScope())
 {
     await scope.ServiceProvider.GetRequiredService<AvaluxAuthDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<ISigningKeyService>().RotateSigningKeyAsync();
 }
 
 app.Run();

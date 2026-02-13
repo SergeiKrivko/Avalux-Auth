@@ -40,7 +40,7 @@ public class WellKnownController(ISigningKeyService signingKeyService, IConfigur
     [HttpGet("openid-configuration")]
     public ActionResult<OpenIdConfigurationResponse> GetOpenIdConfiguration()
     {
-        var apiUrl = configuration["Api.ApiUrl"];
+        var apiUrl = $"{Request.Scheme}://{Request.Host}";
         return Ok(new OpenIdConfigurationResponse
         {
             Issuer = configuration["Security.Issuer"] ?? "",
