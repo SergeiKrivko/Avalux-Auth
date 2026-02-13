@@ -19,7 +19,9 @@ public class AuthorizationService(
     IConfiguration configuration,
     IAccountRepository accountRepository,
     IUserRepository userRepository,
-    IRefreshTokenRepository refreshTokenRepository) : IAuthorizationService
+    IRefreshTokenRepository refreshTokenRepository,
+    ISigningKeyService signingKeyService,
+    ISecretProtector secretProtector) : IAuthorizationService
 {
     public async Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUrl,
         CancellationToken ct = default)
@@ -102,7 +104,7 @@ public class AuthorizationService(
             throw new Exception("Application not found");
 
         var expiresAt = DateTime.UtcNow.AddHours(1);
-        var accessToken = CreateJwt(user, application, expiresAt);
+        var accessToken = await CreateJwt(user, application, expiresAt, ct);
         var refreshToken = await CreateRefreshToken(user, ct);
         return new UserCredentials
         {
@@ -112,11 +114,24 @@ public class AuthorizationService(
         };
     }
 
-    private SymmetricSecurityKey GetSymmetricSecurityKey() =>
-        new(Encoding.UTF8.GetBytes(configuration["Security.JwtSecret"] ??
-                                   throw new Exception("JWT secret not found")));
+    private async Task<SigningCredentials> GetSecurityKeyAsync(CancellationToken ct = default)
+    {
+        var key = await signingKeyService.GetActiveSigningKeyAsync(ct);
 
-    private string CreateJwt(User user, Application application, DateTime expiresAt)
+        var rsa = RSA.Create();
+        var privateKey = Convert.FromBase64String(secretProtector.Unprotect(key.PrivateKeyEncrypted));
+        rsa.ImportPkcs8PrivateKey(privateKey, out _);
+
+        var securityKey = new RsaSecurityKey(rsa)
+        {
+            KeyId = key.Kid
+        };
+        return new SigningCredentials(securityKey, SecurityAlgorithms.RsaSha256);
+    }
+
+
+    private async Task<string> CreateJwt(User user, Application application, DateTime expiresAt,
+        CancellationToken ct = default)
     {
         var jwt = new JwtSecurityToken(
             issuer: configuration["Security.Issuer"],
@@ -126,7 +141,7 @@ public class AuthorizationService(
                 new Claim("UserId", user.Id.ToString())
             ],
             expires: expiresAt,
-            signingCredentials: new SigningCredentials(GetSymmetricSecurityKey(), SecurityAlgorithms.HmacSha256)
+            signingCredentials: await GetSecurityKeyAsync(ct)
         );
         return new JwtSecurityTokenHandler().WriteToken(jwt);
     }
@@ -149,7 +164,8 @@ public class AuthorizationService(
             return null;
         var application = await applicationRepository.GetApplicationByIdAsync(user.ApplicationId, ct);
         var expiresAt = DateTime.UtcNow.AddHours(1);
-        var accessToken = CreateJwt(user, application ?? throw new Exception("Application not found"), expiresAt);
+        var accessToken = await CreateJwt(user, application ?? throw new Exception("Application not found"), expiresAt,
+            ct);
         return new UserCredentials
         {
             AccessToken = accessToken,

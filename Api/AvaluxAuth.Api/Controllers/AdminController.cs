@@ -12,7 +12,10 @@ namespace AvaluxAuth.Api.Controllers;
 [ApiController]
 [Route("/api/v1/admin")]
 [EnableCors(PolicyName = Config.AdminPolicy)]
-public class AdminController(IConfiguration configuration, IEnumerable<IAuthProvider> providers) : ControllerBase
+public class AdminController(
+    IConfiguration configuration,
+    IEnumerable<IAuthProvider> providers,
+    ISigningKeyService signingKeyService) : ControllerBase
 {
     [HttpPost("login")]
     public async Task<ActionResult> Authenticate([FromBody] AdminCredentialsSchema credentials, CancellationToken ct)
@@ -70,5 +73,13 @@ public class AdminController(IConfiguration configuration, IEnumerable<IAuthProv
             Name = p.Name,
             Url = p.ProviderUrl,
         }));
+    }
+
+    [HttpPost("rotate-signing-key")]
+    [Authorize(Policy = Config.AdminRole)]
+    public async Task<ActionResult> RotateSiningKey(CancellationToken ct)
+    {
+        await signingKeyService.RotateSigningKeyAsync(ct);
+        return Ok();
     }
 }

@@ -18,9 +18,14 @@ builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddSingleton<IStateRepository, InMemoryStateRepository>();
 builder.Services.AddSingleton<IAuthCodeRepository, InMemoryCodeRepository>();
+builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
+
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<ISecretProtector, SecretProtector>();
 
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
+builder.Services.AddScoped<ISigningKeyService, SigningKeyService>();
 builder.Services.AddAuthProviders();
 
 builder.Services.AddControllers();
@@ -68,12 +73,15 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.UseStaticFiles();
-app.UseSpa(spa =>
+if (app.Environment.IsProduction())
 {
-    spa.Options.SourcePath = "wwwroot";
-    spa.Options.DefaultPage = "/index.html";
-});
+    app.UseStaticFiles();
+    app.UseSpa(spa =>
+    {
+        spa.Options.SourcePath = "wwwroot";
+        spa.Options.DefaultPage = "/index.html";
+    });
+}
 
 if (app.Environment.IsDevelopment())
 {
