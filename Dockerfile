@@ -34,5 +34,7 @@ RUN dotnet publish "./AvaluxAuth.Api.csproj" -c $BUILD_CONFIGURATION -o /app/pub
 
 FROM base AS final
 WORKDIR /app
+RUN mkdir -p /app/keys
+RUN chmod -R 777 /app/keys
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "AvaluxAuth.Api.dll"]
