@@ -7,10 +7,10 @@ using Microsoft.IdentityModel.Tokens;
 namespace AvaluxAuth.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/jwks")]
-public class JwksController(ISigningKeyService signingKeyService) : ControllerBase
+[Route("api/v1/.well-known")]
+public class WellKnownController(ISigningKeyService signingKeyService, IConfiguration configuration) : ControllerBase
 {
-    [HttpGet]
+    [HttpGet("jwks.json")]
     [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<JwkKey>>> GetPublicKeys(CancellationToken ct)
     {
@@ -32,5 +32,18 @@ public class JwksController(ISigningKeyService signingKeyService) : ControllerBa
         }
 
         return Ok(jwks);
+    }
+
+    [HttpGet("openid-configuration")]
+    public ActionResult<OpenIdConfigurationResponse> GetOpenIdConfiguration()
+    {
+        var apiUrl = configuration["Api:ApiUrl"];
+        return Ok(new OpenIdConfigurationResponse
+        {
+            Issuer = configuration["Security.Issuer"] ?? "",
+            AuthorizationEndpoint = $"{apiUrl}/api/v1/auth/<provider>/authorize",
+            TokenEndpoint = $"{apiUrl}/api/v1/auth/token",
+            JwksUri = $"{apiUrl}/api/v1/.well-known/jwks.json",
+        });
     }
 }
