@@ -1,6 +1,6 @@
 import {inject, Injectable} from '@angular/core';
-import {ApiClient, Application, CreateApplicationSchema} from './api-client';
-import {ApplicationEntity} from '../entities/application-entity';
+import {ApiClient, Application, ApplicationParameters, CreateApplicationSchema} from './api-client';
+import {ApplicationEntity, ApplicationParametersEntity} from '../entities/application-entity';
 import {patchState, signalState} from '@ngrx/signals';
 import moment from 'moment';
 import {map, NEVER, Observable, switchMap, tap} from 'rxjs';
@@ -70,6 +70,15 @@ export class ApplicationService {
     patchState(this.store$$, {
       selectedApplication: app,
     })
+  }
+
+  updateApplication(applicationId: string, parameters: ApplicationParametersEntity) {
+    return this.apiClient.appsPUT(applicationId, ApplicationParameters.fromJS({
+      name: parameters.name,
+      redirectUrls: parameters.redirectUrls,
+    })).pipe(
+      switchMap(() => this.loadApplications())
+    );
   }
 }
 

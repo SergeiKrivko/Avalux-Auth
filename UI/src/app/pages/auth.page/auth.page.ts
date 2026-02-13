@@ -11,7 +11,6 @@ import {Router} from '@angular/router';
 @Component({
   selector: 'app-auth.page',
   imports: [
-    AsyncPipe,
     TuiCard,
     TuiButton,
     Logo,

@@ -1,4 +1,12 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, forwardRef, inject, OnInit} from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  forwardRef,
+  inject,
+  OnInit
+} from '@angular/core';
 import {
   ControlValueAccessor,
   FormArray,
@@ -33,6 +41,7 @@ import {TuiButton, TuiTextfieldComponent, TuiTextfieldDirective} from '@taiga-ui
 })
 export class InputStringArray implements OnInit, ControlValueAccessor {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
 
   protected readonly control = new FormArray<FormControl<string | null>>([])
 
@@ -53,7 +62,12 @@ export class InputStringArray implements OnInit, ControlValueAccessor {
   }
 
   writeValue(value: string[] | null): void {
-    this.control.setValue(value ?? [])
+    this.control.clear();
+    for (const url of value ?? []) {
+      this.control.push(new FormControl(url));
+    }
+    this.control.setValue(value ?? []);
+    this.changeDetectorRef.detectChanges();
   }
 
   registerOnChange(fn: (value: string[] | null) => void): void {

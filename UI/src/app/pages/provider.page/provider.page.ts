@@ -21,7 +21,6 @@ import {ProviderEntity} from '../../entities/provider-entity';
     TuiLet,
     AsyncPipe,
     TuiCopy,
-    InputStringArray,
     TuiSwitch,
     TuiButtonLoading
   ],

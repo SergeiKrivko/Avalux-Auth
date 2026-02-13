@@ -15,12 +15,8 @@ import {ProviderService} from '../../services/provider.service';
   selector: 'app-root.page',
   imports: [
     RouterOutlet,
-    RouterLink,
     TuiButton,
     Logo,
-    TuiSegmented,
-    RouterLinkActive,
-    AsyncPipe
   ],
   templateUrl: './root.page.html',
   styleUrl: './root.page.scss',
