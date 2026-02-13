@@ -12,7 +12,7 @@ public class WellKnownController(ISigningKeyService signingKeyService, IConfigur
 {
     [HttpGet("jwks.json")]
     [AllowAnonymous]
-    public async Task<ActionResult<IEnumerable<JwkKey>>> GetPublicKeys(CancellationToken ct)
+    public async Task<ActionResult<JwksResponseSchema>> GetPublicKeys(CancellationToken ct)
     {
         var keys = await signingKeyService.GetAllKeysAsync(ct);
         var jwks = new List<JwkKey>();
@@ -31,7 +31,10 @@ public class WellKnownController(ISigningKeyService signingKeyService, IConfigur
             });
         }
 
-        return Ok(jwks);
+        return Ok(new JwksResponseSchema
+        {
+            Keys = jwks.ToArray()
+        });
     }
 
     [HttpGet("openid-configuration")]
