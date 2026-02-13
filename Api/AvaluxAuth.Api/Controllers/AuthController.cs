@@ -5,11 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 namespace AvaluxAuth.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/auth/{providerKey}")]
+[Route("api/v1/auth")]
 public class AuthController(IAuthorizationService authorizationService, IAuthCodeRepository authCodeRepository)
     : ControllerBase
 {
-    [HttpGet("authorize")]
+    [HttpGet("{providerKey}/authorize")]
     public async Task<ActionResult> Authorize(string providerKey,
         [FromQuery(Name = "client_id")] string clientId,
         [FromQuery(Name = "redirect_uri")] string redirectUri,
@@ -19,7 +19,7 @@ public class AuthController(IAuthorizationService authorizationService, IAuthCod
         return Redirect(url);
     }
 
-    [HttpGet("callback")]
+    [HttpGet("{providerKey}/callback")]
     public async Task<ActionResult> Callback(string providerKey,
         [FromQuery(Name = "state")] string state,
         CancellationToken ct = default)
@@ -31,7 +31,7 @@ public class AuthController(IAuthorizationService authorizationService, IAuthCod
     }
 
     [HttpPost("token")]
-    public async Task<ActionResult<UserCredentials>> GetToken(string providerKey,
+    public async Task<ActionResult<UserCredentials>> GetToken(
         [FromForm(Name = "client_id")] string clientId,
         [FromForm(Name = "client_secret")] string clientSecret,
         [FromForm(Name = "code")] string code,
@@ -46,7 +46,7 @@ public class AuthController(IAuthorizationService authorizationService, IAuthCod
     }
 
     [HttpPost("refresh")]
-    public async Task<ActionResult<UserCredentials>> RefreshToken(string providerKey,
+    public async Task<ActionResult<UserCredentials>> RefreshToken(
         [FromForm(Name = "refresh_token")] string refreshToken,
         CancellationToken ct = default)
     {
