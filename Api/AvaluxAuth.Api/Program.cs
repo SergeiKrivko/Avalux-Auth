@@ -53,7 +53,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     .AddJwtBearer(options =>
     {
         options.MetadataAddress =
-            "http://localhost:5000/api/v1/.well-known/openid-configuration";
+            $"{builder.Configuration["Api.ApiUrl.Local"]}/api/v1/.well-known/openid-configuration";
         options.Authority = builder.Configuration["Security.AuthApiUrl"];
         options.RequireHttpsMetadata = false;
 
