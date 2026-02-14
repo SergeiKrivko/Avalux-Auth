@@ -25,6 +25,7 @@ public class AuthorizationService(
     ILogger<AuthorizationService> logger) : IAuthorizationService
 {
     public async Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUrl,
+        Guid? userId = null,
         CancellationToken ct = default)
     {
         var application = await applicationRepository.GetApplicationByClientIdAsync(clientId, ct);
@@ -46,7 +47,8 @@ public class AuthorizationService(
             State = state,
             ApplicationId = application.Id,
             ProviderId = p.Id,
-            RedirectUrl = redirectUrl
+            RedirectUrl = redirectUrl,
+            UserId = userId,
         });
 
         return provider.GetAuthUrl(p.Parameters, GetCallbackUrl(provider.Key), state);
@@ -67,7 +69,21 @@ public class AuthorizationService(
         var account = await accountRepository.GetAccountByProviderIdAsync(parameters.ApplicationId, info.Id, ct);
         Guid accountId;
         Guid userId;
-        if (account == null)
+        if (parameters.UserId != null)
+        {
+            userId = parameters.UserId.Value;
+            if (account is null)
+            {
+                accountId = await accountRepository.CreateAccountAsync(userId, p.Id, info, credentials, ct);
+            }
+            else
+            {
+                if (account.UserId != userId)
+                    throw new Exception("Account linked to another user");
+                accountId = account.Id;
+            }
+        }
+        else if (account == null)
         {
             userId = await userRepository.CreateUserAsync(p.ApplicationId, ct);
             accountId = await accountRepository.CreateAccountAsync(userId, p.Id, info, credentials, ct);
@@ -167,12 +183,14 @@ public class AuthorizationService(
             logger.LogWarning("Refresh token not found");
             return null;
         }
+
         var user = await userRepository.GetUserAsync(userId.Value, ct);
         if (user is null)
         {
             logger.LogWarning("User from refresh token not found");
             return null;
         }
+
         var application = await applicationRepository.GetApplicationByIdAsync(user.ApplicationId, ct);
         var expiresAt = DateTime.UtcNow.AddHours(1);
         var accessToken = await CreateJwt(user, application ?? throw new Exception("Application not found"), expiresAt,

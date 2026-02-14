@@ -24,6 +24,11 @@ public class SigningKeyService(
         return key;
     }
 
+    public SigningKey GetActiveSigningKey()
+    {
+        return signingKeyRepository.GetActive() ?? throw new InvalidOperationException("Signing key not found");
+    }
+
     public async Task<IEnumerable<SigningKey>> GetAllKeysAsync(CancellationToken ct = default)
     {
         return await signingKeyRepository.GetAllAsync(ct);

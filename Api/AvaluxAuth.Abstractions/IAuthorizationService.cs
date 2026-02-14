@@ -4,7 +4,7 @@ namespace AvaluxAuth.Abstractions;
 
 public interface IAuthorizationService
 {
-    public Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUrl,
+    public Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUrl, Guid? userId = null,
         CancellationToken ct = default);
 
     public Task<string> ExchangeCredentialsAsync(Dictionary<string, string> query, string state,

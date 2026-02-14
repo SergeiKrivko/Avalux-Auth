@@ -15,6 +15,15 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
         return res is null ? null : FromEntity(res);
     }
 
+    public async Task<UserWithAccounts?> GetUserWithAccountsAsync(Guid userId, CancellationToken ct = default)
+    {
+        var res = await dbContext.Users
+            .Where(x => x.Id == userId && x.DeletedAt == null)
+            .Include(x => x.Accounts)
+            .FirstOrDefaultAsync(ct);
+        return res is null ? null : FromEntityWithAccounts(res);
+    }
+
     public async Task<Guid> CreateUserAsync(Guid applicationId, CancellationToken ct = default)
     {
         var id = Guid.NewGuid();

@@ -15,6 +15,13 @@ public class SigningKeyRepository(AvaluxAuthDbContext dbContext) : ISigningKeyRe
         return entity is null ? null : FromEntity(entity);
     }
 
+    public SigningKey? GetActive()
+    {
+        var entity = dbContext.SigningKeys
+            .FirstOrDefault(e => e.IsActive);
+        return entity is null ? null : FromEntity(entity);
+    }
+
     public async Task<IEnumerable<SigningKey>> GetAllAsync(CancellationToken ct = default)
     {
         var entities = await dbContext.SigningKeys.ToListAsync(ct);

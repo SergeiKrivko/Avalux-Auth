@@ -7,6 +7,8 @@ using AvaluxAuth.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,9 +49,29 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
         options.ExpireTimeSpan = TimeSpan.FromDays(7);
         options.SlidingExpiration = true;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.MetadataAddress =
+            "http://localhost:5000/api/v1/.well-known/openid-configuration";
+        options.Authority = builder.Configuration["Security.AuthApiUrl"];
+        options.RequireHttpsMetadata = false;
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Security.Issuer"],
+            ValidateAudience = false,
+            ValidateIssuerSigningKey = true,
+            ValidateLifetime = true,
+        };
+
+        options.RefreshInterval = TimeSpan.FromMinutes(30);
+        options.RefreshOnIssuerKeyNotFound = true;
     });
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy(Config.AdminPolicy, policy => policy.RequireRole(Config.AdminRole));
+    .AddPolicy(Config.AdminPolicy, policy => policy.RequireRole(Config.AdminRole))
+    .AddPolicy(Config.UserPolicy, policy => policy.RequireClaim("UserId"));
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy => policy
@@ -66,7 +88,17 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Authorization with API token",
+        Name = "Token Auth",
+        Scheme = "Bearer",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+    });
+});
 
 var app = builder.Build();
 
