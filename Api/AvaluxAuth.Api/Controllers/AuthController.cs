@@ -12,7 +12,6 @@ namespace AvaluxAuth.Api.Controllers;
 [Route("api/v1/auth")]
 public class AuthController(
     IAuthorizationService authorizationService,
-    IAuthCodeRepository authCodeRepository,
     IUserRepository userRepository,
     IProviderRepository providerRepository,
     IEnumerable<IAuthProvider> authProviders)
@@ -24,20 +23,7 @@ public class AuthController(
         [FromQuery(Name = "redirect_uri")] string redirectUri,
         CancellationToken ct = default)
     {
-        var url = await authorizationService.GetAuthUrlAsync(clientId, providerKey, redirectUri, null, ct);
-        return Redirect(url);
-    }
-
-    [HttpGet("{providerKey}/link")]
-    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.UserPolicy)]
-    public async Task<ActionResult> Link(string providerKey,
-        [FromQuery(Name = "client_id")] string clientId,
-        [FromQuery(Name = "redirect_uri")] string redirectUri,
-        CancellationToken ct = default)
-    {
-        if (!Guid.TryParse(User.FindFirst("UserId")?.Value, out var userId))
-            return Unauthorized();
-        var url = await authorizationService.GetAuthUrlAsync(clientId, providerKey, redirectUri, userId, ct);
+        var url = await authorizationService.GetAuthUrlAsync(clientId, providerKey, redirectUri, ct);
         return Redirect(url);
     }
 
@@ -47,7 +33,7 @@ public class AuthController(
         CancellationToken ct = default)
     {
         var redirectUrl = await
-            authorizationService.ExchangeCredentialsAsync(
+            authorizationService.SaveCodeAsync(
                 Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString()), state, ct);
         return Redirect(redirectUrl);
     }
@@ -62,9 +48,25 @@ public class AuthController(
         if (!await authorizationService.CheckClientSecretAsync(clientId, clientSecret, ct))
             return Unauthorized("Client secret is incorrect");
 
-        var c = await authCodeRepository.TakeCodeAsync(code);
-        var credentials = await authorizationService.AuthorizeUserAsync(c.UserId, ct);
+        var credentials = await authorizationService.AuthorizeUserAsync(code, ct);
         return Ok(credentials);
+    }
+
+    [HttpPost("link")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.UserPolicy)]
+    public async Task<ActionResult<UserCredentials>> LinkAccount(
+        [FromForm(Name = "client_id")] string clientId,
+        [FromForm(Name = "client_secret")] string clientSecret,
+        [FromForm(Name = "code")] string code,
+        CancellationToken ct = default)
+    {
+        if (!Guid.TryParse(User.FindFirst("UserId")?.Value, out var userId))
+            return Unauthorized();
+        if (!await authorizationService.CheckClientSecretAsync(clientId, clientSecret, ct))
+            return Unauthorized("Client secret is incorrect");
+
+        await authorizationService.LinkAccountAsync(userId, code, ct);
+        return Ok();
     }
 
     [HttpPost("refresh")]

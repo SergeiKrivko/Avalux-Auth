@@ -25,7 +25,6 @@ public class AuthorizationService(
     ILogger<AuthorizationService> logger) : IAuthorizationService
 {
     public async Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUrl,
-        Guid? userId = null,
         CancellationToken ct = default)
     {
         var application = await applicationRepository.GetApplicationByClientIdAsync(clientId, ct);
@@ -48,59 +47,22 @@ public class AuthorizationService(
             ApplicationId = application.Id,
             ProviderId = p.Id,
             RedirectUrl = redirectUrl,
-            UserId = userId,
         });
 
         return provider.GetAuthUrl(p.Parameters, GetCallbackUrl(provider.Key), state);
     }
 
-    public async Task<string> ExchangeCredentialsAsync(Dictionary<string, string> query, string state,
+    public async Task<string> SaveCodeAsync(Dictionary<string, string> query, string state,
         CancellationToken ct = default)
     {
         var parameters = await stateRepository.TakeStateAsync(state);
-        var p = await providerRepository.GetProviderByIdAsync(parameters.ProviderId, ct);
-        if (p == null)
-            throw new Exception("Provider not found");
-        if (!providerFactory.TryGetProvider(p.ProviderId, out var provider))
-            throw new Exception("Provider not found");
-        var credentials = await provider.GetTokenAsync(p.Parameters, query, GetCallbackUrl(provider.Key), ct);
-        var info = await provider.GetUserInfoAsync(credentials, ct);
-
-        var account = await accountRepository.GetAccountByProviderIdAsync(parameters.ApplicationId, info.Id, ct);
-        Guid accountId;
-        Guid userId;
-        if (parameters.UserId != null)
-        {
-            userId = parameters.UserId.Value;
-            if (account is null)
-            {
-                accountId = await accountRepository.CreateAccountAsync(userId, p.Id, info, credentials, ct);
-            }
-            else
-            {
-                if (account.UserId != userId)
-                    throw new Exception("Account linked to another user");
-                accountId = account.Id;
-            }
-        }
-        else if (account == null)
-        {
-            userId = await userRepository.CreateUserAsync(p.ApplicationId, ct);
-            accountId = await accountRepository.CreateAccountAsync(userId, p.Id, info, credentials, ct);
-        }
-        else
-        {
-            userId = account.UserId;
-            accountId = account.Id;
-            await accountRepository.UpdateAccountTokensAsync(accountId, credentials, ct);
-        }
 
         var code = RandomNumberGenerator.GetRandomString();
         await authCodeRepository.SaveCodeAsync(new AuthCode
         {
             Code = code,
-            UserId = userId,
-            AccountId = accountId,
+            Query = query,
+            State = parameters,
         });
         return new UrlBuilder(parameters.RedirectUrl)
             .AddQuery("code", code)
@@ -115,7 +77,56 @@ public class AuthorizationService(
         return application.ClientSecret == clientSecret;
     }
 
-    public async Task<UserCredentials> AuthorizeUserAsync(Guid userId, CancellationToken ct = default)
+    public async Task<UserCredentials> AuthorizeUserAsync(string code, CancellationToken ct = default)
+    {
+        var codeData = await authCodeRepository.TakeCodeAsync(code);
+        var p = await providerRepository.GetProviderByIdAsync(codeData.State.ProviderId, ct);
+        if (p == null)
+            throw new Exception("Provider not found");
+        if (!providerFactory.TryGetProvider(p.ProviderId, out var provider))
+            throw new Exception("Provider not found");
+        var credentials = await provider.GetTokenAsync(p.Parameters, codeData.Query, GetCallbackUrl(provider.Key), ct);
+        var info = await provider.GetUserInfoAsync(credentials, ct);
+
+        var account = await accountRepository.GetAccountByProviderIdAsync(codeData.State.ApplicationId, info.Id, ct);
+        Guid userId;
+        if (account == null)
+        {
+            userId = await userRepository.CreateUserAsync(p.ApplicationId, ct);
+            await accountRepository.CreateAccountAsync(userId, p.Id, info, credentials, ct);
+        }
+        else
+        {
+            userId = account.UserId;
+            await accountRepository.UpdateAccountTokensAsync(account.Id, credentials, ct);
+        }
+
+        return await GetCredentialsAsync(userId, ct);
+    }
+
+    public async Task LinkAccountAsync(Guid userId, string code, CancellationToken ct = default)
+    {
+        var codeData = await authCodeRepository.TakeCodeAsync(code);
+        var p = await providerRepository.GetProviderByIdAsync(codeData.State.ProviderId, ct);
+        if (p == null)
+            throw new Exception("Provider not found");
+        if (!providerFactory.TryGetProvider(p.ProviderId, out var provider))
+            throw new Exception("Provider not found");
+        var credentials = await provider.GetTokenAsync(p.Parameters, codeData.Query, GetCallbackUrl(provider.Key), ct);
+        var info = await provider.GetUserInfoAsync(credentials, ct);
+
+        var account = await accountRepository.GetAccountByProviderIdAsync(codeData.State.ApplicationId, info.Id, ct);
+        if (account == null)
+            await accountRepository.CreateAccountAsync(userId, p.Id, info, credentials, ct);
+        else
+        {
+            if (account.UserId != userId)
+                throw new Exception("Account is already linked to another user");
+            await accountRepository.UpdateAccountTokensAsync(account.Id, credentials, ct);
+        }
+    }
+
+    private async Task<UserCredentials> GetCredentialsAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await userRepository.GetUserAsync(userId, ct);
         if (user == null)
