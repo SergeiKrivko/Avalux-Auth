@@ -2,7 +2,6 @@ import {inject, Injectable} from '@angular/core';
 import {ProviderEntity, ProviderInfoEntity, ProviderParametersEntity} from '../entities/provider-entity';
 import {
   ApiClient,
-  CreateApplicationSchema,
   CreateProviderSchema,
   Provider,
   ProviderInfo,
@@ -13,7 +12,6 @@ import {toObservable} from '@angular/core/rxjs-interop';
 import {first, from, map, NEVER, Observable, switchMap, tap} from 'rxjs';
 import moment from 'moment/moment';
 import {ApplicationService} from './application.service';
-import {ApplicationEntity} from '../entities/application-entity';
 
 interface ProviderStore {
   addedProviders: ProviderEntity[];

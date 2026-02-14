@@ -5,6 +5,7 @@ using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
 using AvaluxAuth.Utils;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace AvaluxAuth.Services;
@@ -20,7 +21,8 @@ public class AuthorizationService(
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ISigningKeyService signingKeyService,
-    ISecretProtector secretProtector) : IAuthorizationService
+    ISecretProtector secretProtector,
+    ILogger<AuthorizationService> logger) : IAuthorizationService
 {
     public async Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUrl,
         CancellationToken ct = default)
@@ -161,10 +163,16 @@ public class AuthorizationService(
         var newToken = RandomNumberGenerator.GetRandomString(128);
         var userId = await refreshTokenRepository.ReplaceRefreshTokenAsync(refreshToken, newToken, ct);
         if (userId is null)
+        {
+            logger.LogWarning("Refresh token not found");
             return null;
+        }
         var user = await userRepository.GetUserAsync(userId.Value, ct);
         if (user is null)
+        {
+            logger.LogWarning("User from refresh token not found");
             return null;
+        }
         var application = await applicationRepository.GetApplicationByIdAsync(user.ApplicationId, ct);
         var expiresAt = DateTime.UtcNow.AddHours(1);
         var accessToken = await CreateJwt(user, application ?? throw new Exception("Application not found"), expiresAt,

@@ -10,7 +10,10 @@ namespace AvaluxAuth.Api.Controllers;
 [ApiController]
 [Route("api/v1/admin/apps")]
 [EnableCors(PolicyName = Config.AdminPolicy)]
-public class ApplicationsController(IApplicationRepository applicationRepository, IApplicationService applicationService) : ControllerBase
+public class ApplicationsController(
+    IApplicationRepository applicationRepository,
+    IApplicationService applicationService,
+    IUserRepository userRepository) : ControllerBase
 {
     [HttpPost]
     [Authorize(Policy = Config.AdminPolicy)]
@@ -60,5 +63,24 @@ public class ApplicationsController(IApplicationRepository applicationRepository
         if (!res)
             return NotFound();
         return Ok();
+    }
+
+    [HttpGet("{applicationId:guid}/users")]
+    public async Task<ActionResult<UsersResponseSchema>> GetUsers(Guid applicationId,
+        [FromQuery] int page = 0,
+        [FromQuery] int? limit = null,
+        CancellationToken ct = default)
+    {
+        var users = limit == null
+            ? await userRepository.GetUsersAsync(applicationId, ct)
+            : await userRepository.GetUsersAsync(applicationId, page, limit.Value, ct);
+        var count = await userRepository.CountUsersAsync(applicationId, ct);
+        return Ok(new UsersResponseSchema
+        {
+            Total = count,
+            Page = page,
+            Limit = limit,
+            Users = users,
+        });
     }
 }

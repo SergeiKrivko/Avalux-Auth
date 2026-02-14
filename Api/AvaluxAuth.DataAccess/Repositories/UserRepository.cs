@@ -37,6 +37,33 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
         return count > 0;
     }
 
+    public async Task<IEnumerable<UserWithAccounts>> GetUsersAsync(Guid applicationId, CancellationToken ct = default)
+    {
+        var users = await dbContext.Users
+            .Where(x => x.ApplicationId == applicationId && x.DeletedAt == null)
+            .Include(e => e.Accounts)
+            .ToListAsync(ct);
+        return users.Select(FromEntityWithAccounts);
+    }
+
+    public async Task<IEnumerable<UserWithAccounts>> GetUsersAsync(Guid applicationId, int page, int limit, CancellationToken ct = default)
+    {
+        var users = await dbContext.Users
+            .Where(x => x.ApplicationId == applicationId && x.DeletedAt == null)
+            .Skip(page * limit)
+            .Take(limit)
+            .Include(e => e.Accounts)
+            .ToListAsync(ct);
+        return users.Select(FromEntityWithAccounts);
+    }
+
+    public async Task<int> CountUsersAsync(Guid applicationId, CancellationToken ct = default)
+    {
+        return await dbContext.Users
+            .Where(x => x.ApplicationId == applicationId && x.DeletedAt == null)
+            .CountAsync(ct);
+    }
+
     private static User FromEntity(UserEntity entity)
     {
         return new User
@@ -45,6 +72,28 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
             ApplicationId = entity.ApplicationId,
             CreatedAt = entity.CreatedAt,
             DeletedAt = entity.DeletedAt,
+        };
+    }
+
+    private static UserWithAccounts FromEntityWithAccounts(UserEntity entity)
+    {
+        return new UserWithAccounts
+        {
+            Id = entity.Id,
+            ApplicationId = entity.ApplicationId,
+            CreatedAt = entity.CreatedAt,
+            DeletedAt = entity.DeletedAt,
+            Accounts = entity.Accounts.Select(e => new AccountInfo
+            {
+                ProviderId = e.ProviderId,
+                UserInfo = new UserInfo
+                {
+                    Id = e.ProviderUserId,
+                    Name = e.Name,
+                    Email = e.Email,
+                    AvatarUrl = e.AvatarUrl,
+                }
+            }).ToArray(),
         };
     }
 }

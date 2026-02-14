@@ -8,3 +8,14 @@ public class User
     public required DateTime CreatedAt { get; init; }
     public DateTime? DeletedAt { get; init; }
 }
+
+public class UserWithAccounts : User
+{
+    public required AccountInfo[] Accounts { get; init; }
+}
+
+public class AccountInfo
+{
+    public required Guid ProviderId { get; init; }
+    public required UserInfo UserInfo { get; init; }
+}

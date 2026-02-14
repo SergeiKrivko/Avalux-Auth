@@ -1,0 +1,28 @@
+<div tuiCardLarge class="user-card">
+  <div class="container">
+    <tui-copy>{{ user().id }}</tui-copy>
+    <tui-textfield tuiChevron tuiTextfieldSize="m" [tuiTextfieldCleaner]="false" class="provider-selector"
+                   [content]="content" *tuiLet="providers$ | async as providers">
+      <input tuiSelect [formControl]="control"/>
+      <tui-data-list-wrapper *tuiTextfieldDropdown new [items]="providers" [itemContent]="content"/>
+    </tui-textfield>
+  </div>
+  <div *tuiLet="selectedAccount$ | async as account" class="account-info-container">
+    <div class="side-container">
+      <tui-avatar [src]="account?.avatarUrl" size="m" />
+      <tui-copy>{{ account?.name }}</tui-copy>
+    </div>
+    <div class="side-container">
+      <tui-copy>{{ account?.email }}</tui-copy>
+    </div>
+  </div>
+</div>
+
+<ng-template
+  #content
+  let-provider
+>
+  <div *tuiLet="provider.providerId | providerInfo | async as info" class="card">
+    {{ info?.name }}
+  </div>
+</ng-template>

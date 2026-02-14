@@ -1,0 +1,27 @@
+.user-card {
+  padding: 1rem;
+
+  .container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    .provider-selector {
+      min-width: 10rem;
+    }
+  }
+
+  .account-info-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+
+    .side-container {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+  }
+}
