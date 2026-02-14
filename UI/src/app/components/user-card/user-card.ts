@@ -1,7 +1,7 @@
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, input, OnInit} from '@angular/core';
 import {UserEntity} from '../../entities/user-entity';
 import {ProviderService} from '../../services/provider.service';
-import {map, Subject, tap} from 'rxjs';
+import {map, tap} from 'rxjs';
 import {TuiLabel, TuiTextfield} from '@taiga-ui/core';
 import {TuiCard} from '@taiga-ui/layout';
 import {TuiAvatar, TuiChevron, TuiCopy, TuiDataListWrapper, TuiSelect} from '@taiga-ui/kit';
@@ -10,7 +10,12 @@ import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {ProviderEntity} from '../../entities/provider-entity';
 import {ProviderInfoPipe} from '../../pipes/provider-info-pipe';
 import {TuiLet} from '@taiga-ui/cdk';
-import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
+import {takeUntilDestroyed, toObservable} from '@angular/core/rxjs-interop';
+import {patchState, signalState} from '@ngrx/signals';
+
+interface Store {
+  provider: ProviderEntity | null;
+}
 
 @Component({
   selector: 'app-user-card',
@@ -41,11 +46,11 @@ export class UserCard implements OnInit {
   user = input.required<UserEntity>();
 
   protected readonly control = new FormControl<ProviderEntity | null>(null);
-  private readonly selectedProvider = new Subject<ProviderEntity | null>();
+  private readonly store$$ = signalState<Store>({provider: null});
 
   ngOnInit() {
     this.control.valueChanges.pipe(
-      tap(value => this.selectedProvider.next(value)),
+      tap(value => patchState(this.store$$, {provider: value})),
       takeUntilDestroyed(this.destroyRef),
     ).subscribe();
   }
@@ -57,15 +62,13 @@ export class UserCard implements OnInit {
     tap(providers => {
       if (!this.control.value) {
         this.control.setValue(providers[0]);
-        this.selectedProvider.next(providers[0]);
-        this.changeDetectorRef.detectChanges();
+        patchState(this.store$$, {provider: providers[0]})
       }
     })
   );
 
-  protected selectedAccount$ = this.selectedProvider.pipe(
+  protected selectedAccount$ = toObservable(this.store$$.provider).pipe(
     map(provider => {
-      console.log(provider);
       if (!provider)
         return null;
       return this.user().accounts.find(a => a.providerId == provider.id);

@@ -33,7 +33,7 @@ public class UrlBuilder
             stringBuilder.Append(i == 0 ? '?' : '&')
                 .Append(key)
                 .Append('=')
-                .Append(value);
+                .Append(Uri.EscapeDataString(value));
             i++;
         }
         return stringBuilder.ToString();

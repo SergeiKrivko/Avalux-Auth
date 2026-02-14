@@ -6,4 +6,5 @@ public class ProviderParameters
     public string? ClientSecret { get; init; }
 
     public bool SaveTokens { get; init; }
+    public string[] DefaultScope { get; init; } = [];
 }

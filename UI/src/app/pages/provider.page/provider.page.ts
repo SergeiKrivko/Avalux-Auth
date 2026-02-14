@@ -1,6 +1,6 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, inject, signal, Signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, Signal} from '@angular/core';
 import {ActivatedRoute, RouterLink} from '@angular/router';
-import {first, NEVER, of, Subject, switchMap, tap} from 'rxjs';
+import {first, map, NEVER, of, Subject, switchMap, tap} from 'rxjs';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {ProviderService} from '../../services/provider.service';
 import {TuiButton, TuiTextfield} from '@taiga-ui/core';
@@ -10,6 +10,7 @@ import {AsyncPipe} from '@angular/common';
 import {TuiButtonLoading, TuiCopy, TuiSwitch} from '@taiga-ui/kit';
 import {InputStringArray} from '../../components/input-string-array/input-string-array';
 import {ProviderEntity} from '../../entities/provider-entity';
+import {ProviderRedirectUrlPipe} from '../../pipes/provider-redirect-url-pipe';
 
 @Component({
   selector: 'app-provider.page',
@@ -22,14 +23,16 @@ import {ProviderEntity} from '../../entities/provider-entity';
     AsyncPipe,
     TuiCopy,
     TuiSwitch,
-    TuiButtonLoading
+    TuiButtonLoading,
+    ProviderRedirectUrlPipe,
+    InputStringArray
   ],
   templateUrl: './provider.page.html',
   styleUrl: './provider.page.scss',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ProviderPage {
+export class ProviderPage implements OnInit {
   private readonly providerService = inject(ProviderService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
@@ -43,12 +46,11 @@ export class ProviderPage {
     }),
   );
 
-  protected readonly redirectUrl = `${window.location.protocol}//${window.location.host}/api/v1/auth/yandex/callback`
-
   protected readonly control = new FormGroup({
     clientId: new FormControl<string>(""),
     clientSecret: new FormControl<string>(""),
     saveTokens: new FormControl<boolean>(false),
+    defaultScope: new FormControl<string[]>([]),
   })
 
   ngOnInit() {
@@ -81,6 +83,7 @@ export class ProviderPage {
       clientId: provider.parameters.clientId ?? "",
       clientSecret: provider.parameters.clientSecret ?? "",
       saveTokens: provider.parameters.saveTokens,
+      defaultScope: provider.parameters.defaultScope,
     })
   }
 
@@ -96,6 +99,7 @@ export class ProviderPage {
             clientId: this.control.value.clientId ?? "",
             clientSecret: this.control.value.clientSecret ?? "",
             saveTokens: this.control.value.saveTokens ?? false,
+            defaultScope: this.control.value.defaultScope ?? [],
           });
         return of(null);
       }),

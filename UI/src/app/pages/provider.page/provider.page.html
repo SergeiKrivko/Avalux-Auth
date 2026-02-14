@@ -1,11 +1,13 @@
 <div class="container" *tuiLet="selectedProviderInfo$ | async as providerInfo">
   <a tuiButton routerLink="../" iconStart="@tui.chevron-left" appearance="flat">Назад</a>
 
-  <p tuiLabel>
-    Создайте приложение {{ providerInfo?.name }} (<a [href]="providerInfo?.url">{{ providerInfo?.url }}</a>).
-    Укажите Redirect URL
-    <tui-copy>{{ redirectUrl }}</tui-copy>
-  </p>
+  @if (providerInfo) {
+    <p tuiLabel>
+      Создайте приложение {{ providerInfo?.name }} (<a [href]="providerInfo?.url">{{ providerInfo?.url }}</a>).
+      Укажите Redirect URL
+      <tui-copy>{{ providerInfo | providerRedirectUrl }}</tui-copy>
+    </p>
+  }
 
   <form class="grid-container" [formGroup]="control">
     <label tuiLabel class="label">Client ID:</label>
@@ -20,6 +22,10 @@
 
     <label tuiLabel class="label">Сохранять токены:</label>
     <input tuiSwitch type="checkbox" formControlName="saveTokens"/>
+
+    <label tuiLabel class="label">Scope:</label>
+    <app-input-string-array formControlName="defaultScope"/>
+
   </form>
   <button tuiButton iconStart="@tui.save" (click)="saveChanges()" [loading]="isSaving | async">Сохранить</button>
 </div>

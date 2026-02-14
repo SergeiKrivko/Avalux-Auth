@@ -61,6 +61,7 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
                 x.SetProperty(e => e.ClientId, provider.ClientId);
                 x.SetProperty(e => e.ClientSecret, provider.ClientSecret);
                 x.SetProperty(e => e.SaveTokens, provider.SaveTokens);
+                x.SetProperty(e => e.DefaultScope, provider.DefaultScope);
             }, ct);
         await dbContext.SaveChangesAsync(ct);
         return count > 0;
@@ -90,6 +91,7 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
                 ClientId = entity.ClientId,
                 ClientSecret = entity.ClientSecret,
                 SaveTokens = entity.SaveTokens,
+                DefaultScope = entity.DefaultScope,
             },
             CreatedAt = entity.CreatedAt,
             DeletedAt = entity.DeletedAt,

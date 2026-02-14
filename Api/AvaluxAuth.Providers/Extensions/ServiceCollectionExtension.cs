@@ -12,8 +12,10 @@ public static class ServiceCollectionExtension
             serviceCollection.AddScoped<IProviderFactory, ProviderFactory>();
 
             serviceCollection.AddScoped<IAuthProvider, YandexAuthProvider>();
+            serviceCollection.AddScoped<IAuthProvider, GoogleAuthProvider>();
 
             serviceCollection.AddHttpClient("yandex");
+            serviceCollection.AddHttpClient("google");
 
             return serviceCollection;
         }

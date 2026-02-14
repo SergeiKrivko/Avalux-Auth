@@ -11,10 +11,10 @@ internal class AccountEntity
 
     [MaxLength(50)] public string? Name { get; init; }
     [MaxLength(50)] public string? Email { get; init; }
-    [MaxLength(200)] public string? AvatarUrl { get; init; }
+    [MaxLength(1024)] public string? AvatarUrl { get; init; }
 
-    [MaxLength(200)] public string? AccessToken { get; init; }
-    [MaxLength(200)] public string? RefreshToken { get; init; }
+    [MaxLength(1024)] public string? AccessToken { get; init; }
+    [MaxLength(1024)] public string? RefreshToken { get; init; }
     public DateTime ExpiresAt { get; init; }
 
     public required DateTime CreatedAt { get; init; }

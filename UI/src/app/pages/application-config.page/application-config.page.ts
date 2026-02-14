@@ -7,7 +7,7 @@ import {ApplicationEntity} from '../../entities/application-entity';
 import {TuiResponsiveDialogService} from '@taiga-ui/addon-mobile';
 import {FormControl, FormGroup, FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {TUI_CONFIRM, TuiButtonLoading, TuiConfirmData, TuiCopy} from '@taiga-ui/kit';
-import {TuiButton, TuiLabel, TuiTextfieldComponent, TuiTextfieldDirective} from '@taiga-ui/core';
+import {TuiButton, TuiIcon, TuiLabel, TuiTextfieldComponent, TuiTextfieldDirective} from '@taiga-ui/core';
 import {TuiLet} from '@taiga-ui/cdk';
 import {AsyncPipe} from '@angular/common';
 import {InputStringArray} from '../../components/input-string-array/input-string-array';
@@ -26,7 +26,8 @@ import {InputStringArray} from '../../components/input-string-array/input-string
     AsyncPipe,
     InputStringArray,
     TuiButton,
-    TuiButtonLoading
+    TuiButtonLoading,
+    TuiIcon
 
   ],
   templateUrl: './application-config.page.html',

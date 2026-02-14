@@ -106,6 +106,7 @@ export class ProviderService {
             clientId: parameters.clientId,
             clientSecret: parameters.clientSecret,
             saveTokens: parameters.saveTokens,
+            defaultScope: parameters.defaultScope,
           }));
         return NEVER;
       }),
@@ -121,9 +122,10 @@ const providerToEntity = (provider: Provider): ProviderEntity => {
     providerId: provider.providerId,
     applicationId: provider.applicationId,
     parameters: {
-      clientId : provider.parameters.clientId,
-      clientSecret : provider.parameters.clientSecret,
-      saveTokens : provider.parameters.saveTokens ?? false,
+      clientId: provider.parameters.clientId,
+      clientSecret: provider.parameters.clientSecret,
+      saveTokens: provider.parameters.saveTokens ?? false,
+      defaultScope: provider.parameters.defaultScope ?? [],
     },
     createdAt: provider.createdAt ?? moment(),
     deletedAt: provider.deletedAt ?? null,
@@ -135,6 +137,7 @@ const providerInfoToEntity = (provider: ProviderInfo): ProviderInfoEntity => {
     throw new Error("Provider ID is required");
   return {
     id: provider.id,
+    key: provider.key ?? "",
     name: provider.name ?? "",
     url: provider.url,
   }

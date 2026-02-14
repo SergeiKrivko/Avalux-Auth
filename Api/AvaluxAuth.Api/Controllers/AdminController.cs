@@ -71,6 +71,7 @@ public class AdminController(
         {
             Id = p.Id,
             Name = p.Name,
+            Key = p.Key,
             Url = p.ProviderUrl,
         }));
     }

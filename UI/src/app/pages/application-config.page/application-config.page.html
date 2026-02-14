@@ -5,11 +5,17 @@
       <input tuiTextfield formControlName="name"/>
     </tui-textfield>
     <label tuiLabel class="label">Client ID:</label>
-    <tui-copy class="value">{{ selectedApplication?.clientId }}</tui-copy>
+    <tui-textfield>
+      <input tuiTextfield [value]="selectedApplication?.clientId" [readOnly]="true"/>
+      <tui-icon icon="@tui.copy" tuiCopy/>
+    </tui-textfield>
     <label tuiLabel class="label">Client Secret:</label>
-    <tui-copy class="value">{{ selectedApplication?.clientSecret }}</tui-copy>
+    <tui-textfield>
+      <input tuiTextfield [value]="selectedApplication?.clientSecret" [readOnly]="true"/>
+      <tui-icon icon="@tui.copy" tuiCopy/>
+    </tui-textfield>
     <label tuiLabel class="label">Redirect URLs:</label>
-    <app-input-string-array formControlName="redirectUrls" />
+    <app-input-string-array formControlName="redirectUrls"/>
   </form>
   <button tuiButton iconStart="@tui.save" (click)="saveChanges()" [loading]="isSaving | async">Сохранить</button>
 </div>

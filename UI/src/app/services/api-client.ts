@@ -1755,6 +1755,7 @@ export interface IProvider {
 export class ProviderInfo implements IProviderInfo {
     id!: number;
     name!: string | undefined;
+    key!: string | undefined;
     url?: string | undefined;
 
     constructor(data?: IProviderInfo) {
@@ -1770,6 +1771,7 @@ export class ProviderInfo implements IProviderInfo {
         if (_data) {
             this.id = _data["id"];
             this.name = _data["name"];
+            this.key = _data["key"];
             this.url = _data["url"];
         }
     }
@@ -1785,6 +1787,7 @@ export class ProviderInfo implements IProviderInfo {
         data = typeof data === 'object' ? data : {};
         data["id"] = this.id;
         data["name"] = this.name;
+        data["key"] = this.key;
         data["url"] = this.url;
         return data;
     }
@@ -1793,6 +1796,7 @@ export class ProviderInfo implements IProviderInfo {
 export interface IProviderInfo {
     id: number;
     name: string | undefined;
+    key: string | undefined;
     url?: string | undefined;
 }
 
@@ -1800,6 +1804,7 @@ export class ProviderParameters implements IProviderParameters {
     clientId?: string | undefined;
     clientSecret?: string | undefined;
     saveTokens?: boolean;
+    defaultScope?: string[] | undefined;
 
     constructor(data?: IProviderParameters) {
         if (data) {
@@ -1815,6 +1820,11 @@ export class ProviderParameters implements IProviderParameters {
             this.clientId = _data["clientId"];
             this.clientSecret = _data["clientSecret"];
             this.saveTokens = _data["saveTokens"];
+            if (Array.isArray(_data["defaultScope"])) {
+                this.defaultScope = [] as any;
+                for (let item of _data["defaultScope"])
+                    this.defaultScope!.push(item);
+            }
         }
     }
 
@@ -1830,6 +1840,11 @@ export class ProviderParameters implements IProviderParameters {
         data["clientId"] = this.clientId;
         data["clientSecret"] = this.clientSecret;
         data["saveTokens"] = this.saveTokens;
+        if (Array.isArray(this.defaultScope)) {
+            data["defaultScope"] = [];
+            for (let item of this.defaultScope)
+                data["defaultScope"].push(item);
+        }
         return data;
     }
 }
@@ -1838,6 +1853,7 @@ export interface IProviderParameters {
     clientId?: string | undefined;
     clientSecret?: string | undefined;
     saveTokens?: boolean;
+    defaultScope?: string[] | undefined;
 }
 
 export class UserCredentials implements IUserCredentials {
