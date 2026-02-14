@@ -38,26 +38,43 @@ export class UserService {
   ]).pipe(
     switchMap(([application, page]) => {
       if (application)
-        return this.apiClient.users(application.id, page, this.pageSize);
+        return this.loadUsers(application.id, page);
       return NEVER;
     }),
-    tap(resp => {
-      const totalPages = Math.floor((resp.total - 1) / this.pageSize) + 1;
-      patchState(this.store$$, {totalPages});
-    }),
-    map(resp => resp.users?.map(userInfoToEntity) ?? []),
-    tap(users => {
-      patchState(this.store$$, {
-        users
-      });
-    }),
-    switchMap(() => NEVER),
-  )
+  );
 
   selectPage(index: number) {
     patchState(this.store$$, {
       page: index,
     })
+  }
+
+  deleteUser(userId: string) {
+    return this.applicationService.selectedApplication$.pipe(
+      switchMap(application => {
+        if (application)
+          return this.apiClient.usersDELETE(application.id, userId).pipe(
+            switchMap(() => this.loadUsers(application.id, this.store$$.page()))
+          );
+        return NEVER;
+      }),
+    );
+  }
+
+  private loadUsers(applicationId: string, page: number) {
+    return this.apiClient.usersGET(applicationId, page, this.pageSize).pipe(
+      tap(resp => {
+        const totalPages = Math.floor((resp.total - 1) / this.pageSize) + 1;
+        patchState(this.store$$, {totalPages});
+      }),
+      map(resp => resp.users?.map(userInfoToEntity) ?? []),
+      tap(users => {
+        patchState(this.store$$, {
+          users
+        });
+      }),
+      switchMap(() => NEVER),
+    )
   }
 
 }

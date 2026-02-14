@@ -6,6 +6,11 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
+
+    .user-id {
+      flex-grow: 1;
+    }
 
     .provider-selector {
       min-width: 10rem;

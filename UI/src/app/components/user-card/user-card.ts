@@ -2,7 +2,7 @@ import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, injec
 import {UserEntity} from '../../entities/user-entity';
 import {ProviderService} from '../../services/provider.service';
 import {map, tap} from 'rxjs';
-import {TuiLabel, TuiTextfield} from '@taiga-ui/core';
+import {TuiButton, TuiLabel, TuiTextfield} from '@taiga-ui/core';
 import {TuiCard} from '@taiga-ui/layout';
 import {TuiAvatar, TuiChevron, TuiCopy, TuiDataListWrapper, TuiSelect} from '@taiga-ui/kit';
 import {AsyncPipe} from '@angular/common';
@@ -12,6 +12,7 @@ import {ProviderInfoPipe} from '../../pipes/provider-info-pipe';
 import {TuiLet} from '@taiga-ui/cdk';
 import {takeUntilDestroyed, toObservable} from '@angular/core/rxjs-interop';
 import {patchState, signalState} from '@ngrx/signals';
+import {UserService} from '../../services/user.service';
 
 interface Store {
   provider: ProviderEntity | null;
@@ -31,7 +32,8 @@ interface Store {
     ProviderInfoPipe,
     TuiLet,
     TuiCopy,
-    TuiAvatar
+    TuiAvatar,
+    TuiButton
   ],
   templateUrl: './user-card.html',
   styleUrl: './user-card.scss',
@@ -41,7 +43,7 @@ interface Store {
 export class UserCard implements OnInit {
   private readonly providerService = inject(ProviderService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  private readonly userService = inject(UserService);
 
   user = input.required<UserEntity>();
 
@@ -74,4 +76,10 @@ export class UserCard implements OnInit {
       return this.user().accounts.find(a => a.providerId == provider.id);
     }),
   );
+
+  protected deleteUser() {
+    this.userService.deleteUser(this.user().id).pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe();
+  }
 }

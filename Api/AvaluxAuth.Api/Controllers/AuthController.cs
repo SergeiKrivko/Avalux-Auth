@@ -4,7 +4,6 @@ using AvaluxAuth.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using AccountInfo = AvaluxAuth.Api.Schemas.AccountInfo;
 using IAuthorizationService = AvaluxAuth.Abstractions.IAuthorizationService;
 
 namespace AvaluxAuth.Api.Controllers;
@@ -93,7 +92,7 @@ public class AuthController(
         return Ok(new UserInfoResponseSchema
         {
             Id = userInfo.Id,
-            Accounts = userInfo.Accounts.Select(account => new AccountInfo
+            Accounts = userInfo.Accounts.Select(account => new AccountInfoSchema
             {
                 Provider = authProviders.First(p => p.Id == providers.First(x => x.Id == account.ProviderId).ProviderId)
                     .Key,
