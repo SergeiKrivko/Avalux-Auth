@@ -1,5 +1,6 @@
 ﻿using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,7 @@ namespace AvaluxAuth.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/service/users")]
-[Authorize(Policy = Config.ServiceAccountPolicy)]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.ServiceAccountPolicy)]
 [EnableCors(PolicyName = Config.AdminPolicy)]
 public class ServiceAccountController(IUserRepository userRepository, IUserService userService) : ControllerBase
 {

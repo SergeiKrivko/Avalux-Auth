@@ -216,6 +216,39 @@ namespace AvaluxAuth.DataAccess.Migrations
                     b.ToTable("SigningKeys");
                 });
 
+            modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.TokenEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.PrimitiveCollection<string[]>("Permissions")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId");
+
+                    b.ToTable("Tokens");
+                });
+
             modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.UserEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -232,6 +265,8 @@ namespace AvaluxAuth.DataAccess.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId");
 
                     b.ToTable("Users");
                 });
@@ -277,9 +312,35 @@ namespace AvaluxAuth.DataAccess.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.TokenEntity", b =>
+                {
+                    b.HasOne("AvaluxAuth.DataAccess.Entities.ApplicationEntity", "Application")
+                        .WithMany("Tokens")
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Application");
+                });
+
+            modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.UserEntity", b =>
+                {
+                    b.HasOne("AvaluxAuth.DataAccess.Entities.ApplicationEntity", "Application")
+                        .WithMany("Users")
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Application");
+                });
+
             modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.ApplicationEntity", b =>
                 {
                     b.Navigation("Providers");
+
+                    b.Navigation("Tokens");
+
+                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.ProviderEntity", b =>

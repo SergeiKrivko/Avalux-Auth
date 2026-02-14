@@ -23,7 +23,6 @@ builder.Services.AddSingleton<IStateRepository, InMemoryStateRepository>();
 builder.Services.AddSingleton<IAuthCodeRepository, InMemoryCodeRepository>();
 builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
-builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["Security.KeysPath"] ?? "./keys"));
@@ -32,6 +31,8 @@ builder.Services.AddSingleton<ISecretProtector, SecretProtector>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
 builder.Services.AddScoped<ISigningKeyService, SigningKeyService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddAuthProviders();
 
 builder.Services.AddControllers();

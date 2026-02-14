@@ -8,7 +8,7 @@ public class UserService(
     IProviderRepository providerRepository,
     IAccountRepository accountRepository,
     IEnumerable<IAuthProvider> authProviders,
-    ILogger logger) : IUserService
+    ILogger<UserService> logger) : IUserService
 {
     public async Task<string?> GetAccessTokenAsync(Guid userId, string providerKey, CancellationToken ct)
     {
