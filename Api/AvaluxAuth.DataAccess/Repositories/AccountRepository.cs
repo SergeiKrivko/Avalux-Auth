@@ -20,7 +20,7 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
         var res = await dbContext.Accounts
             .Where(a => a.ProviderUserId == id && a.DeletedAt == null)
             .Include(a => a.User)
-            .Where(a => a.User.ApplicationId == applicationId)
+            .Where(a => a.User.ApplicationId == applicationId && a.User.DeletedAt == null)
             .FirstOrDefaultAsync(ct);
         return res is null ? null : FromEntity(res);
     }
