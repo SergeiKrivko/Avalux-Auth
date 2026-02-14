@@ -93,12 +93,14 @@ public class AuthorizationService(
         if (account == null)
         {
             userId = await userRepository.CreateUserAsync(p.ApplicationId, ct);
-            await accountRepository.CreateAccountAsync(userId, p.Id, info, credentials, ct);
+            await accountRepository.CreateAccountAsync(userId, p.Id, info, p.Parameters.SaveTokens ? credentials : null,
+                ct);
         }
         else
         {
             userId = account.UserId;
-            await accountRepository.UpdateAccountTokensAsync(account.Id, credentials, ct);
+            if (p.Parameters.SaveTokens)
+                await accountRepository.UpdateAccountTokensAsync(account.Id, credentials, ct);
         }
 
         return await GetCredentialsAsync(userId, ct);
@@ -117,12 +119,14 @@ public class AuthorizationService(
 
         var account = await accountRepository.GetAccountByProviderIdAsync(codeData.State.ApplicationId, info.Id, ct);
         if (account == null)
-            await accountRepository.CreateAccountAsync(userId, p.Id, info, credentials, ct);
+            await accountRepository.CreateAccountAsync(userId, p.Id, info,
+                p.Parameters.SaveTokens ? credentials : null, ct);
         else
         {
             if (account.UserId != userId)
                 throw new Exception("Account is already linked to another user");
-            await accountRepository.UpdateAccountTokensAsync(account.Id, credentials, ct);
+            if (p.Parameters.SaveTokens)
+                await accountRepository.UpdateAccountTokensAsync(account.Id, credentials, ct);
         }
     }
 

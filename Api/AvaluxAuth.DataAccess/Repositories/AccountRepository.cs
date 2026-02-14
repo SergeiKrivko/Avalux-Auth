@@ -25,6 +25,16 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
         return res is null ? null : FromEntity(res);
     }
 
+    public async Task<Account?> FindAccountAsync(Guid userId, Guid providerId, CancellationToken ct = default)
+    {
+        var res = await dbContext.Accounts
+            .Where(a => a.UserId == userId && a.DeletedAt == null)
+            .Include(a => a.Provider)
+            .Where(a => a.Provider.Id == providerId)
+            .FirstOrDefaultAsync(ct);
+        return res is null ? null : FromEntity(res);
+    }
+
     public async Task<IEnumerable<Account>> GetAccountsOfUserAsync(Guid userId, CancellationToken ct = default)
     {
         var res = await dbContext.Accounts
@@ -33,7 +43,7 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
         return res.Select(FromEntity);
     }
 
-    public async Task<Guid> CreateAccountAsync(Guid userId, Guid providerId, UserInfo account, AccountCredentials accountCredentials,
+    public async Task<Guid> CreateAccountAsync(Guid userId, Guid providerId, UserInfo account, AccountCredentials? accountCredentials,
         CancellationToken ct = default)
     {
         var id = Guid.NewGuid();
@@ -46,9 +56,9 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
             Name = account.Name,
             Email = account.Email,
             AvatarUrl = account.AvatarUrl,
-            AccessToken = accountCredentials.AccessToken,
-            RefreshToken = accountCredentials.RefreshToken,
-            ExpiresAt = accountCredentials.ExpiresAt,
+            AccessToken = accountCredentials?.AccessToken,
+            RefreshToken = accountCredentials?.RefreshToken,
+            ExpiresAt = accountCredentials?.ExpiresAt ?? DateTime.UnixEpoch,
             CreatedAt = DateTime.UtcNow,
             DeletedAt = null,
         };

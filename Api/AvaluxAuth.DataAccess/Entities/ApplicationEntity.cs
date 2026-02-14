@@ -15,4 +15,6 @@ internal class ApplicationEntity
     public DateTime? DeletedAt { get; init; }
 
     public ICollection<ProviderEntity> Providers { get; init; } = [];
+    public ICollection<TokenEntity> Tokens { get; init; } = [];
+    public ICollection<UserEntity> Users { get; init; } = [];
 }

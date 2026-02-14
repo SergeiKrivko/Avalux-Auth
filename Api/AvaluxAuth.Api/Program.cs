@@ -22,6 +22,8 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddSingleton<IStateRepository, InMemoryStateRepository>();
 builder.Services.AddSingleton<IAuthCodeRepository, InMemoryCodeRepository>();
 builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
+builder.Services.AddScoped<ITokenRepository, TokenRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["Security.KeysPath"] ?? "./keys"));
@@ -69,9 +71,20 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.RefreshInterval = TimeSpan.FromMinutes(30);
         options.RefreshOnIssuerKeyNotFound = true;
     });
+
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Config.AdminPolicy, policy => policy.RequireRole(Config.AdminRole))
-    .AddPolicy(Config.UserPolicy, policy => policy.RequireClaim("UserId"));
+    .AddPolicy(Config.UserPolicy, policy => policy.RequireClaim("UserId"))
+    .AddPolicy(Config.AdminOrServiceAccountPolicy,
+        policy => { policy.RequireRole(Config.AdminRole, Config.ServiceAccountRole); })
+    .AddPolicy(Config.ServiceAccountPolicy, policy =>
+    {
+        policy.RequireRole(Config.ServiceAccountRole);
+        policy.RequireClaim("ApplicationId");
+        policy.RequireClaim("TokenId");
+        policy.RequireClaim("Permissions");
+    });
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy => policy

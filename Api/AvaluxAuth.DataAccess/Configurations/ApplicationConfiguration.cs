@@ -21,5 +21,11 @@ internal class ApplicationConfiguration : IEntityTypeConfiguration<ApplicationEn
         builder.HasMany(x => x.Providers)
             .WithOne(x => x.Application)
             .HasForeignKey(x => x.ApplicationId);
+        builder.HasMany(x => x.Users)
+            .WithOne(x => x.Application)
+            .HasForeignKey(x => x.ApplicationId);
+        builder.HasMany(x => x.Tokens)
+            .WithOne(x => x.Application)
+            .HasForeignKey(x => x.ApplicationId);
     }
 }
