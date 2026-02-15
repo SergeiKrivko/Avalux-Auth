@@ -2,7 +2,7 @@
 
 public interface ITokenService
 {
-    public Task<string> CreateTokenAsync(Guid applicationId, string? name, string[] permissions, DateTime expiresAt,
+    public Task<(Guid, string)> CreateTokenAsync(Guid applicationId, string? name, string[] permissions, DateTime expiresAt,
         CancellationToken ct = default);
     public Task<bool> VerifyPermissionAsync(Guid tokenId, string permission, CancellationToken ct = default);
 }
