@@ -1,0 +1,36 @@
+<div class="container">
+  <div class="header-container">
+    <button tuiButton iconStart="@tui.plus" (click)="newToken()">Создать</button>
+  </div>
+  @for (token of tokens$ | async; track token.id) {
+    <div tuiCardLarge class="token-card">
+      <div class="card-container">
+        <div class="info-container">
+          <h3>{{ token.name }}</h3>
+          <div class="permissions-container">
+            @for (p of token.permissions; track p) {
+              <tui-badge *tuiLet="p | permissionInfo | async as permission"
+                         [tuiHint]="permission?.description">
+                {{ permission?.key }}
+              </tui-badge>
+            }
+          </div>
+        </div>
+        <label>До {{ token.expiresAt | formatDate }}</label>
+        @if (!(token.expiresAt | dateIsFuture)) {
+          <tui-badge iconStart="@tui.circle-alert" appearance="negative" size="xl" [tuiHint]="dangerTooltip"/>
+          <ng-template #dangerTooltip>
+            Срок жизни токена закончился. Токен больше не работает.
+          </ng-template>
+        } @else if (token.expiresAt | dateIsSoon) {
+          <tui-badge iconStart="@tui.triangle-alert" appearance="warning" size="xl" [tuiHint]="warningTooltip"/>
+          <ng-template #warningTooltip>
+            Срок жизни токена закончится {{ token.expiresAt | dateFromNow }}
+          </ng-template>
+        }
+        <button tuiIconButton iconStart="@tui.trash" appearance="flat-destructive"
+                (click)="deleteToken(token)"></button>
+      </div>
+    </div>
+  }
+</div>

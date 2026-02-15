@@ -14,15 +14,15 @@ public class TokenService(
     IConfiguration configuration,
     ISecretProtector secretProtector) : ITokenService
 {
-    public async Task<string> CreateTokenAsync(Guid applicationId, string? name, string[] permissions,
+    public async Task<(Guid, string)> CreateTokenAsync(Guid applicationId, string? name, string[] permissions,
         DateTime expiresAt,
         CancellationToken ct = default)
     {
-        if (permissions.ContainsAnyExcept(TokenPermissions.All))
+        if (permissions.ContainsAnyExcept(TokenPermission.AllKeys))
             throw new ArgumentException("Permissions are not allowed");
         var id = await tokenRepository.CreateTokenAsync(applicationId, name, permissions, expiresAt, ct);
         var jwt = await CreateJwt(id, applicationId, expiresAt, permissions, ct);
-        return jwt;
+        return (id, jwt);
     }
 
     public async Task<bool> VerifyPermissionAsync(Guid tokenId, string permission, CancellationToken ct = default)

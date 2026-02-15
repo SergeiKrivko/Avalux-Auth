@@ -11,16 +11,35 @@ public class Token
     public string[] Permissions { get; init; } = [];
 }
 
-public static class TokenPermissions
+public class TokenPermission
 {
-    public const string ReadUserInfo = "readUserInfo";
-    public const string DeleteUser = "deleteUser";
-    public const string ReadUserAccessToken = "readUserAccessToken";
+    public string Key { get; }
+    public string Description { get; }
 
-    public static string[] All =>
+    private TokenPermission(string key, string description)
+    {
+        Key = key;
+        Description = description;
+    }
+
+    public static TokenPermission ReadUserInfo { get; } = new("readUserInfo",
+        "Получение данных об аккаунтах пользователя (name, email, avatarUrl) по ID");
+
+    public static TokenPermission SearchUsers { get; } = new("searchUsers",
+        "Поиск пользователей по name или email, получение информации о всех пользователях");
+
+    public static TokenPermission DeleteUser { get; } = new("deleteUser", "Удаление пользователя по ID");
+
+    public static TokenPermission ReadUserAccessToken { get; } =
+        new("readUserAccessToken", "Получение access-токена провайдера для пользователя");
+
+    public static TokenPermission[] All =>
     [
         ReadUserInfo,
+        SearchUsers,
         DeleteUser,
         ReadUserAccessToken
     ];
+
+    public static string[] AllKeys => All.Select(e => e.Key).ToArray();
 }

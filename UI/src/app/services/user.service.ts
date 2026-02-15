@@ -53,7 +53,7 @@ export class UserService {
     return this.applicationService.selectedApplication$.pipe(
       switchMap(application => {
         if (application)
-          return this.apiClient.usersDELETE(application.id, userId).pipe(
+          return this.apiClient.usersDELETE2(application.id, userId).pipe(
             switchMap(() => this.loadUsers(application.id, this.store$$.page()))
           );
         return NEVER;
@@ -62,7 +62,7 @@ export class UserService {
   }
 
   private loadUsers(applicationId: string, page: number) {
-    return this.apiClient.usersGET(applicationId, page, this.pageSize).pipe(
+    return this.apiClient.usersGET2(applicationId, page, this.pageSize).pipe(
       tap(resp => {
         const totalPages = Math.floor((resp.total - 1) / this.pageSize) + 1;
         patchState(this.store$$, {totalPages});

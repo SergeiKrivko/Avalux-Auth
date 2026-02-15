@@ -18,7 +18,7 @@ public class TokenRepository(AvaluxAuthDbContext dbContext) : ITokenRepository
     public async Task<IEnumerable<Token>> GetTokensAsync(Guid applicationId, CancellationToken ct = default)
     {
         var entities = await dbContext.Tokens
-            .Where(x => x.ApplicationId == applicationId && x.DeletedAt != null)
+            .Where(x => x.ApplicationId == applicationId && x.DeletedAt == null)
             .ToListAsync(ct);
         return entities.Select(FromEntity);
     }

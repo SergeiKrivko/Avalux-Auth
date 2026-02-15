@@ -16,7 +16,7 @@ public class ServiceAccountController(IUserRepository userRepository, IUserServi
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserWithAccounts>>> GetUsers(CancellationToken ct = default)
     {
-        if (!User.HasPermission(TokenPermissions.ReadUserInfo))
+        if (!User.HasPermission(TokenPermission.SearchUsers))
             return Unauthorized();
         var applicationId = User.ApplicationId;
         var users = await userRepository.GetUsersAsync(applicationId, ct);
@@ -26,7 +26,7 @@ public class ServiceAccountController(IUserRepository userRepository, IUserServi
     [HttpGet("{userId:guid}")]
     public async Task<ActionResult<UserWithAccounts>> GetUser(Guid userId, CancellationToken ct)
     {
-        if (!User.HasPermission(TokenPermissions.ReadUserInfo))
+        if (!User.HasPermission(TokenPermission.ReadUserInfo))
             return Unauthorized();
         var user = await userRepository.GetUserWithAccountsAsync(userId, ct);
         if (!User.HasApplication(user?.ApplicationId))
@@ -43,7 +43,7 @@ public class ServiceAccountController(IUserRepository userRepository, IUserServi
     {
         if (providerId == null && providerKey == null)
             return BadRequest("providerId or providerKey is required");
-        if (!User.HasPermission(TokenPermissions.ReadUserAccessToken))
+        if (!User.HasPermission(TokenPermission.ReadUserAccessToken))
             return Unauthorized();
 
         var user = await userRepository.GetUserWithAccountsAsync(userId, ct);
@@ -61,7 +61,7 @@ public class ServiceAccountController(IUserRepository userRepository, IUserServi
     [HttpDelete("{userId:guid}")]
     public async Task<ActionResult> DeleteUser(Guid userId, CancellationToken ct = default)
     {
-        if (!User.HasPermission(TokenPermissions.DeleteUser))
+        if (!User.HasPermission(TokenPermission.DeleteUser))
             return Unauthorized();
         var user = await userRepository.GetUserWithAccountsAsync(userId, ct);
         if (!User.HasApplication(user?.ApplicationId))

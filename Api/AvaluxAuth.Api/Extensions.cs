@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using AvaluxAuth.Models;
 
 namespace AvaluxAuth.Api;
 
@@ -13,6 +14,11 @@ public static class Extensions
             if (claimsPrincipal.IsAdmin) return true;
             var permissions = claimsPrincipal.FindFirst("Permissions")?.Value;
             return permissions != null && permissions.Split(';').Contains(permission);
+        }
+
+        public bool HasPermission(TokenPermission permission)
+        {
+            return claimsPrincipal.HasPermission(permission.Key);
         }
 
         public Guid ApplicationId

@@ -28,11 +28,31 @@ public class TokenController(ITokenRepository tokenRepository, ITokenService tok
     }
 
     [HttpPost]
-    public async Task<ActionResult<string>> CreateToken(Guid applicationId, [FromBody] CreateTokenSchema schema,
+    public async Task<ActionResult<ServiceAccountTokenResponse>> CreateToken(Guid applicationId,
+        [FromBody] CreateTokenSchema schema,
         CancellationToken ct)
     {
-        var token = await tokenService.CreateTokenAsync(applicationId, schema.Name, schema.Permissions,
+        var (id, token) = await tokenService.CreateTokenAsync(applicationId, schema.Name, schema.Permissions,
             schema.ExpiresAt, ct);
-        return Ok(token);
+        return Ok(new ServiceAccountTokenResponse
+        {
+            Id = id,
+            Token = token
+        });
+    }
+
+    [HttpDelete("{tokenId:guid}")]
+    public async Task<ActionResult> DeleteTokenById(Guid applicationId, Guid tokenId, CancellationToken ct)
+    {
+        var res = await tokenRepository.RemoveTokenAsync(tokenId, ct);
+        if (!res)
+            return NotFound();
+        return Ok();
+    }
+
+    [HttpGet("permissions")]
+    public ActionResult<IEnumerable<TokenPermission>> GetTokensPermissions(Guid applicationId, CancellationToken ct)
+    {
+        return Ok(TokenPermission.All);
     }
 }

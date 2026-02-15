@@ -7,6 +7,7 @@ import {ApplicationConfigPage} from './pages/application-config.page/application
 import {ApplicationProvidersPage} from './pages/application-providers.page/application-providers.page';
 import {ProviderPage} from './pages/provider.page/provider.page';
 import {UsersPage} from './pages/users.page/users.page';
+import {TokensPage} from './pages/tokens.page/tokens.page';
 
 export const routes: Routes = [
   {
@@ -17,6 +18,7 @@ export const routes: Routes = [
           {path: "config", component: ApplicationConfigPage},
           {path: "providers", component: ApplicationProvidersPage},
           {path: "providers/:providerId", component: ProviderPage},
+          {path: "tokens", component: TokensPage},
           {path: "users", component: UsersPage},
         ]
       }

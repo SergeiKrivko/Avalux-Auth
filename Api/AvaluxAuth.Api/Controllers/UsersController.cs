@@ -19,7 +19,7 @@ public class UsersController(IUserRepository userRepository, IUserService userSe
         [FromQuery] int? limit = null,
         CancellationToken ct = default)
     {
-        if (!User.HasApplication(applicationId) || !User.HasPermission(TokenPermissions.ReadUserInfo))
+        if (!User.HasApplication(applicationId) || !User.HasPermission(TokenPermission.SearchUsers))
             return Unauthorized();
         var users = limit == null
             ? await userRepository.GetUsersAsync(applicationId, ct)
@@ -37,7 +37,7 @@ public class UsersController(IUserRepository userRepository, IUserService userSe
     [HttpGet("{userId:guid}")]
     public async Task<ActionResult<UserWithAccounts>> GetUser(Guid applicationId, Guid userId, CancellationToken ct)
     {
-        if (!User.HasApplication(applicationId) || !User.HasPermission(TokenPermissions.ReadUserInfo))
+        if (!User.HasApplication(applicationId) || !User.HasPermission(TokenPermission.ReadUserInfo))
             return Unauthorized();
         var user = await userRepository.GetUserWithAccountsAsync(userId, ct);
         if (user == null)
@@ -52,7 +52,7 @@ public class UsersController(IUserRepository userRepository, IUserService userSe
     {
         if (providerId == null && providerKey == null)
             return BadRequest("providerId or providerKey is required");
-        if (!User.HasApplication(applicationId) || !User.HasPermission(TokenPermissions.ReadUserAccessToken))
+        if (!User.HasApplication(applicationId) || !User.HasPermission(TokenPermission.ReadUserAccessToken))
             return Unauthorized();
         var accessToken = providerId == null
             ? await userService.GetAccessTokenAsync(userId, providerKey!, ct)
@@ -65,7 +65,7 @@ public class UsersController(IUserRepository userRepository, IUserService userSe
     [HttpDelete("{userId:guid}")]
     public async Task<ActionResult> DeleteUser(Guid applicationId, Guid userId, CancellationToken ct = default)
     {
-        if (!User.HasApplication(applicationId) || !User.HasPermission(TokenPermissions.DeleteUser))
+        if (!User.HasApplication(applicationId) || !User.HasPermission(TokenPermission.DeleteUser))
             return Unauthorized();
         var res = await userRepository.DeleteUserAsync(userId, ct);
         if (!res)

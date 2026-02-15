@@ -627,67 +627,6 @@ export class ApiClient {
     }
 
     /**
-     * @param client_id (optional)
-     * @param redirect_uri (optional)
-     * @return OK
-     */
-    link(providerKey: string, client_id: string | undefined, redirect_uri: string | undefined): Observable<void> {
-        let url_ = this.baseUrl + "/api/v1/auth/{providerKey}/link?";
-        if (providerKey === undefined || providerKey === null)
-            throw new Error("The parameter 'providerKey' must be defined.");
-        url_ = url_.replace("{providerKey}", encodeURIComponent("" + providerKey));
-        if (client_id === null)
-            throw new Error("The parameter 'client_id' cannot be null.");
-        else if (client_id !== undefined)
-            url_ += "client_id=" + encodeURIComponent("" + client_id) + "&";
-        if (redirect_uri === null)
-            throw new Error("The parameter 'redirect_uri' cannot be null.");
-        else if (redirect_uri !== undefined)
-            url_ += "redirect_uri=" + encodeURIComponent("" + redirect_uri) + "&";
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_ : any = {
-            observe: "response",
-            responseType: "blob",
-            withCredentials: true,
-            headers: new HttpHeaders({
-            })
-        };
-
-        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processLink(response_);
-        })).pipe(_observableCatch((response_: any) => {
-            if (response_ instanceof HttpResponseBase) {
-                try {
-                    return this.processLink(response_ as any);
-                } catch (e) {
-                    return _observableThrow(e) as any as Observable<void>;
-                }
-            } else
-                return _observableThrow(response_) as any as Observable<void>;
-        }));
-    }
-
-    protected processLink(response: HttpResponseBase): Observable<void> {
-        const status = response.status;
-        const responseBlob =
-            response instanceof HttpResponse ? response.body :
-            (response as any).error instanceof Blob ? (response as any).error : undefined;
-
-        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
-        if (status === 200) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return _observableOf(null as any);
-            }));
-        } else if (status !== 200 && status !== 204) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            }));
-        }
-        return _observableOf(null as any);
-    }
-
-    /**
      * @param state (optional)
      * @return OK
      */
@@ -792,6 +731,76 @@ export class ApiClient {
     }
 
     protected processToken(response: HttpResponseBase): Observable<UserCredentials> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = UserCredentials.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @param client_id (optional)
+     * @param client_secret (optional)
+     * @param code (optional)
+     * @return OK
+     */
+    link(client_id: string | undefined, client_secret: string | undefined, code: string | undefined): Observable<UserCredentials> {
+        let url_ = this.baseUrl + "/api/v1/auth/link";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (client_id === null || client_id === undefined)
+            throw new Error("The parameter 'client_id' cannot be null.");
+        else
+            content_.append("client_id", client_id.toString());
+        if (client_secret === null || client_secret === undefined)
+            throw new Error("The parameter 'client_secret' cannot be null.");
+        else
+            content_.append("client_secret", client_secret.toString());
+        if (code === null || code === undefined)
+            throw new Error("The parameter 'code' cannot be null.");
+        else
+            content_.append("code", code.toString());
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processLink(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processLink(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<UserCredentials>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<UserCredentials>;
+        }));
+    }
+
+    protected processLink(response: HttpResponseBase): Observable<UserCredentials> {
         const status = response.status;
         const responseBlob =
             response instanceof HttpResponse ? response.body :
@@ -1220,23 +1229,72 @@ export class ApiClient {
     }
 
     /**
-     * @param page (optional)
-     * @param limit (optional)
      * @return OK
      */
-    usersGET(applicationId: string, page: number | undefined, limit: number | undefined): Observable<UsersResponseSchema> {
-        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/users?";
-        if (applicationId === undefined || applicationId === null)
-            throw new Error("The parameter 'applicationId' must be defined.");
-        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
-        if (page === null)
-            throw new Error("The parameter 'page' cannot be null.");
-        else if (page !== undefined)
-            url_ += "page=" + encodeURIComponent("" + page) + "&";
-        if (limit === null)
-            throw new Error("The parameter 'limit' cannot be null.");
-        else if (limit !== undefined)
-            url_ += "limit=" + encodeURIComponent("" + limit) + "&";
+    usersAll(): Observable<UserWithAccounts[]> {
+        let url_ = this.baseUrl + "/api/v1/service/users";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processUsersAll(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processUsersAll(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<UserWithAccounts[]>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<UserWithAccounts[]>;
+        }));
+    }
+
+    protected processUsersAll(response: HttpResponseBase): Observable<UserWithAccounts[]> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            if (Array.isArray(resultData200)) {
+                result200 = [] as any;
+                for (let item of resultData200)
+                    result200!.push(UserWithAccounts.fromJS(item));
+            }
+            else {
+                result200 = <any>null;
+            }
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    usersGET(userId: string): Observable<UserWithAccounts> {
+        let url_ = this.baseUrl + "/api/v1/service/users/{userId}";
+        if (userId === undefined || userId === null)
+            throw new Error("The parameter 'userId' must be defined.");
+        url_ = url_.replace("{userId}", encodeURIComponent("" + userId));
         url_ = url_.replace(/[?&]$/, "");
 
         let options_ : any = {
@@ -1255,14 +1313,14 @@ export class ApiClient {
                 try {
                     return this.processUsersGET(response_ as any);
                 } catch (e) {
-                    return _observableThrow(e) as any as Observable<UsersResponseSchema>;
+                    return _observableThrow(e) as any as Observable<UserWithAccounts>;
                 }
             } else
-                return _observableThrow(response_) as any as Observable<UsersResponseSchema>;
+                return _observableThrow(response_) as any as Observable<UserWithAccounts>;
         }));
     }
 
-    protected processUsersGET(response: HttpResponseBase): Observable<UsersResponseSchema> {
+    protected processUsersGET(response: HttpResponseBase): Observable<UserWithAccounts> {
         const status = response.status;
         const responseBlob =
             response instanceof HttpResponse ? response.body :
@@ -1273,7 +1331,7 @@ export class ApiClient {
             return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
             let result200: any = null;
             let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result200 = UsersResponseSchema.fromJS(resultData200);
+            result200 = UserWithAccounts.fromJS(resultData200);
             return _observableOf(result200);
             }));
         } else if (status !== 200 && status !== 204) {
@@ -1287,11 +1345,8 @@ export class ApiClient {
     /**
      * @return OK
      */
-    usersDELETE(applicationId: string, userId: string): Observable<void> {
-        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/users/{userId}";
-        if (applicationId === undefined || applicationId === null)
-            throw new Error("The parameter 'applicationId' must be defined.");
-        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+    usersDELETE(userId: string): Observable<void> {
+        let url_ = this.baseUrl + "/api/v1/service/users/{userId}";
         if (userId === undefined || userId === null)
             throw new Error("The parameter 'userId' must be defined.");
         url_ = url_.replace("{userId}", encodeURIComponent("" + userId));
@@ -1329,6 +1384,612 @@ export class ApiClient {
         if (status === 200) {
             return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
             return _observableOf(null as any);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @param providerId (optional)
+     * @param providerKey (optional)
+     * @return OK
+     */
+    accessToken(userId: string, providerId: string | undefined, providerKey: string | undefined): Observable<UserWithAccounts> {
+        let url_ = this.baseUrl + "/api/v1/service/users/{userId}/accessToken?";
+        if (userId === undefined || userId === null)
+            throw new Error("The parameter 'userId' must be defined.");
+        url_ = url_.replace("{userId}", encodeURIComponent("" + userId));
+        if (providerId === null)
+            throw new Error("The parameter 'providerId' cannot be null.");
+        else if (providerId !== undefined)
+            url_ += "providerId=" + encodeURIComponent("" + providerId) + "&";
+        if (providerKey === null)
+            throw new Error("The parameter 'providerKey' cannot be null.");
+        else if (providerKey !== undefined)
+            url_ += "providerKey=" + encodeURIComponent("" + providerKey) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processAccessToken(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processAccessToken(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<UserWithAccounts>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<UserWithAccounts>;
+        }));
+    }
+
+    protected processAccessToken(response: HttpResponseBase): Observable<UserWithAccounts> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = UserWithAccounts.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    tokensAll(applicationId: string): Observable<Token[]> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/tokens";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processTokensAll(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processTokensAll(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<Token[]>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<Token[]>;
+        }));
+    }
+
+    protected processTokensAll(response: HttpResponseBase): Observable<Token[]> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            if (Array.isArray(resultData200)) {
+                result200 = [] as any;
+                for (let item of resultData200)
+                    result200!.push(Token.fromJS(item));
+            }
+            else {
+                result200 = <any>null;
+            }
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @param body (optional)
+     * @return OK
+     */
+    tokensPOST(applicationId: string, body: CreateTokenSchema | undefined): Observable<ServiceAccountTokenResponse> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/tokens";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processTokensPOST(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processTokensPOST(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<ServiceAccountTokenResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<ServiceAccountTokenResponse>;
+        }));
+    }
+
+    protected processTokensPOST(response: HttpResponseBase): Observable<ServiceAccountTokenResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = ServiceAccountTokenResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    tokensGET(applicationId: string, tokenId: string): Observable<Token> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/tokens/{tokenId}";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        if (tokenId === undefined || tokenId === null)
+            throw new Error("The parameter 'tokenId' must be defined.");
+        url_ = url_.replace("{tokenId}", encodeURIComponent("" + tokenId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processTokensGET(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processTokensGET(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<Token>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<Token>;
+        }));
+    }
+
+    protected processTokensGET(response: HttpResponseBase): Observable<Token> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = Token.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    tokensDELETE(applicationId: string, tokenId: string): Observable<void> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/tokens/{tokenId}";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        if (tokenId === undefined || tokenId === null)
+            throw new Error("The parameter 'tokenId' must be defined.");
+        url_ = url_.replace("{tokenId}", encodeURIComponent("" + tokenId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+            })
+        };
+
+        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processTokensDELETE(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processTokensDELETE(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processTokensDELETE(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    permissions(applicationId: string): Observable<TokenPermission[]> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/tokens/permissions";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processPermissions(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processPermissions(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<TokenPermission[]>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<TokenPermission[]>;
+        }));
+    }
+
+    protected processPermissions(response: HttpResponseBase): Observable<TokenPermission[]> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            if (Array.isArray(resultData200)) {
+                result200 = [] as any;
+                for (let item of resultData200)
+                    result200!.push(TokenPermission.fromJS(item));
+            }
+            else {
+                result200 = <any>null;
+            }
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @param page (optional)
+     * @param limit (optional)
+     * @return OK
+     */
+    usersGET2(applicationId: string, page: number | undefined, limit: number | undefined): Observable<UsersResponseSchema> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/users?";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        if (page === null)
+            throw new Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (limit === null)
+            throw new Error("The parameter 'limit' cannot be null.");
+        else if (limit !== undefined)
+            url_ += "limit=" + encodeURIComponent("" + limit) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processUsersGET2(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processUsersGET2(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<UsersResponseSchema>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<UsersResponseSchema>;
+        }));
+    }
+
+    protected processUsersGET2(response: HttpResponseBase): Observable<UsersResponseSchema> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = UsersResponseSchema.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    usersGET3(applicationId: string, userId: string): Observable<UserWithAccounts> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/users/{userId}";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        if (userId === undefined || userId === null)
+            throw new Error("The parameter 'userId' must be defined.");
+        url_ = url_.replace("{userId}", encodeURIComponent("" + userId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processUsersGET3(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processUsersGET3(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<UserWithAccounts>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<UserWithAccounts>;
+        }));
+    }
+
+    protected processUsersGET3(response: HttpResponseBase): Observable<UserWithAccounts> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = UserWithAccounts.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    usersDELETE2(applicationId: string, userId: string): Observable<void> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/users/{userId}";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        if (userId === undefined || userId === null)
+            throw new Error("The parameter 'userId' must be defined.");
+        url_ = url_.replace("{userId}", encodeURIComponent("" + userId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+            })
+        };
+
+        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processUsersDELETE2(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processUsersDELETE2(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processUsersDELETE2(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @param providerId (optional)
+     * @param providerKey (optional)
+     * @return OK
+     */
+    accessToken2(applicationId: string, userId: string, providerId: string | undefined, providerKey: string | undefined): Observable<UserWithAccounts> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/users/{userId}/accessToken?";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        if (userId === undefined || userId === null)
+            throw new Error("The parameter 'userId' must be defined.");
+        url_ = url_.replace("{userId}", encodeURIComponent("" + userId));
+        if (providerId === null)
+            throw new Error("The parameter 'providerId' cannot be null.");
+        else if (providerId !== undefined)
+            url_ += "providerId=" + encodeURIComponent("" + providerId) + "&";
+        if (providerKey === null)
+            throw new Error("The parameter 'providerKey' cannot be null.");
+        else if (providerKey !== undefined)
+            url_ += "providerKey=" + encodeURIComponent("" + providerKey) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processAccessToken2(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processAccessToken2(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<UserWithAccounts>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<UserWithAccounts>;
+        }));
+    }
+
+    protected processAccessToken2(response: HttpResponseBase): Observable<UserWithAccounts> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = UserWithAccounts.fromJS(resultData200);
+            return _observableOf(result200);
             }));
         } else if (status !== 200 && status !== 204) {
             return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
@@ -1764,6 +2425,58 @@ export interface ICreateProviderSchema {
     parameters: ProviderParameters;
 }
 
+export class CreateTokenSchema implements ICreateTokenSchema {
+    name!: string | undefined;
+    permissions!: string[] | undefined;
+    expiresAt!: moment.Moment;
+
+    constructor(data?: ICreateTokenSchema) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.name = _data["name"];
+            if (Array.isArray(_data["permissions"])) {
+                this.permissions = [] as any;
+                for (let item of _data["permissions"])
+                    this.permissions!.push(item);
+            }
+            this.expiresAt = _data["expiresAt"] ? moment(_data["expiresAt"].toString()) : <any>undefined;
+        }
+    }
+
+    static fromJS(data: any): CreateTokenSchema {
+        data = typeof data === 'object' ? data : {};
+        let result = new CreateTokenSchema();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["name"] = this.name;
+        if (Array.isArray(this.permissions)) {
+            data["permissions"] = [];
+            for (let item of this.permissions)
+                data["permissions"].push(item);
+        }
+        data["expiresAt"] = this.expiresAt ? this.expiresAt.toISOString() : <any>undefined;
+        return data;
+    }
+}
+
+export interface ICreateTokenSchema {
+    name: string | undefined;
+    permissions: string[] | undefined;
+    expiresAt: moment.Moment;
+}
+
 export class JwkKey implements IJwkKey {
     kty!: string | undefined;
     use!: string | undefined;
@@ -2073,6 +2786,154 @@ export interface IProviderParameters {
     clientSecret?: string | undefined;
     saveTokens?: boolean;
     defaultScope?: string[] | undefined;
+}
+
+export class ServiceAccountTokenResponse implements IServiceAccountTokenResponse {
+    token!: string | undefined;
+    id?: string;
+
+    constructor(data?: IServiceAccountTokenResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.token = _data["token"];
+            this.id = _data["id"];
+        }
+    }
+
+    static fromJS(data: any): ServiceAccountTokenResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new ServiceAccountTokenResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["token"] = this.token;
+        data["id"] = this.id;
+        return data;
+    }
+}
+
+export interface IServiceAccountTokenResponse {
+    token: string | undefined;
+    id?: string;
+}
+
+export class Token implements IToken {
+    id!: string;
+    applicationId!: string;
+    name?: string | undefined;
+    createdAt!: moment.Moment;
+    expiresAt!: moment.Moment;
+    deletedAt?: moment.Moment | undefined;
+    permissions?: string[] | undefined;
+
+    constructor(data?: IToken) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.id = _data["id"];
+            this.applicationId = _data["applicationId"];
+            this.name = _data["name"];
+            this.createdAt = _data["createdAt"] ? moment(_data["createdAt"].toString()) : <any>undefined;
+            this.expiresAt = _data["expiresAt"] ? moment(_data["expiresAt"].toString()) : <any>undefined;
+            this.deletedAt = _data["deletedAt"] ? moment(_data["deletedAt"].toString()) : <any>undefined;
+            if (Array.isArray(_data["permissions"])) {
+                this.permissions = [] as any;
+                for (let item of _data["permissions"])
+                    this.permissions!.push(item);
+            }
+        }
+    }
+
+    static fromJS(data: any): Token {
+        data = typeof data === 'object' ? data : {};
+        let result = new Token();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["id"] = this.id;
+        data["applicationId"] = this.applicationId;
+        data["name"] = this.name;
+        data["createdAt"] = this.createdAt ? this.createdAt.toISOString() : <any>undefined;
+        data["expiresAt"] = this.expiresAt ? this.expiresAt.toISOString() : <any>undefined;
+        data["deletedAt"] = this.deletedAt ? this.deletedAt.toISOString() : <any>undefined;
+        if (Array.isArray(this.permissions)) {
+            data["permissions"] = [];
+            for (let item of this.permissions)
+                data["permissions"].push(item);
+        }
+        return data;
+    }
+}
+
+export interface IToken {
+    id: string;
+    applicationId: string;
+    name?: string | undefined;
+    createdAt: moment.Moment;
+    expiresAt: moment.Moment;
+    deletedAt?: moment.Moment | undefined;
+    permissions?: string[] | undefined;
+}
+
+export class TokenPermission implements ITokenPermission {
+    readonly key?: string | undefined;
+    readonly description?: string | undefined;
+
+    constructor(data?: ITokenPermission) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            (<any>this).key = _data["key"];
+            (<any>this).description = _data["description"];
+        }
+    }
+
+    static fromJS(data: any): TokenPermission {
+        data = typeof data === 'object' ? data : {};
+        let result = new TokenPermission();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["key"] = this.key;
+        data["description"] = this.description;
+        return data;
+    }
+}
+
+export interface ITokenPermission {
+    key?: string | undefined;
+    description?: string | undefined;
 }
 
 export class UserCredentials implements IUserCredentials {

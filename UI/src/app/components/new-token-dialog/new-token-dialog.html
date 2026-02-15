@@ -1,0 +1,39 @@
+@if (!token) {
+  <form class="container" [formGroup]="control" (submit)="submit()">
+    <label tuiLabel>Название:</label>
+    <tui-textfield>
+      <input tuiTextfield formControlName="name"/>
+    </tui-textfield>
+
+    <label tuiLabel>Действует до:</label>
+    <tui-textfield>
+      <input tuiInputDate formControlName="expiresAt"/>
+      <tui-calendar *tuiTextfieldDropdown/>
+    </tui-textfield>
+
+    <label tuiLabel>Разрешения:</label>
+    <tui-textfield multi tuiChevron class="field" [stringify]="stringify">
+      <input tuiInputChip tuiSelectLike formControlName="permissions"/>
+      <tui-data-list-wrapper *tuiTextfieldDropdown new tuiMultiSelectGroup [items]="permissions$ | async"
+                             [itemContent]="content"/>
+    </tui-textfield>
+
+    <div class="bottom-container">
+      <button tuiButton [loading]="loading" type="submit">Создать</button>
+    </div>
+  </form>
+
+  <ng-template #content let-permission>
+    <div class="permission-container">
+      <h3>{{ permission?.key }}</h3>
+      <p>{{ permission?.description }}</p>
+    </div>
+  </ng-template>
+
+} @else {
+  <div class="result-container">
+    <p>Токен успешно создан. Сохраните его в надежном месте. Просмотреть его после закрытия данного окна будет
+      невозможно.</p>
+    <tui-copy>{{ token }}</tui-copy>
+  </div>
+}
