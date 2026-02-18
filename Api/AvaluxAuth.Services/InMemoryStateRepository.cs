@@ -13,9 +13,9 @@ public class InMemoryStateRepository : IStateRepository
         return Task.CompletedTask;
     }
 
-    public Task<AuthorizationState> GetStateAsync(string state)
+    public Task<AuthorizationState?> GetStateAsync(string state)
     {
-        return Task.FromResult(_states[state]);
+        return Task.FromResult(_states.GetValueOrDefault(state));
     }
 
     public Task DeleteStateAsync(string state)
@@ -24,9 +24,9 @@ public class InMemoryStateRepository : IStateRepository
         return Task.CompletedTask;
     }
 
-    public Task<AuthorizationState> TakeStateAsync(string state)
+    public Task<AuthorizationState?> TakeStateAsync(string state)
     {
-        var result = _states[state];
+        var result = _states.GetValueOrDefault(state);
         _states.Remove(state);
         return Task.FromResult(result);
     }

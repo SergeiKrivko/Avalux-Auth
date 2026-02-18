@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,8 +20,8 @@ builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-builder.Services.AddSingleton<IStateRepository, InMemoryStateRepository>();
-builder.Services.AddSingleton<IAuthCodeRepository, InMemoryCodeRepository>();
+builder.Services.AddSingleton<IStateRepository, RedisStateRepository>();
+builder.Services.AddSingleton<IAuthCodeRepository, RedisCodeRepository>();
 builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 
@@ -40,6 +41,11 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<AvaluxAuthDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration["ConnectionStrings.Postgres"]);
+});
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+    var redisConnection = builder.Configuration["ConnectionStrings.Redis"];
+    return ConnectionMultiplexer.Connect(redisConnection ?? "localhost:6379");
 });
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

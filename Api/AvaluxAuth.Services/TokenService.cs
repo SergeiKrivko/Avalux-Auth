@@ -5,6 +5,7 @@ using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using StackExchange.Redis;
 
 namespace AvaluxAuth.Services;
 
@@ -12,8 +13,11 @@ public class TokenService(
     ITokenRepository tokenRepository,
     ISigningKeyService signingKeyService,
     IConfiguration configuration,
-    ISecretProtector secretProtector) : ITokenService
+    ISecretProtector secretProtector,
+    IConnectionMultiplexer redis) : ITokenService
 {
+    private const string RedisKey = "ServiceAccuntTokens";
+
     public async Task<(Guid, string)> CreateTokenAsync(Guid applicationId, string? name, string[] permissions,
         DateTime expiresAt,
         CancellationToken ct = default)
@@ -29,6 +33,31 @@ public class TokenService(
     {
         var token = await tokenRepository.GetTokenByIdAsync(tokenId, ct);
         return token?.Permissions.Contains(permission) ?? false;
+    }
+
+    public async Task<bool> IsRevokedAsync(Guid tokenId, CancellationToken ct = default)
+    {
+        var redisDb = redis.GetDatabase();
+        if (await redisDb.SetContainsAsync(RedisKey, tokenId.ToString()))
+            return true;
+
+        var token = await tokenRepository.GetTokenByIdAsync(tokenId, ct);
+        if (token == null)
+            return false;
+        await redisDb.SetAddAsync(RedisKey, tokenId.ToString());
+        return true;
+    }
+
+    public async Task<bool> RevokeTokenAsync(Guid tokenId, CancellationToken ct = default)
+    {
+        var res = await tokenRepository.RemoveTokenAsync(tokenId, ct);
+        if (res)
+        {
+            var redisDb = redis.GetDatabase();
+            await redisDb.SetRemoveAsync(RedisKey, tokenId.ToString());
+        }
+
+        return res;
     }
 
     private const string ServiceAccountAudience = "AvaluxAuthServiceAccount";

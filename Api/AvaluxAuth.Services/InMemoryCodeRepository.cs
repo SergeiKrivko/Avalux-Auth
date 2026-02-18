@@ -13,9 +13,9 @@ public class InMemoryCodeRepository : IAuthCodeRepository
         return Task.CompletedTask;
     }
 
-    public Task<AuthCode> GetCodeAsync(string code)
+    public Task<AuthCode?> GetCodeAsync(string code)
     {
-        return Task.FromResult(_codes[code]);
+        return Task.FromResult(_codes.GetValueOrDefault(code));
     }
 
     public Task DeleteCodeAsync(string code)
@@ -24,9 +24,9 @@ public class InMemoryCodeRepository : IAuthCodeRepository
         return Task.CompletedTask;
     }
 
-    public Task<AuthCode> TakeCodeAsync(string code)
+    public Task<AuthCode?> TakeCodeAsync(string code)
     {
-        var result = _codes[code];
+        var result = _codes.GetValueOrDefault(code);
         _codes.Remove(code);
         return Task.FromResult(result);
     }
