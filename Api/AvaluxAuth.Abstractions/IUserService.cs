@@ -1,7 +1,9 @@
-﻿namespace AvaluxAuth.Abstractions;
+﻿using AvaluxAuth.Models;
+
+namespace AvaluxAuth.Abstractions;
 
 public interface IUserService
 {
-    public Task<string?> GetAccessTokenAsync(Guid userId, string providerKey, CancellationToken ct);
-    public Task<string?> GetAccessTokenAsync(Guid userId, Guid providerId, CancellationToken ct);
+    public Task<AccountCredentials?> GetAccessTokenAsync(Guid userId, string providerKey, CancellationToken ct);
+    public Task<AccountCredentials?> GetAccessTokenAsync(Guid userId, Guid providerId, CancellationToken ct);
 }

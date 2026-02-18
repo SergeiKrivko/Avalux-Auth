@@ -56,6 +56,8 @@ public class AuthorizationService(
         CancellationToken ct = default)
     {
         var parameters = await stateRepository.TakeStateAsync(state);
+        if (parameters is null)
+            throw new Exception("State not found");
 
         var code = RandomNumberGenerator.GetRandomString();
         await authCodeRepository.SaveCodeAsync(new AuthCode
@@ -80,6 +82,8 @@ public class AuthorizationService(
     public async Task<UserCredentials> AuthorizeUserAsync(string code, CancellationToken ct = default)
     {
         var codeData = await authCodeRepository.TakeCodeAsync(code);
+        if (codeData is null)
+            throw new Exception("Code not found");
         var p = await providerRepository.GetProviderByIdAsync(codeData.State.ProviderId, ct);
         if (p == null)
             throw new Exception("Provider not found");
@@ -93,14 +97,15 @@ public class AuthorizationService(
         if (account == null)
         {
             userId = await userRepository.CreateUserAsync(p.ApplicationId, ct);
-            await accountRepository.CreateAccountAsync(userId, p.Id, info, p.Parameters.SaveTokens ? credentials : null,
+            await accountRepository.CreateAccountAsync(userId, p.Id, info,
+                p.Parameters.SaveTokens ? ProtectCredentials(credentials) : null,
                 ct);
         }
         else
         {
             userId = account.UserId;
             if (p.Parameters.SaveTokens)
-                await accountRepository.UpdateAccountTokensAsync(account.Id, credentials, ct);
+                await accountRepository.UpdateAccountTokensAsync(account.Id, ProtectCredentials(credentials), ct);
         }
 
         return await GetCredentialsAsync(userId, ct);
@@ -109,6 +114,8 @@ public class AuthorizationService(
     public async Task LinkAccountAsync(Guid userId, string code, CancellationToken ct = default)
     {
         var codeData = await authCodeRepository.TakeCodeAsync(code);
+        if (codeData is null)
+            return;
         var p = await providerRepository.GetProviderByIdAsync(codeData.State.ProviderId, ct);
         if (p == null)
             throw new Exception("Provider not found");
@@ -120,13 +127,13 @@ public class AuthorizationService(
         var account = await accountRepository.GetAccountByProviderIdAsync(codeData.State.ApplicationId, info.Id, ct);
         if (account == null)
             await accountRepository.CreateAccountAsync(userId, p.Id, info,
-                p.Parameters.SaveTokens ? credentials : null, ct);
+                p.Parameters.SaveTokens ? ProtectCredentials(credentials) : null, ct);
         else
         {
             if (account.UserId != userId)
                 throw new Exception("Account is already linked to another user");
             if (p.Parameters.SaveTokens)
-                await accountRepository.UpdateAccountTokensAsync(account.Id, credentials, ct);
+                await accountRepository.UpdateAccountTokensAsync(account.Id, ProtectCredentials(credentials), ct);
         }
     }
 
@@ -222,5 +229,15 @@ public class AuthorizationService(
     {
         return
             $"{configuration["Api.ApiUrl"] ?? throw new Exception("Api url not found")}/api/v1/auth/{providerKey}/callback";
+    }
+
+    private AccountCredentials ProtectCredentials(AccountCredentials unprotected)
+    {
+        return new AccountCredentials
+        {
+            AccessToken = unprotected.AccessToken is null ? null : secretProtector.Protect(unprotected.AccessToken),
+            RefreshToken = unprotected.RefreshToken is null ? null : secretProtector.Protect(unprotected.RefreshToken),
+            ExpiresAt = unprotected.ExpiresAt,
+        };
     }
 }

@@ -13,6 +13,7 @@ namespace AvaluxAuth.Api.Controllers;
 public class AuthController(
     IAuthorizationService authorizationService,
     IUserRepository userRepository,
+    IUserService userService,
     IProviderRepository providerRepository,
     IEnumerable<IAuthProvider> authProviders)
     : ControllerBase
@@ -104,5 +105,19 @@ public class AuthController(
                 AvatarUrl = account.UserInfo.AvatarUrl,
             }).ToArray(),
         });
+    }
+
+    [HttpGet("{providerKey}/access-token")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.UserPolicy)]
+    public async Task<ActionResult<UserInfoResponseSchema>> GetAccessToken(string providerKey,
+        CancellationToken ct = default)
+    {
+        if (!Guid.TryParse(User.FindFirst("UserId")?.Value, out var userId))
+            return Unauthorized();
+        var credentials = await userService.GetAccessTokenAsync(userId, providerKey, ct);
+        if (credentials is null)
+            return NotFound();
+
+        return Ok(credentials);
     }
 }
