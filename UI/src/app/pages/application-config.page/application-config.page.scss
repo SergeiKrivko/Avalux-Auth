@@ -2,11 +2,18 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  align-items: start;
 
   .grid-container {
+    width: 100%;
     display: grid;
-    grid-template-columns: min(40%, 15rem) auto;
-    grid-template-rows: repeat(5, auto);
+    @media (max-width: 600px) {
+      grid-template-columns: auto;
+    }
+    @media (min-width: 601px) {
+      grid-template-columns: min(40%, 15rem) auto;
+    }
+    grid-template-rows: auto;
     grid-row-gap: 1rem;
     align-items: center;
 
@@ -16,8 +23,14 @@
     }
 
     .value {
-      grid-column-start: 2;
-      grid-column-end: 3;
+      @media (max-width: 600px) {
+        grid-column-start: 1;
+        grid-column-end: 2;
+      }
+      @media (min-width: 601px) {
+        grid-column-start: 2;
+        grid-column-end: 3;
+      }
     }
 
     .release-lifetime-container {
@@ -35,9 +48,9 @@
   }
 
   .installers-container {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 
     .installers-header-container {
       display: flex;
@@ -46,22 +59,22 @@
       justify-content: space-between;
     }
 
-      .using-installers-container {
+    .using-installers-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+
+      .card-container {
         display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
+        flex-direction: row;
+        gap: 1rem;
+        align-items: center;
 
-        .card-container {
-          display: flex;
-          flex-direction: row;
-          gap: 1rem;
-          align-items: center;
-
-          .card-header {
-            margin: 0;
-            flex-grow: 1;
-          }
+        .card-header {
+          margin: 0;
+          flex-grow: 1;
         }
       }
     }
+  }
 }

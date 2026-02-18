@@ -1,14 +1,11 @@
 import {Component, DestroyRef, inject, OnInit} from '@angular/core';
-import {IsActiveMatchOptions, Router, RouterLink, RouterLinkActive, RouterOutlet} from '@angular/router';
+import {RouterOutlet} from '@angular/router';
 import {TuiButton} from '@taiga-ui/core';
 import {AuthService} from '../../services/auth.service';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {Logo} from '../../components/logo/logo';
 import {ApplicationService} from '../../services/application.service';
-import {combineLatest, Observable} from 'rxjs';
-import {TuiSegmented} from '@taiga-ui/kit';
-import {AsyncPipe} from '@angular/common';
-import {ApplicationEntity} from '../../entities/application-entity';
+import {combineLatest} from 'rxjs';
 import {ProviderService} from '../../services/provider.service';
 
 @Component({
@@ -23,7 +20,6 @@ import {ProviderService} from '../../services/provider.service';
   standalone: true
 })
 export class RootPage implements OnInit {
-  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly authService = inject(AuthService);
   private readonly applicationService = inject(ApplicationService);

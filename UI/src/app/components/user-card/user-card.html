@@ -1,16 +1,19 @@
 <div tuiCardLarge class="user-card">
   <div class="container">
-    <tui-copy class="user-id">{{ user().id }}</tui-copy>
-    <tui-textfield tuiChevron tuiTextfieldSize="m" [tuiTextfieldCleaner]="false" class="provider-selector"
-                   [content]="content" *tuiLet="providers$ | async as providers">
-      <input tuiSelect [formControl]="control"/>
-      <tui-data-list-wrapper *tuiTextfieldDropdown new [items]="providers" [itemContent]="content"/>
-    </tui-textfield>
-    <button tuiIconButton iconStart="@tui.trash" appearance="flat-destructive" (click)="deleteUser()" size="m"></button>
+    <tui-copy>{{ user().id }}</tui-copy>
+    <div class="control-container">
+      <tui-textfield tuiChevron tuiTextfieldSize="m" [tuiTextfieldCleaner]="false" class="provider-selector"
+                     [content]="content" *tuiLet="providers$ | async as providers">
+        <input tuiSelect [formControl]="control"/>
+        <tui-data-list-wrapper *tuiTextfieldDropdown new [items]="providers" [itemContent]="content"/>
+      </tui-textfield>
+      <button tuiIconButton iconStart="@tui.trash" appearance="flat-destructive" (click)="deleteUser()"
+              size="m"></button>
+    </div>
   </div>
   <div *tuiLet="selectedAccount$ | async as account" class="account-info-container">
     <div class="side-container">
-      <tui-avatar [src]="account?.avatarUrl" size="m" />
+      <tui-avatar [src]="account?.avatarUrl" size="m"/>
       <tui-copy>{{ account?.name }}</tui-copy>
     </div>
     <div class="side-container">

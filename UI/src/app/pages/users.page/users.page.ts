@@ -3,7 +3,6 @@ import {TuiInputRange, TuiPagination} from '@taiga-ui/kit';
 import {UserService} from '../../services/user.service';
 import {AsyncPipe} from '@angular/common';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {TuiCardLarge} from '@taiga-ui/layout';
 import {UserCard} from '../../components/user-card/user-card';
 
 @Component({
@@ -11,7 +10,6 @@ import {UserCard} from '../../components/user-card/user-card';
   imports: [
     TuiPagination,
     AsyncPipe,
-    TuiCardLarge,
     TuiInputRange,
     UserCard
   ],

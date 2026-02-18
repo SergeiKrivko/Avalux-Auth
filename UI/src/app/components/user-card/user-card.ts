@@ -1,8 +1,8 @@
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, inject, input, OnInit} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, inject, input, OnInit} from '@angular/core';
 import {UserEntity} from '../../entities/user-entity';
 import {ProviderService} from '../../services/provider.service';
 import {map, tap} from 'rxjs';
-import {TuiButton, TuiLabel, TuiTextfield} from '@taiga-ui/core';
+import {TuiButton, TuiTextfield} from '@taiga-ui/core';
 import {TuiCard} from '@taiga-ui/layout';
 import {TuiAvatar, TuiChevron, TuiCopy, TuiDataListWrapper, TuiSelect} from '@taiga-ui/kit';
 import {AsyncPipe} from '@angular/common';
@@ -21,7 +21,6 @@ interface Store {
 @Component({
   selector: 'app-user-card',
   imports: [
-    TuiLabel,
     TuiCard,
     TuiTextfield,
     TuiChevron,

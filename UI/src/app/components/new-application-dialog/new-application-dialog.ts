@@ -1,7 +1,7 @@
 import {ChangeDetectionStrategy, Component, inject} from '@angular/core';
 import {TuiButton, TuiDialogContext, TuiLabel, TuiTextfield} from '@taiga-ui/core';
 import {injectContext} from '@taiga-ui/polymorpheus';
-import {TuiButtonLoading, TuiTextarea} from '@taiga-ui/kit';
+import {TuiButtonLoading} from '@taiga-ui/kit';
 import {ApplicationService} from '../../services/application.service';
 import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {first, tap} from 'rxjs';
@@ -12,7 +12,6 @@ import {first, tap} from 'rxjs';
   imports: [
     TuiLabel,
     TuiTextfield,
-    TuiTextarea,
     TuiButton,
     TuiButtonLoading,
     ReactiveFormsModule

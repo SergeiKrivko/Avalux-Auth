@@ -18,9 +18,8 @@ import {
   TuiInputDate,
   TuiMultiSelect
 } from '@taiga-ui/kit';
-import {TuiDay, TuiLet} from '@taiga-ui/cdk';
+import {TuiDay} from '@taiga-ui/cdk';
 import {AsyncPipe} from '@angular/common';
-import {ProviderInfoPipe} from '../../pipes/provider-info-pipe';
 import {TokenPermissionEntity} from '../../entities/token-entity';
 import {TokenPermission} from '../../services/api-client';
 
@@ -41,8 +40,6 @@ import {TokenPermission} from '../../services/api-client';
     TuiDataListWrapper,
     TuiMultiSelect,
     AsyncPipe,
-    ProviderInfoPipe,
-    TuiLet,
     TuiCopy
   ],
   templateUrl: './new-token-dialog.html',

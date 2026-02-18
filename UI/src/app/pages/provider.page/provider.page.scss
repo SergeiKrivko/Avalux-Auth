@@ -2,16 +2,25 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
-
   align-items: start;
 
+  .provider-info {
+    display: block;
+    margin: 0;
+  }
+
   .grid-container {
+    width: 100%;
     display: grid;
-    grid-template-columns: min(40%, 15rem) auto;
-    grid-template-rows: repeat(5, auto);
+    @media (max-width: 600px) {
+      grid-template-columns: auto;
+    }
+    @media (min-width: 601px) {
+      grid-template-columns: min(40%, 15rem) auto;
+    }
+    grid-template-rows: auto;
     grid-row-gap: 1rem;
     align-items: center;
-    width: 100%;
 
     .label {
       grid-column-start: 1;
@@ -19,14 +28,14 @@
     }
 
     .value {
-      grid-column-start: 2;
-      grid-column-end: 3;
-    }
-
-    .release-lifetime-container {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
+      @media (max-width: 600px) {
+        grid-column-start: 1;
+        grid-column-end: 2;
+      }
+      @media (min-width: 601px) {
+        grid-column-start: 2;
+        grid-column-end: 3;
+      }
     }
   }
 }

@@ -1,11 +1,11 @@
 import {ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit} from '@angular/core';
 import {TokenService} from '../../services/token.service';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {TuiButton, tuiDialog, TuiDialogService, TuiHint, TuiIcon} from '@taiga-ui/core';
+import {TuiButton, tuiDialog, TuiDialogService, TuiHint} from '@taiga-ui/core';
 import {AsyncPipe} from '@angular/common';
 import {TuiCardLarge} from '@taiga-ui/layout';
 import {FormatDatePipe} from '../../pipes/format-date-pipe';
-import {TUI_CONFIRM, TuiBadge, TuiConfirmData, TuiTooltip} from '@taiga-ui/kit';
+import {TUI_CONFIRM, TuiBadge, TuiConfirmData} from '@taiga-ui/kit';
 import {DateFromNowPipe} from '../../pipes/date-from-now-pipe';
 import {DateIsFuturePipe} from '../../pipes/date-is-future-pipe';
 import {DateIsSoonPipe} from '../../pipes/date-is-soon-pipe';
@@ -23,8 +23,6 @@ import moment from 'moment';
     AsyncPipe,
     TuiCardLarge,
     FormatDatePipe,
-    TuiIcon,
-    TuiTooltip,
     TuiBadge,
     TuiHint,
     DateFromNowPipe,

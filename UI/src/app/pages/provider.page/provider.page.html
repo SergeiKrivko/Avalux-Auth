@@ -2,7 +2,7 @@
   <a tuiButton routerLink="../" iconStart="@tui.chevron-left" appearance="flat">Назад</a>
 
   @if (providerInfo) {
-    <p tuiLabel>
+    <p tuiLabel class="provider-info">
       Создайте приложение {{ providerInfo?.name }} (<a [href]="providerInfo?.url">{{ providerInfo?.url }}</a>).
       Укажите Redirect URL
       <tui-copy>{{ providerInfo | providerRedirectUrl }}</tui-copy>
