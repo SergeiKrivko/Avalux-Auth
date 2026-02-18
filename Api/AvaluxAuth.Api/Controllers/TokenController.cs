@@ -44,7 +44,7 @@ public class TokenController(ITokenRepository tokenRepository, ITokenService tok
     [HttpDelete("{tokenId:guid}")]
     public async Task<ActionResult> DeleteTokenById(Guid applicationId, Guid tokenId, CancellationToken ct)
     {
-        var res = await tokenRepository.RemoveTokenAsync(tokenId, ct);
+        var res = await tokenService.RevokeTokenAsync(tokenId, ct);
         if (!res)
             return NotFound();
         return Ok();
