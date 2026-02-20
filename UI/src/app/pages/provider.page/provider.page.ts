@@ -47,6 +47,7 @@ export class ProviderPage implements OnInit {
   );
 
   protected readonly control = new FormGroup({
+    clientName: new FormControl<string>(""),
     clientId: new FormControl<string>(""),
     clientSecret: new FormControl<string>(""),
     saveTokens: new FormControl<boolean>(false),
@@ -80,6 +81,7 @@ export class ProviderPage implements OnInit {
 
   private loadProvider(provider: ProviderEntity) {
     this.control.setValue({
+      clientName: provider.parameters.clientName ?? "",
       clientId: provider.parameters.clientId ?? "",
       clientSecret: provider.parameters.clientSecret ?? "",
       saveTokens: provider.parameters.saveTokens,
@@ -96,6 +98,7 @@ export class ProviderPage implements OnInit {
       switchMap(provider => {
         if (provider)
           return this.providerService.updateProvider(provider.id, {
+            clientName: this.control.value.clientName ?? "",
             clientId: this.control.value.clientId ?? "",
             clientSecret: this.control.value.clientSecret ?? "",
             saveTokens: this.control.value.saveTokens ?? false,

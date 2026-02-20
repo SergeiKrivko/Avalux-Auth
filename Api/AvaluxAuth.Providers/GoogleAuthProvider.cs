@@ -86,7 +86,8 @@ public class GoogleAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         };
     }
 
-    public async Task<bool> RevokeTokenAsync(ProviderParameters parameters, AccountCredentials credentials, CancellationToken ct = default)
+    public async Task<bool> RevokeTokenAsync(ProviderParameters parameters, AccountCredentials credentials,
+        CancellationToken ct = default)
     {
         var content = new FormUrlEncodedContent(new Dictionary<string, string?>
         {
@@ -97,7 +98,8 @@ public class GoogleAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<UserInfo> GetUserInfoAsync(AccountCredentials credentials, CancellationToken ct)
+    public async Task<UserInfo> GetUserInfoAsync(ProviderParameters config, AccountCredentials credentials,
+        CancellationToken ct)
     {
         var http = new HttpRequestMessage(HttpMethod.Get, "https://openidconnect.googleapis.com/v1/userinfo");
         http.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credentials.AccessToken);

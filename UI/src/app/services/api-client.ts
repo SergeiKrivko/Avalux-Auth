@@ -883,6 +883,62 @@ export class ApiClient {
     }
 
     /**
+     * @param refresh_token (optional)
+     * @return OK
+     */
+    revoke(refresh_token: string | undefined): Observable<void> {
+        let url_ = this.baseUrl + "/api/v1/auth/revoke";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (refresh_token === null || refresh_token === undefined)
+            throw new Error("The parameter 'refresh_token' cannot be null.");
+        else
+            content_.append("refresh_token", refresh_token.toString());
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processRevoke(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processRevoke(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processRevoke(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
      * @return OK
      */
     userinfo(): Observable<UserInfoResponseSchema> {
@@ -913,6 +969,61 @@ export class ApiClient {
     }
 
     protected processUserinfo(response: HttpResponseBase): Observable<UserInfoResponseSchema> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = UserInfoResponseSchema.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    accessToken(providerKey: string): Observable<UserInfoResponseSchema> {
+        let url_ = this.baseUrl + "/api/v1/auth/{providerKey}/accessToken";
+        if (providerKey === undefined || providerKey === null)
+            throw new Error("The parameter 'providerKey' must be defined.");
+        url_ = url_.replace("{providerKey}", encodeURIComponent("" + providerKey));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processAccessToken(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processAccessToken(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<UserInfoResponseSchema>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<UserInfoResponseSchema>;
+        }));
+    }
+
+    protected processAccessToken(response: HttpResponseBase): Observable<UserInfoResponseSchema> {
         const status = response.status;
         const responseBlob =
             response instanceof HttpResponse ? response.body :
@@ -1398,7 +1509,7 @@ export class ApiClient {
      * @param providerKey (optional)
      * @return OK
      */
-    accessToken(userId: string, providerId: string | undefined, providerKey: string | undefined): Observable<UserWithAccounts> {
+    accessToken2(userId: string, providerId: string | undefined, providerKey: string | undefined): Observable<UserWithAccounts> {
         let url_ = this.baseUrl + "/api/v1/service/users/{userId}/accessToken?";
         if (userId === undefined || userId === null)
             throw new Error("The parameter 'userId' must be defined.");
@@ -1423,11 +1534,11 @@ export class ApiClient {
         };
 
         return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processAccessToken(response_);
+            return this.processAccessToken2(response_);
         })).pipe(_observableCatch((response_: any) => {
             if (response_ instanceof HttpResponseBase) {
                 try {
-                    return this.processAccessToken(response_ as any);
+                    return this.processAccessToken2(response_ as any);
                 } catch (e) {
                     return _observableThrow(e) as any as Observable<UserWithAccounts>;
                 }
@@ -1436,7 +1547,7 @@ export class ApiClient {
         }));
     }
 
-    protected processAccessToken(response: HttpResponseBase): Observable<UserWithAccounts> {
+    protected processAccessToken2(response: HttpResponseBase): Observable<UserWithAccounts> {
         const status = response.status;
         const responseBlob =
             response instanceof HttpResponse ? response.body :
@@ -1936,7 +2047,7 @@ export class ApiClient {
      * @param providerKey (optional)
      * @return OK
      */
-    accessToken2(applicationId: string, userId: string, providerId: string | undefined, providerKey: string | undefined): Observable<UserWithAccounts> {
+    accessToken3(applicationId: string, userId: string, providerId: string | undefined, providerKey: string | undefined): Observable<UserWithAccounts> {
         let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/users/{userId}/accessToken?";
         if (applicationId === undefined || applicationId === null)
             throw new Error("The parameter 'applicationId' must be defined.");
@@ -1964,11 +2075,11 @@ export class ApiClient {
         };
 
         return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processAccessToken2(response_);
+            return this.processAccessToken3(response_);
         })).pipe(_observableCatch((response_: any) => {
             if (response_ instanceof HttpResponseBase) {
                 try {
-                    return this.processAccessToken2(response_ as any);
+                    return this.processAccessToken3(response_ as any);
                 } catch (e) {
                     return _observableThrow(e) as any as Observable<UserWithAccounts>;
                 }
@@ -1977,7 +2088,7 @@ export class ApiClient {
         }));
     }
 
-    protected processAccessToken2(response: HttpResponseBase): Observable<UserWithAccounts> {
+    protected processAccessToken3(response: HttpResponseBase): Observable<UserWithAccounts> {
         const status = response.status;
         const responseBlob =
             response instanceof HttpResponse ? response.body :
@@ -2733,6 +2844,7 @@ export interface IProviderInfo {
 }
 
 export class ProviderParameters implements IProviderParameters {
+    clientName?: string | undefined;
     clientId?: string | undefined;
     clientSecret?: string | undefined;
     saveTokens?: boolean;
@@ -2749,6 +2861,7 @@ export class ProviderParameters implements IProviderParameters {
 
     init(_data?: any) {
         if (_data) {
+            this.clientName = _data["clientName"];
             this.clientId = _data["clientId"];
             this.clientSecret = _data["clientSecret"];
             this.saveTokens = _data["saveTokens"];
@@ -2769,6 +2882,7 @@ export class ProviderParameters implements IProviderParameters {
 
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
+        data["clientName"] = this.clientName;
         data["clientId"] = this.clientId;
         data["clientSecret"] = this.clientSecret;
         data["saveTokens"] = this.saveTokens;
@@ -2782,6 +2896,7 @@ export class ProviderParameters implements IProviderParameters {
 }
 
 export interface IProviderParameters {
+    clientName?: string | undefined;
     clientId?: string | undefined;
     clientSecret?: string | undefined;
     saveTokens?: boolean;

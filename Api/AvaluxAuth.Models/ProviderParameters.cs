@@ -2,6 +2,7 @@
 
 public class ProviderParameters
 {
+    public string? ClientName { get; init; }
     public string? ClientId { get; init; }
     public string? ClientSecret { get; init; }
 

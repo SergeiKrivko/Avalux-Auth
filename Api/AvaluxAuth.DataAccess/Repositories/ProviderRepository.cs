@@ -41,7 +41,9 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
             ApplicationId = applicationId,
             ProviderId = providerId,
 
+            ClientName = provider.ClientName,
             ClientId = provider.ClientId,
+            ClientSecret = provider.ClientSecret,
             SaveTokens = provider.SaveTokens,
 
             CreatedAt = DateTime.UtcNow,
@@ -58,6 +60,7 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
             .Where(x => x.Id == id && x.DeletedAt == null)
             .ExecuteUpdateAsync(x =>
             {
+                x.SetProperty(e => e.ClientName, provider.ClientName);
                 x.SetProperty(e => e.ClientId, provider.ClientId);
                 x.SetProperty(e => e.ClientSecret, provider.ClientSecret);
                 x.SetProperty(e => e.SaveTokens, provider.SaveTokens);
@@ -88,6 +91,7 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
             ProviderId = entity.ProviderId,
             Parameters = new ProviderParameters
             {
+                ClientName = entity.ClientName,
                 ClientId = entity.ClientId,
                 ClientSecret = entity.ClientSecret,
                 SaveTokens = entity.SaveTokens,

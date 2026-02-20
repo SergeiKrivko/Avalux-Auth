@@ -90,7 +90,7 @@ public class AuthorizationService(
         if (!providerFactory.TryGetProvider(p.ProviderId, out var provider))
             throw new Exception("Provider not found");
         var credentials = await provider.GetTokenAsync(p.Parameters, codeData.Query, GetCallbackUrl(provider.Key), ct);
-        var info = await provider.GetUserInfoAsync(credentials, ct);
+        var info = await provider.GetUserInfoAsync(p.Parameters, credentials, ct);
 
         var account = await accountRepository.GetAccountByProviderIdAsync(codeData.State.ApplicationId, info.Id, ct);
         Guid userId;
@@ -127,7 +127,7 @@ public class AuthorizationService(
         if (!providerFactory.TryGetProvider(p.ProviderId, out var provider))
             throw new Exception("Provider not found");
         var credentials = await provider.GetTokenAsync(p.Parameters, codeData.Query, GetCallbackUrl(provider.Key), ct);
-        var info = await provider.GetUserInfoAsync(credentials, ct);
+        var info = await provider.GetUserInfoAsync(p.Parameters, credentials, ct);
 
         var account = await accountRepository.GetAccountByProviderIdAsync(codeData.State.ApplicationId, info.Id, ct);
         if (account == null)

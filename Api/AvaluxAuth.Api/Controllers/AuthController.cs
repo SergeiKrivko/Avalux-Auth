@@ -117,7 +117,7 @@ public class AuthController(
         });
     }
 
-    [HttpGet("{providerKey}/access-token")]
+    [HttpGet("{providerKey}/accessToken")]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.UserPolicy)]
     public async Task<ActionResult<UserInfoResponseSchema>> GetAccessToken(string providerKey,
         CancellationToken ct = default)

@@ -10,6 +10,11 @@
   }
 
   <form class="grid-container" [formGroup]="control">
+    <label tuiLabel class="label">Client name:</label>
+    <tui-textfield class="value">
+      <input tuiTextfield formControlName="clientName"/>
+    </tui-textfield>
+
     <label tuiLabel class="label">Client ID:</label>
     <tui-textfield class="value">
       <input tuiTextfield formControlName="clientId"/>

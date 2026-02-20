@@ -8,6 +8,7 @@ internal class ProviderEntity
     public Guid ApplicationId { get; init; }
     public int ProviderId { get; init; }
 
+    [MaxLength(100)] public string? ClientName { get; init; }
     [MaxLength(100)] public string? ClientId { get; init; }
     [MaxLength(100)] public string? ClientSecret { get; init; }
     public bool SaveTokens { get; init; }

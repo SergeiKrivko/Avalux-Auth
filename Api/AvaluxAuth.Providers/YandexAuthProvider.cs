@@ -103,7 +103,8 @@ public class YandexAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<UserInfo> GetUserInfoAsync(AccountCredentials credentials, CancellationToken ct)
+    public async Task<UserInfo> GetUserInfoAsync(ProviderParameters config, AccountCredentials credentials,
+        CancellationToken ct)
     {
         var message = new HttpRequestMessage(HttpMethod.Get, "https://login.yandex.ru/info?format=json");
         message.Headers.Authorization = new AuthenticationHeaderValue("OAuth", credentials.AccessToken);

@@ -17,6 +17,7 @@ export interface ProviderInfoEntity {
 }
 
 export interface ProviderParametersEntity {
+  clientName?: string;
   clientId?: string;
   clientSecret?: string;
   saveTokens: boolean;

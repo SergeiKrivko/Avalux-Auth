@@ -14,6 +14,7 @@ internal class ProviderConfiguration : IEntityTypeConfiguration<ProviderEntity>
         builder.Property(x => x.ApplicationId).IsRequired();
         builder.Property(x => x.ProviderId).IsRequired();
 
+        builder.Property(x => x.ClientName);
         builder.Property(x => x.ClientId);
         builder.Property(x => x.ClientSecret);
         builder.Property(x => x.SaveTokens).IsRequired();

@@ -103,6 +103,7 @@ export class ProviderService {
       switchMap(app => {
         if (app)
           return this.apiClient.providersPUT(app.id, id, ProviderParameters.fromJS({
+            clientName: parameters.clientName,
             clientId: parameters.clientId,
             clientSecret: parameters.clientSecret,
             saveTokens: parameters.saveTokens,
@@ -122,6 +123,7 @@ const providerToEntity = (provider: Provider): ProviderEntity => {
     providerId: provider.providerId,
     applicationId: provider.applicationId,
     parameters: {
+      clientName: provider.parameters.clientName,
       clientId: provider.parameters.clientId,
       clientSecret: provider.parameters.clientSecret,
       saveTokens: provider.parameters.saveTokens ?? false,

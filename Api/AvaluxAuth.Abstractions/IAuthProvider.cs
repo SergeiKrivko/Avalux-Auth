@@ -19,5 +19,6 @@ public interface IAuthProvider
     public Task<bool> RevokeTokenAsync(ProviderParameters parameters, AccountCredentials credentials,
         CancellationToken ct = default);
 
-    public Task<UserInfo> GetUserInfoAsync(AccountCredentials credentials, CancellationToken ct);
+    public Task<UserInfo> GetUserInfoAsync(ProviderParameters parameters, AccountCredentials credentials,
+        CancellationToken ct);
 }
