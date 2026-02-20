@@ -74,6 +74,7 @@ public class GitHubAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         CancellationToken ct)
     {
         var response = await GetAsync("https://api.github.com/user", config, credentials, ct);
+        response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<UserInfoResponse>(ct) ??
                    throw new Exception("Invalid response");
 
@@ -109,7 +110,6 @@ public class GitHubAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
             }
         };
         var response = await _httpClient.SendAsync(http, ct);
-        response.EnsureSuccessStatusCode();
         return response;
     }
 
