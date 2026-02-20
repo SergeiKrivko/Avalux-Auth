@@ -105,7 +105,7 @@ public class AuthorizationService(
         {
             userId = account.UserId;
             if (!string.IsNullOrEmpty(account.TokenPair.RefreshToken))
-                await provider.RevokeTokenAsync(p.Parameters, UnprotectCredentials(credentials), ct);
+                await provider.RevokeTokenAsync(p.Parameters, UnprotectCredentials(account.TokenPair), ct);
             await accountRepository.UpdateAccountTokensAsync(account.Id,
                 p.Parameters.SaveTokens ? ProtectCredentials(credentials) : new AccountCredentials(), ct);
         }
@@ -138,7 +138,7 @@ public class AuthorizationService(
             if (account.UserId != userId)
                 throw new Exception("Account is already linked to another user");
             if (!string.IsNullOrEmpty(account.TokenPair.RefreshToken))
-                await provider.RevokeTokenAsync(p.Parameters, UnprotectCredentials(credentials), ct);
+                await provider.RevokeTokenAsync(p.Parameters, UnprotectCredentials(account.TokenPair), ct);
             await accountRepository.UpdateAccountTokensAsync(account.Id,
                 p.Parameters.SaveTokens ? ProtectCredentials(credentials) : new AccountCredentials(), ct);
         }
