@@ -81,6 +81,16 @@ public class AuthController(
         return Ok(credentials);
     }
 
+    [HttpPost("revoke")]
+    public async Task<ActionResult> Revoke([FromForm(Name = "refresh_token")] string refreshToken,
+        CancellationToken ct = default)
+    {
+        var res = await authorizationService.RevokeTokenAsync(refreshToken, ct);
+        if (!res)
+            return Unauthorized("Revoke token is incorrect");
+        return Ok();
+    }
+
     [HttpGet("userinfo")]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.UserPolicy)]
     public async Task<ActionResult<UserInfoResponseSchema>> GetUserInfo(CancellationToken ct = default)

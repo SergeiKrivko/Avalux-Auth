@@ -104,9 +104,14 @@ public class AuthorizationService(
         else
         {
             userId = account.UserId;
-            if (p.Parameters.SaveTokens)
-                await accountRepository.UpdateAccountTokensAsync(account.Id, ProtectCredentials(credentials), ct);
+            if (!string.IsNullOrEmpty(account.TokenPair.RefreshToken))
+                await provider.RevokeTokenAsync(p.Parameters, UnprotectCredentials(credentials), ct);
+            await accountRepository.UpdateAccountTokensAsync(account.Id,
+                p.Parameters.SaveTokens ? ProtectCredentials(credentials) : new AccountCredentials(), ct);
         }
+
+        if (!p.Parameters.SaveTokens)
+            await provider.RevokeTokenAsync(p.Parameters, credentials, ct);
 
         return await GetCredentialsAsync(userId, ct);
     }
@@ -132,9 +137,19 @@ public class AuthorizationService(
         {
             if (account.UserId != userId)
                 throw new Exception("Account is already linked to another user");
-            if (p.Parameters.SaveTokens)
-                await accountRepository.UpdateAccountTokensAsync(account.Id, ProtectCredentials(credentials), ct);
+            if (!string.IsNullOrEmpty(account.TokenPair.RefreshToken))
+                await provider.RevokeTokenAsync(p.Parameters, UnprotectCredentials(credentials), ct);
+            await accountRepository.UpdateAccountTokensAsync(account.Id,
+                p.Parameters.SaveTokens ? ProtectCredentials(credentials) : new AccountCredentials(), ct);
         }
+
+        if (!p.Parameters.SaveTokens)
+            await provider.RevokeTokenAsync(p.Parameters, credentials, ct);
+    }
+
+    public async Task<bool> RevokeTokenAsync(string refreshToken, CancellationToken ct = default)
+    {
+        return await refreshTokenRepository.DeleteRefreshTokenAsync(refreshToken, ct);
     }
 
     private async Task<UserCredentials> GetCredentialsAsync(Guid userId, CancellationToken ct = default)
@@ -238,6 +253,17 @@ public class AuthorizationService(
             AccessToken = unprotected.AccessToken is null ? null : secretProtector.Protect(unprotected.AccessToken),
             RefreshToken = unprotected.RefreshToken is null ? null : secretProtector.Protect(unprotected.RefreshToken),
             ExpiresAt = unprotected.ExpiresAt,
+        };
+    }
+
+    private AccountCredentials UnprotectCredentials(AccountCredentials credentials)
+    {
+        return new AccountCredentials
+        {
+            AccessToken = credentials.AccessToken is null ? null : secretProtector.Unprotect(credentials.AccessToken),
+            RefreshToken =
+                credentials.RefreshToken is null ? null : secretProtector.Unprotect(credentials.RefreshToken),
+            ExpiresAt = credentials.ExpiresAt,
         };
     }
 }

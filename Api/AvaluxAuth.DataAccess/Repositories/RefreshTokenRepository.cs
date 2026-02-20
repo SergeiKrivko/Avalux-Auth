@@ -16,12 +16,13 @@ public class RefreshTokenRepository(AvaluxAuthDbContext dbContext) : IRefreshTok
         await dbContext.SaveChangesAsync(ct);
     }
 
-    public async Task DeleteRefreshTokenAsync(string refreshToken, CancellationToken ct = default)
+    public async Task<bool> DeleteRefreshTokenAsync(string refreshToken, CancellationToken ct = default)
     {
-        await dbContext.RefreshTokens
+        var count = await dbContext.RefreshTokens
             .Where(e => e.RefreshToken == refreshToken)
             .ExecuteDeleteAsync(ct);
         await dbContext.SaveChangesAsync(ct);
+        return count > 0;
     }
 
     public async Task<Guid?> ReplaceRefreshTokenAsync(string oldToken, string newToken, CancellationToken ct = default)

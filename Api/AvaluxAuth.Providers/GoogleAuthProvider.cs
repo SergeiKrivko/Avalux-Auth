@@ -43,8 +43,8 @@ public class GoogleAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         {
             { "client_id", config.ClientId },
             { "client_secret", config.ClientSecret },
-            { "code", queryParameters["code"] },
             { "grant_type", "authorization_code" },
+            { "code", queryParameters["code"] },
             { "redirect_uri", redirectUrl }
         });
 
@@ -60,10 +60,41 @@ public class GoogleAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         };
     }
 
-    public async Task<AccountCredentials> RefreshTokenAsync(ProviderParameters parameters, string refreshToken,
+    public async Task<AccountCredentials> RefreshTokenAsync(ProviderParameters config, string refreshToken,
         CancellationToken ct)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(config.ClientId);
+        ArgumentNullException.ThrowIfNull(config.ClientSecret);
+
+        var content = new FormUrlEncodedContent(new Dictionary<string, string?>
+        {
+            { "client_id", config.ClientId },
+            { "client_secret", config.ClientSecret },
+            { "grant_type", "authorization_code" },
+            { "refresh_token", refreshToken },
+        });
+
+        var response = await _httpClient.PostAsync("https://oauth2.googleapis.com/token", content, ct);
+        response.EnsureSuccessStatusCode();
+        var data = await response.Content.ReadFromJsonAsync<TokenResponse>(ct) ??
+                   throw new Exception("Invalid response");
+        return new AccountCredentials
+        {
+            AccessToken = data.AccessToken,
+            RefreshToken = data.RefreshToken,
+            ExpiresAt = DateTime.UtcNow.AddSeconds(data.ExpiresIn)
+        };
+    }
+
+    public async Task<bool> RevokeTokenAsync(ProviderParameters parameters, AccountCredentials credentials, CancellationToken ct = default)
+    {
+        var content = new FormUrlEncodedContent(new Dictionary<string, string?>
+        {
+            { "token", credentials.RefreshToken },
+        });
+
+        var response = await _httpClient.PostAsync("https://oauth2.googleapis.com/revoke", content, ct);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task<UserInfo> GetUserInfoAsync(AccountCredentials credentials, CancellationToken ct)

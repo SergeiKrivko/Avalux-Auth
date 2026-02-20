@@ -16,5 +16,8 @@ public interface IAuthProvider
     public Task<AccountCredentials> RefreshTokenAsync(ProviderParameters parameters, string refreshToken,
         CancellationToken ct);
 
+    public Task<bool> RevokeTokenAsync(ProviderParameters parameters, AccountCredentials credentials,
+        CancellationToken ct = default);
+
     public Task<UserInfo> GetUserInfoAsync(AccountCredentials credentials, CancellationToken ct);
 }

@@ -16,4 +16,5 @@ public interface IAuthorizationService
     public Task<UserCredentials> AuthorizeUserAsync(string code, CancellationToken ct = default);
     public Task LinkAccountAsync(Guid userId, string code, CancellationToken ct = default);
     public Task<UserCredentials?> RefreshTokenAsync(string refreshToken, CancellationToken ct = default);
+    public Task<bool> RevokeTokenAsync(string refreshToken, CancellationToken ct = default);
 }

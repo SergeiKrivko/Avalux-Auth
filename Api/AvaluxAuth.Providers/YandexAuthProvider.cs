@@ -64,10 +64,43 @@ public class YandexAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         [JsonPropertyName("expires_in")] public int ExpiresIn { get; set; }
     }
 
-    public async Task<AccountCredentials> RefreshTokenAsync(ProviderParameters parameters, string refreshToken,
+    public async Task<AccountCredentials> RefreshTokenAsync(ProviderParameters config, string refreshToken,
         CancellationToken ct)
     {
-        throw new NotImplementedException();
+        var content = new FormUrlEncodedContent(new Dictionary<string, string?>
+        {
+            { "grant_type", "refresh_token" },
+            { "refresh_token", refreshToken },
+            { "client_id", config.ClientId },
+            { "client_secret", config.ClientSecret },
+        });
+
+        var response = await _httpClient.PostAsync("https://oauth.yandex.com/token", content, ct);
+        response.EnsureSuccessStatusCode();
+
+        var data = await response.Content.ReadFromJsonAsync<TokenResponse>(ct);
+        if (data == null)
+            throw new Exception("Request failed");
+        return new AccountCredentials
+        {
+            AccessToken = data.AccessToken,
+            RefreshToken = data.RefreshToken,
+            ExpiresAt = DateTime.UtcNow.AddSeconds(data.ExpiresIn)
+        };
+    }
+
+    public async Task<bool> RevokeTokenAsync(ProviderParameters config, AccountCredentials credentials,
+        CancellationToken ct = default)
+    {
+        var content = new FormUrlEncodedContent(new Dictionary<string, string?>
+        {
+            { "refresh_token", credentials.RefreshToken },
+            { "client_id", config.ClientId },
+            { "client_secret", config.ClientSecret },
+        });
+
+        var response = await _httpClient.PostAsync("https://oauth.yandex.com/revoke_token", content, ct);
+        return response.IsSuccessStatusCode;
     }
 
     public async Task<UserInfo> GetUserInfoAsync(AccountCredentials credentials, CancellationToken ct)
