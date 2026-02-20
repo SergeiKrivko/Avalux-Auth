@@ -20,8 +20,8 @@ builder.Services.AddScoped<IProviderRepository, ProviderRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-builder.Services.AddSingleton<IStateRepository, InMemoryStateRepository>();
-builder.Services.AddSingleton<IAuthCodeRepository, InMemoryCodeRepository>();
+builder.Services.AddSingleton<IStateRepository, RedisStateRepository>();
+builder.Services.AddSingleton<IAuthCodeRepository, RedisCodeRepository>();
 builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 

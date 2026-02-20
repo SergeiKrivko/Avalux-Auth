@@ -13,4 +13,5 @@
     <File Path=".github/workflows/main.yml" />
     <File Path="Dockerfile" />
   </Folder>
+  <Project Path="AvaluxAuth.TestCli/AvaluxAuth.TestCli.csproj" />
 </Solution>
