@@ -42,6 +42,7 @@ async Task Run(object obj)
             if (credentials == null)
                 throw new Exception("Can not load credentials");
             credentials = await apiClient.RefreshToken(credentials);
+            await Utils.SaveCredentials(credentials);
             await apiClient.LinkAccount(code, o.ClientId, o.ClientSecret, credentials);
 
             var userInfo = await apiClient.GetUserInfo(credentials);

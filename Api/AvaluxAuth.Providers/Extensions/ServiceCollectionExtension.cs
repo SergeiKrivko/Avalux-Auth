@@ -15,11 +15,13 @@ public static class ServiceCollectionExtension
             serviceCollection.AddScoped<IAuthProvider, GoogleAuthProvider>();
             serviceCollection.AddScoped<IAuthProvider, GitHubAuthProvider>();
             serviceCollection.AddScoped<IAuthProvider, GitLabAuthProvider>();
+            serviceCollection.AddScoped<IAuthProvider, MicrosoftAuthProvider>();
 
             serviceCollection.AddHttpClient("yandex");
             serviceCollection.AddHttpClient("google");
             serviceCollection.AddHttpClient("github");
             serviceCollection.AddHttpClient("gitlab");
+            serviceCollection.AddHttpClient("microsoft");
 
             return serviceCollection;
         }
