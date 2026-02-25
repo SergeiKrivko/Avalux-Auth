@@ -9,7 +9,7 @@ import {
 } from './api-client';
 import {patchState, signalState} from '@ngrx/signals';
 import {toObservable} from '@angular/core/rxjs-interop';
-import {first, from, map, NEVER, Observable, switchMap, tap} from 'rxjs';
+import {first, map, NEVER, Observable, switchMap, tap} from 'rxjs';
 import moment from 'moment/moment';
 import {ApplicationService} from './application.service';
 
@@ -106,9 +106,21 @@ export class ProviderService {
             clientName: parameters.clientName,
             clientId: parameters.clientId,
             clientSecret: parameters.clientSecret,
+            providerUrl: parameters.providerUrl,
             saveTokens: parameters.saveTokens,
             defaultScope: parameters.defaultScope,
           }));
+        return NEVER;
+      }),
+    );
+  }
+
+  deleteProvider(id: string) {
+    return this.applicationService.selectedApplication$.pipe(
+      first(),
+      switchMap(app => {
+        if (app)
+          return this.apiClient.providersDELETE(app.id, id);
         return NEVER;
       }),
     );
@@ -126,6 +138,7 @@ const providerToEntity = (provider: Provider): ProviderEntity => {
       clientName: provider.parameters.clientName,
       clientId: provider.parameters.clientId,
       clientSecret: provider.parameters.clientSecret,
+      providerUrl: provider.parameters.providerUrl,
       saveTokens: provider.parameters.saveTokens ?? false,
       defaultScope: provider.parameters.defaultScope ?? [],
     },
@@ -141,6 +154,7 @@ const providerInfoToEntity = (provider: ProviderInfo): ProviderInfoEntity => {
     id: provider.id,
     key: provider.key ?? "",
     name: provider.name ?? "",
+    fields: provider.fields ?? [],
     url: provider.url,
   }
 }

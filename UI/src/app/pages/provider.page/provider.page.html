@@ -10,20 +10,33 @@
   }
 
   <form class="grid-container" [formGroup]="control">
-    <label tuiLabel class="label">Client name:</label>
-    <tui-textfield class="value">
-      <input tuiTextfield formControlName="clientName"/>
-    </tui-textfield>
+    @if (providerInfo?.fields?.includes('ClientName')) {
+      <label tuiLabel class="label">Client name:</label>
+      <tui-textfield class="value">
+        <input tuiTextfield formControlName="clientName"/>
+      </tui-textfield>
+    }
 
-    <label tuiLabel class="label">Client ID:</label>
-    <tui-textfield class="value">
-      <input tuiTextfield formControlName="clientId"/>
-    </tui-textfield>
+    @if (providerInfo?.fields?.includes('ClientId')) {
+      <label tuiLabel class="label">Client ID:</label>
+      <tui-textfield class="value">
+        <input tuiTextfield formControlName="clientId"/>
+      </tui-textfield>
+    }
 
-    <label tuiLabel class="label">Client Secret:</label>
-    <tui-textfield class="value">
-      <input tuiTextfield formControlName="clientSecret"/>
-    </tui-textfield>
+    @if (providerInfo?.fields?.includes('ClientSecret')) {
+      <label tuiLabel class="label">Client Secret:</label>
+      <tui-textfield class="value">
+        <input tuiTextfield formControlName="clientSecret"/>
+      </tui-textfield>
+    }
+
+    @if (providerInfo?.fields?.includes('ProviderUrl')) {
+      <label tuiLabel class="label">URL провайдера:</label>
+      <tui-textfield class="value">
+        <input tuiTextfield formControlName="providerUrl"/>
+      </tui-textfield>
+    }
 
     <label tuiLabel class="label">Сохранять токены:</label>
     <input tuiSwitch type="checkbox" formControlName="saveTokens"/>
@@ -32,5 +45,11 @@
     <app-input-string-array formControlName="defaultScope"/>
 
   </form>
-  <button tuiButton iconStart="@tui.save" (click)="saveChanges()" [loading]="isSaving | async">Сохранить</button>
+  <div class="buttons-container">
+    <button tuiButton iconStart="@tui.save" (click)="saveChanges()" [loading]="isSaving | async">Сохранить</button>
+    <button tuiButton iconStart="@tui.ban" (click)="deleteProvider()" [loading]="isSaving | async"
+            appearance="flat-destructive">
+      Отключить
+    </button>
+  </div>
 </div>
