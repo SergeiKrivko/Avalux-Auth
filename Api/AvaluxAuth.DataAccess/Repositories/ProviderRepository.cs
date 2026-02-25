@@ -15,7 +15,8 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
         return res is null ? null : FromEntity(res);
     }
 
-    public async Task<Provider?> GetProviderByProviderIdAsync(Guid applicationId, int id, CancellationToken ct = default)
+    public async Task<Provider?> GetProviderByProviderIdAsync(Guid applicationId, int id,
+        CancellationToken ct = default)
     {
         var res = await dbContext.Providers
             .Where(x => x.ApplicationId == applicationId && x.ProviderId == id && x.DeletedAt == null)
@@ -44,6 +45,7 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
             ClientName = provider.ClientName,
             ClientId = provider.ClientId,
             ClientSecret = provider.ClientSecret,
+            ProviderUrl = provider.ProviderUrl,
             SaveTokens = provider.SaveTokens,
 
             CreatedAt = DateTime.UtcNow,
@@ -63,6 +65,7 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
                 x.SetProperty(e => e.ClientName, provider.ClientName);
                 x.SetProperty(e => e.ClientId, provider.ClientId);
                 x.SetProperty(e => e.ClientSecret, provider.ClientSecret);
+                x.SetProperty(e => e.ProviderUrl, provider.ProviderUrl);
                 x.SetProperty(e => e.SaveTokens, provider.SaveTokens);
                 x.SetProperty(e => e.DefaultScope, provider.DefaultScope);
             }, ct);
@@ -74,10 +77,10 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
     {
         var count = await dbContext.Providers
             .Where(x => x.Id == id && x.DeletedAt == null)
-            .ExecuteUpdateAsync(x =>
-            {
-                x.SetProperty(e => e.DeletedAt, DateTime.UtcNow);
-            }, ct);
+            .ExecuteUpdateAsync(x => { x.SetProperty(e => e.DeletedAt, DateTime.UtcNow); }, ct);
+        await dbContext.Accounts
+            .Where(x => x.ProviderId == id && x.DeletedAt == null)
+            .ExecuteUpdateAsync(x => { x.SetProperty(e => e.DeletedAt, DateTime.UtcNow); }, ct);
         await dbContext.SaveChangesAsync(ct);
         return count > 0;
     }
@@ -94,6 +97,7 @@ public class ProviderRepository(AvaluxAuthDbContext dbContext) : IProviderReposi
                 ClientName = entity.ClientName,
                 ClientId = entity.ClientId,
                 ClientSecret = entity.ClientSecret,
+                ProviderUrl = entity.ProviderUrl,
                 SaveTokens = entity.SaveTokens,
                 DefaultScope = entity.DefaultScope,
             },

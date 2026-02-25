@@ -11,6 +11,7 @@ internal class ProviderEntity
     [MaxLength(100)] public string? ClientName { get; init; }
     [MaxLength(100)] public string? ClientId { get; init; }
     [MaxLength(100)] public string? ClientSecret { get; init; }
+    [MaxLength(100)] public string? ProviderUrl { get; init; }
     public bool SaveTokens { get; init; }
     public string[] DefaultScope { get; init; } = [];
 

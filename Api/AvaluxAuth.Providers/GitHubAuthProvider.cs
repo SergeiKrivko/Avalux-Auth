@@ -15,6 +15,13 @@ public class GitHubAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
     public int Id => 3;
     public string ProviderUrl => "https://github.com/settings/developers";
 
+    public string[] Fields =>
+    [
+        nameof(ProviderParameters.ClientName),
+        nameof(ProviderParameters.ClientId),
+        nameof(ProviderParameters.ClientSecret),
+    ];
+
     public string GetAuthUrl(ProviderParameters config, string redirectUrl, string state)
     {
         ArgumentNullException.ThrowIfNull(config.ClientId);

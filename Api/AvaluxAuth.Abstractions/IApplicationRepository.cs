@@ -14,5 +14,7 @@ public interface IApplicationRepository
     public Task<bool> UpdateApplicationAsync(Guid applicationId, ApplicationParameters parameters,
         CancellationToken ct = default);
 
+    public Task<bool> UpdateClientSecretAsync(Guid applicationId, string clientSecret, CancellationToken ct = default);
+
     public Task<bool> DeleteApplicationAsync(Guid applicationId, CancellationToken ct = default);
 }

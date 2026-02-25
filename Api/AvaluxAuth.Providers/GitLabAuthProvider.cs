@@ -9,16 +9,20 @@ namespace AvaluxAuth.Providers;
 public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvider
 {
     private readonly HttpClient _httpClient = clientFactory.CreateClient("gitlab");
-    private readonly string _gitLabUrl = "https://gitlab.com";
-    private readonly string _apiVersion = DefaultApiVersion;
 
-    // Версия API GitLab по умолчанию
     private const string DefaultApiVersion = "v4";
 
     public string Name => "GitLab";
     public string Key => "gitlab";
     public int Id => 4;
-    public string? ProviderUrl => _gitLabUrl;
+    public string ProviderUrl => "https://gitlab.com/-/user_settings/applications";
+
+    public string[] Fields =>
+    [
+        nameof(ProviderParameters.ClientId),
+        nameof(ProviderParameters.ClientSecret),
+        nameof(ProviderParameters.ProviderUrl)
+    ];
 
     public string GetAuthUrl(ProviderParameters parameters, string redirectUrl, string state)
     {
@@ -34,7 +38,7 @@ public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvide
             ["scope"] = FormatScope(parameters.DefaultScope)
         };
 
-        return BuildUrl($"{_gitLabUrl}/oauth/authorize", queryParams);
+        return BuildUrl($"{parameters.ProviderUrl}/oauth/authorize", queryParams);
     }
 
     public async Task<AccountCredentials> GetTokenAsync(
@@ -70,7 +74,7 @@ public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvide
         try
         {
             var response = await _httpClient.PostAsync(
-                $"{_gitLabUrl}/oauth/token",
+                $"{parameters.ProviderUrl}/oauth/token",
                 new FormUrlEncodedContent(requestParams),
                 ct);
 
@@ -126,7 +130,7 @@ public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvide
         };
 
         var response = await _httpClient.PostAsync(
-            $"{_gitLabUrl}/oauth/token",
+            $"{parameters.ProviderUrl}/oauth/token",
             new FormUrlEncodedContent(requestParams),
             ct);
 
@@ -176,7 +180,7 @@ public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvide
                 requestParams["client_secret"] = parameters.ClientSecret;
 
             var response = await _httpClient.PostAsync(
-                $"{_gitLabUrl}/oauth/revoke",
+                $"{parameters.ProviderUrl}/oauth/revoke",
                 new FormUrlEncodedContent(requestParams),
                 ct);
 
@@ -199,7 +203,8 @@ public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvide
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{_gitLabUrl}/api/{_apiVersion}/user");
+            var request =
+                new HttpRequestMessage(HttpMethod.Get, $"{parameters.ProviderUrl}/api/{DefaultApiVersion}/user");
             request.Headers.Add("Authorization", $"Bearer {credentials.AccessToken}");
 
             var response = await _httpClient.SendAsync(request, ct);

@@ -64,6 +64,18 @@ public class ApplicationRepository(AvaluxAuthDbContext dbContext) : IApplication
         return count > 0;
     }
 
+    public async Task<bool> UpdateClientSecretAsync(Guid applicationId, string clientSecret, CancellationToken ct = default)
+    {
+        var count = await dbContext.Applications
+            .Where(a => a.Id == applicationId && a.DeletedAt == null)
+            .ExecuteUpdateAsync(a =>
+            {
+                a.SetProperty(x => x.ClientSecret, clientSecret);
+            }, ct);
+        await dbContext.SaveChangesAsync(ct);
+        return count > 0;
+    }
+
     public async Task<bool> DeleteApplicationAsync(Guid applicationId, CancellationToken ct = default)
     {
         var count = await dbContext.Applications

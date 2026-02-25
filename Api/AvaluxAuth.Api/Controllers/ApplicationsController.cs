@@ -64,4 +64,12 @@ public class ApplicationsController(
             return NotFound();
         return Ok();
     }
+
+    [HttpDelete("{applicationId:guid}/clientSecret")]
+    [Authorize(Policy = Config.AdminPolicy)]
+    public async Task<ActionResult<string>> RecreateClientSecret(Guid applicationId, CancellationToken ct)
+    {
+        var res = await applicationService.RecreateClientSecretAsync(applicationId, ct);
+        return Ok(res);
+    }
 }

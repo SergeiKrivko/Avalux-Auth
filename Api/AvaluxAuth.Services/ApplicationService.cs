@@ -14,4 +14,11 @@ public class ApplicationService(IApplicationRepository applicationRepository) : 
         var clientSecret = rn.RandomString();
         return await applicationRepository.CreateApplicationAsync(parameters, clientId, clientSecret, ct);
     }
+
+    public async Task<string> RecreateClientSecretAsync(Guid applicationId, CancellationToken ct = default)
+    {
+        var clientSecret = RandomNumberGenerator.GetRandomString();
+        await applicationRepository.UpdateClientSecretAsync(applicationId, clientSecret, ct);
+        return clientSecret;
+    }
 }
