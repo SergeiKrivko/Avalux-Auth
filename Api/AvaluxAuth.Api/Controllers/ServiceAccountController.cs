@@ -1,4 +1,5 @@
 ﻿using AvaluxAuth.Abstractions;
+using AvaluxAuth.Api.Schemas;
 using AvaluxAuth.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -15,10 +16,11 @@ public class ServiceAccountController(
     IUserRepository userRepository,
     IUserService userService,
     IProviderRepository providerRepository,
-    IProviderFactory providerFactory) : ControllerBase
+    IProviderFactory providerFactory,
+    IEnumerable<IAuthProvider> authProviders) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<UserWithAccounts>>> GetUsers([FromQuery] string? username = null,
+    public async Task<ActionResult<IEnumerable<UserInfoResponseSchema>>> GetUsers([FromQuery] string? username = null,
         [FromQuery] string? email = null,
         [FromQuery] string? provider = null,
         [FromQuery] int page = 0,
@@ -37,11 +39,16 @@ public class ServiceAccountController(
 
         var users = await userRepository.SearchUsersAsync(applicationId, username, email, p?.Id, page, limit,
             ct);
-        return Ok(users);
+        var lst = new List<UserInfoResponseSchema>();
+        foreach (var user in users)
+        {
+            lst.Add(await ConvertUser(user, ct));
+        }
+        return Ok(lst);
     }
 
     [HttpGet("{userId:guid}")]
-    public async Task<ActionResult<UserWithAccounts>> GetUser(Guid userId, CancellationToken ct)
+    public async Task<ActionResult<UserInfoResponseSchema>> GetUser(Guid userId, CancellationToken ct)
     {
         if (!User.HasPermission(TokenPermission.ReadUserInfo))
             return Unauthorized();
@@ -50,11 +57,29 @@ public class ServiceAccountController(
             return Unauthorized();
         if (user == null)
             return NotFound();
-        return Ok(user);
+        return Ok(await ConvertUser(user, ct));
+    }
+
+    private async Task<UserInfoResponseSchema> ConvertUser(UserWithAccounts user, CancellationToken ct = default)
+    {
+        var providers = await providerRepository.GetAllProvidersAsync(user.ApplicationId, ct);
+        return new UserInfoResponseSchema
+        {
+            Id = user.Id,
+            Accounts = user.Accounts.Select(account => new AccountInfoSchema
+            {
+                Provider = authProviders.First(p => p.Id == providers.First(x => x.Id == account.ProviderId).ProviderId)
+                    .Key,
+                Id = account.UserInfo.Id,
+                Name = account.UserInfo.Name,
+                Email = account.UserInfo.Email,
+                AvatarUrl = account.UserInfo.AvatarUrl,
+            }).ToArray(),
+        };
     }
 
     [HttpGet("{userId:guid}/accessToken")]
-    public async Task<ActionResult<UserWithAccounts>> GetUserAccessToken(Guid userId,
+    public async Task<ActionResult<AccountCredentials>> GetUserAccessToken(Guid userId,
         [FromQuery] Guid? providerId, [FromQuery] string? providerKey,
         CancellationToken ct)
     {
