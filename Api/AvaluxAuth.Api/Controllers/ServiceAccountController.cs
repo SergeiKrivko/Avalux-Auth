@@ -11,15 +11,32 @@ namespace AvaluxAuth.Api.Controllers;
 [Route("api/v1/service/users")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.ServiceAccountPolicy)]
 [EnableCors(PolicyName = Config.AdminPolicy)]
-public class ServiceAccountController(IUserRepository userRepository, IUserService userService) : ControllerBase
+public class ServiceAccountController(
+    IUserRepository userRepository,
+    IUserService userService,
+    IProviderRepository providerRepository,
+    IProviderFactory providerFactory) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<UserWithAccounts>>> GetUsers(CancellationToken ct = default)
+    public async Task<ActionResult<IEnumerable<UserWithAccounts>>> GetUsers([FromQuery] string? username = null,
+        [FromQuery] string? email = null,
+        [FromQuery] string? provider = null,
+        [FromQuery] int page = 0,
+        [FromQuery] int? limit = null,
+        CancellationToken ct = default)
     {
         if (!User.HasPermission(TokenPermission.SearchUsers))
             return Unauthorized();
         var applicationId = User.ApplicationId;
-        var users = await userRepository.GetUsersAsync(applicationId, ct);
+
+        Provider? p = null;
+        if (provider != null && providerFactory.TryGetProvider(provider, out var authProvider))
+        {
+            p = await providerRepository.GetProviderByProviderIdAsync(applicationId, authProvider.Id, ct);
+        }
+
+        var users = await userRepository.SearchUsersAsync(applicationId, username, email, p?.Id, page, limit,
+            ct);
         return Ok(users);
     }
 

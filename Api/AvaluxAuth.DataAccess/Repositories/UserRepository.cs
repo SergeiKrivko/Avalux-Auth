@@ -55,7 +55,8 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
         return users.Select(FromEntityWithAccounts);
     }
 
-    public async Task<IEnumerable<UserWithAccounts>> GetUsersAsync(Guid applicationId, int page, int limit, CancellationToken ct = default)
+    public async Task<IEnumerable<UserWithAccounts>> GetUsersAsync(Guid applicationId, int page, int limit,
+        CancellationToken ct = default)
     {
         var users = await dbContext.Users
             .Where(x => x.ApplicationId == applicationId && x.DeletedAt == null)
@@ -71,6 +72,49 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
         return await dbContext.Users
             .Where(x => x.ApplicationId == applicationId && x.DeletedAt == null)
             .CountAsync(ct);
+    }
+
+    public async Task<IEnumerable<UserWithAccounts>> SearchUsersAsync(Guid applicationId, string? username,
+        string? email, Guid? providerId, int page, int? limit,
+        CancellationToken ct = default)
+    {
+        var query = dbContext.Accounts
+            .Include(e => e.User)
+            .Where(e => e.User.ApplicationId == applicationId && e.DeletedAt == null);
+        if (username != null)
+            query = query.Where(e => e.Name != null && e.Name.StartsWith(username));
+        if (email != null)
+            query = query.Where(e => e.Email != null && e.Email.StartsWith(email));
+        if (providerId != null)
+            query = query.Where(e => e.ProviderId == providerId.Value);
+        if (limit != null)
+            query = query.Take(limit.Value).Skip(page * limit.Value);
+        var result = await query
+            .GroupBy(e => e.UserId)
+            .ToListAsync(ct);
+        return result.Select(r =>
+        {
+            var accounts = r.ToList();
+            var user = accounts[0].User;
+            return new UserWithAccounts
+            {
+                Id = user.Id,
+                ApplicationId = user.ApplicationId,
+                CreatedAt = user.CreatedAt,
+                DeletedAt = user.DeletedAt,
+                Accounts = accounts.Select(e => new AccountInfo
+                {
+                    ProviderId = e.ProviderId,
+                    UserInfo = new UserInfo
+                    {
+                        Id = e.ProviderUserId,
+                        Name = e.Name,
+                        Email = e.Email,
+                        AvatarUrl = e.AvatarUrl,
+                    }
+                }).ToArray(),
+            };
+        });
     }
 
     private static User FromEntity(UserEntity entity)
