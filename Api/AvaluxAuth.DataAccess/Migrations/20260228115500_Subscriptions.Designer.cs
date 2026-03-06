@@ -3,6 +3,7 @@ using System;
 using AvaluxAuth.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AvaluxAuth.DataAccess.Migrations
 {
     [DbContext(typeof(AvaluxAuthDbContext))]
-    partial class AvaluxAuthDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260228115500_Subscriptions")]
+    partial class Subscriptions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -224,6 +227,38 @@ namespace AvaluxAuth.DataAccess.Migrations
                     b.ToTable("SigningKeys");
                 });
 
+            modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.SubscriptionOfferEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlanId");
+
+                    b.ToTable("SubscriptionOffers");
+                });
+
             modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.SubscriptionPlanEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -241,13 +276,11 @@ namespace AvaluxAuth.DataAccess.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)");
+                        .HasColumnType("text");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsDefault")
                         .ValueGeneratedOnAdd()
@@ -261,16 +294,7 @@ namespace AvaluxAuth.DataAccess.Migrations
 
                     b.Property<string>("Key")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<decimal>("PriceAmount")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("PriceCurrency")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -375,6 +399,17 @@ namespace AvaluxAuth.DataAccess.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.SubscriptionOfferEntity", b =>
+                {
+                    b.HasOne("AvaluxAuth.DataAccess.Entities.SubscriptionPlanEntity", "Plan")
+                        .WithMany("Offers")
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Plan");
+                });
+
             modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.SubscriptionPlanEntity", b =>
                 {
                     b.HasOne("AvaluxAuth.DataAccess.Entities.ApplicationEntity", "Application")
@@ -420,6 +455,11 @@ namespace AvaluxAuth.DataAccess.Migrations
             modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.ProviderEntity", b =>
                 {
                     b.Navigation("Accounts");
+                });
+
+            modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.SubscriptionPlanEntity", b =>
+                {
+                    b.Navigation("Offers");
                 });
 
             modelBuilder.Entity("AvaluxAuth.DataAccess.Entities.UserEntity", b =>

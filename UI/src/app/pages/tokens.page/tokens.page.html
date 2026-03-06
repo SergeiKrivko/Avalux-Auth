@@ -7,14 +7,16 @@
       <div class="card-container">
         <div class="info-container">
           <h3>{{ token.name }}</h3>
-          <div class="permissions-container">
-            @for (p of token.permissions; track p) {
-              <tui-badge *tuiLet="p | permissionInfo | async as permission"
-                         [tuiHint]="permission?.description">
-                {{ permission?.key }}
-              </tui-badge>
-            }
-          </div>
+          <tui-scrollbar>
+            <div class="permissions-container">
+              @for (p of token.permissions; track p) {
+                <tui-badge *tuiLet="p | permissionInfo | async as permission"
+                           [tuiHint]="permission?.description">
+                  {{ permission?.key }}
+                </tui-badge>
+              }
+            </div>
+          </tui-scrollbar>
         </div>
         <label>До {{ token.expiresAt | formatDate }}</label>
         @if (!(token.expiresAt | dateIsFuture)) {

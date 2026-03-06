@@ -1,7 +1,7 @@
 import {ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit} from '@angular/core';
 import {TokenService} from '../../services/token.service';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {TuiButton, tuiDialog, TuiDialogService, TuiHint} from '@taiga-ui/core';
+import {TuiButton, tuiDialog, TuiDialogService, TuiHint, TuiScrollbar} from '@taiga-ui/core';
 import {AsyncPipe} from '@angular/common';
 import {TuiCardLarge} from '@taiga-ui/layout';
 import {FormatDatePipe} from '../../pipes/format-date-pipe';
@@ -29,7 +29,8 @@ import moment from 'moment';
     DateIsFuturePipe,
     DateIsSoonPipe,
     TuiLet,
-    PermissionInfoPipe
+    PermissionInfoPipe,
+    TuiScrollbar
   ],
   templateUrl: './tokens.page.html',
   styleUrl: './tokens.page.scss',

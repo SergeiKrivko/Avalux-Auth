@@ -1,0 +1,13 @@
+<form [formGroup]="control">
+  <div tuiGroup class="container">
+    <tui-textfield class="input-amount">
+      <input placeholder="Значение" tuiTextfield formControlName="amount"/>
+    </tui-textfield>
+    <tui-textfield tuiChevron tuiTextfieldSize="m" [tuiTextfieldCleaner]="false"
+                   [stringify]="stringify" class="input-currency">
+      <input tuiSelect formControlName="currency"/>
+      <tui-data-list-wrapper *tuiTextfieldDropdown new [items]="currencies"/>
+    </tui-textfield>
+  </div>
+
+</form>

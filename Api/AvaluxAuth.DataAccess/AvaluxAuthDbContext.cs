@@ -12,6 +12,7 @@ public class AvaluxAuthDbContext : DbContext
     internal DbSet<RefreshTokenEntity> RefreshTokens { get; init; }
     internal DbSet<TokenEntity> Tokens { get; init; }
     internal DbSet<SigningKeyEntity> SigningKeys { get; init; }
+    internal DbSet<SubscriptionPlanEntity> SubscriptionPlans { get; init; }
 
     public AvaluxAuthDbContext(DbContextOptions<AvaluxAuthDbContext> options) : base(options)
     {

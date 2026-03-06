@@ -1,0 +1,43 @@
+<div class="container" *tuiLet="selectedPlan$ | async as plan">
+  <a tuiButton routerLink="../" iconStart="@tui.chevron-left" appearance="flat">Назад</a>
+
+  <form class="grid-container" [formGroup]="control">
+
+    <label tuiLabel class="label">Key:</label>
+    <tui-textfield class="value">
+      <input tuiTextfield formControlName="key"/>
+    </tui-textfield>
+
+    <label tuiLabel class="label">Название:</label>
+    <tui-textfield class="value">
+      <input tuiTextfield formControlName="displayName"/>
+    </tui-textfield>
+
+    <label tuiLabel class="label">Описание:</label>
+    <tui-textfield class="value">
+      <textarea tuiTextarea formControlName="description"></textarea>
+    </tui-textfield>
+
+    <label tuiLabel class="label">Преимущества:</label>
+    <app-input-string-array formControlName="advantages"/>
+
+    <label tuiLabel class="label">Скрытая подписка:</label>
+    <input tuiSwitch type="checkbox" formControlName="isHidden"/>
+
+    <label tuiLabel class="label">Подписка по умолчанию:</label>
+    <input tuiSwitch type="checkbox" formControlName="isDefault"/>
+
+    <label tuiLabel class="label">Стоимость за 1 день:</label>
+    <app-input-money formControlName="price"/>
+
+  </form>
+  <div class="buttons-container">
+    @if (isNew) {
+      <button tuiButton iconStart="@tui.save" (click)="createSubscription()" [loading]="isSaving | async">Создать
+      </button>
+    } @else {
+      <button tuiButton iconStart="@tui.save" (click)="updateSubscription()" [loading]="isSaving | async">Сохранить
+      </button>
+    }
+  </div>
+</div>

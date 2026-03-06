@@ -8,6 +8,8 @@ import {ApplicationProvidersPage} from './pages/application-providers.page/appli
 import {ProviderPage} from './pages/provider.page/provider.page';
 import {UsersPage} from './pages/users.page/users.page';
 import {TokensPage} from './pages/tokens.page/tokens.page';
+import {ApplicationSubscriptionsPage} from './pages/application-subscriptions.page/application-subscriptions.page';
+import {SubscriptionPage} from './pages/subscription.page/subscription.page';
 
 export const routes: Routes = [
   {
@@ -19,6 +21,8 @@ export const routes: Routes = [
           {path: "providers", component: ApplicationProvidersPage},
           {path: "providers/:providerId", component: ProviderPage},
           {path: "tokens", component: TokensPage},
+          {path: "subscriptions", component: ApplicationSubscriptionsPage},
+          {path: "subscriptions/:planId", component: SubscriptionPage},
           {path: "users", component: UsersPage},
         ]
       }

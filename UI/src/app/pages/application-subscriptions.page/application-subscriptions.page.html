@@ -1,0 +1,25 @@
+<div class="container">
+  <a tuiButton iconStart="@tui.plus" routerLink="./new">Добавить</a>
+  <tui-scrollbar>
+    <div class="plans-container">
+      @for (plan of plans$ | async; track plan.id) {
+        <div tuiCardLarge class="plan-card">
+          <h2>{{ plan.info.displayName }}</h2>
+          <tui-scrollbar class="description">
+            <p>{{ plan.info.description }}</p>
+          </tui-scrollbar>
+          <tui-scrollbar class="advantages-scroll">
+            <ul class="tui-list tui-list_large">
+              @for (advantage of plan.info.advantages; track advantage) {
+                <li class="tui-list__item">{{ advantage }}</li>
+              }
+            </ul>
+          </tui-scrollbar>
+          <label tuiLabel><b>{{ plan.info.price.amount }}</b> {{ plan.info.price.currency | currencySymbol }} /
+            день</label>
+          <a tuiButton [routerLink]="'./' + plan.id">Настроить</a>
+        </div>
+      }
+    </div>
+  </tui-scrollbar>
+</div>

@@ -1,0 +1,20 @@
+import {Duration, Moment} from 'moment';
+import {MoneyEntity} from './money-entity';
+
+export interface SubscriptionPlanEntity {
+  id: string;
+  applicationId: string;
+  info: SubscriptionPlanInfoEntity;
+  createdAt?: Moment;
+}
+
+export interface SubscriptionPlanInfoEntity {
+  key: string;
+  displayName?: string;
+  description?: string;
+  advantages: string[];
+  isHidden: boolean;
+  isDefault: boolean;
+  price: MoneyEntity,
+}
+
