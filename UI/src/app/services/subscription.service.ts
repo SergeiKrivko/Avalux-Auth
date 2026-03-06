@@ -4,10 +4,11 @@ import {
   SubscriptionPlanInfoEntity
 } from '../entities/subscription-entity';
 import {
+  AddSubscriptionRequestSchema,
   ApiClient,
   SubscriptionPlan, SubscriptionPlanInfo
 } from './api-client';
-import {duration} from 'moment';
+import {Moment} from 'moment';
 import {ApplicationService} from './application.service';
 import {patchState, signalState} from '@ngrx/signals';
 import {toObservable} from '@angular/core/rxjs-interop';
@@ -58,7 +59,7 @@ export class SubscriptionService {
           return this.apiClient.subscriptionsPOST(application.id, SubscriptionPlanInfo.fromJS(info));
         return NEVER;
       }),
-      switchMap(token => this.loadPlans()),
+      switchMap(_ => this.loadPlans()),
     );
   }
 
@@ -84,6 +85,20 @@ export class SubscriptionService {
           return false;
         patchState(this.store$$, {selectedPlan: plan});
         return true;
+      }),
+    );
+  }
+
+  giveSubscription(userId: string, planId: string, expiresAt: Moment) {
+    return this.applicationService.selectedApplication$.pipe(
+      first(),
+      switchMap(app => {
+        if (!app)
+          return NEVER;
+        return this.apiClient.subscriptionsPOST2(app.id, userId, AddSubscriptionRequestSchema.fromJS({
+          planId,
+          expiresAt
+        }));
       }),
     );
   }

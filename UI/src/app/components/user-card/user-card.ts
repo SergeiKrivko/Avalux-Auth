@@ -2,9 +2,9 @@ import {ChangeDetectionStrategy, Component, DestroyRef, inject, input, OnInit} f
 import {UserEntity} from '../../entities/user-entity';
 import {ProviderService} from '../../services/provider.service';
 import {map, tap} from 'rxjs';
-import {TuiButton, TuiTextfield} from '@taiga-ui/core';
+import {TuiButton, tuiDialog, TuiHint, TuiTextfield} from '@taiga-ui/core';
 import {TuiCard} from '@taiga-ui/layout';
-import {TuiAvatar, TuiChevron, TuiCopy, TuiDataListWrapper, TuiSelect} from '@taiga-ui/kit';
+import {TuiAvatar, TuiBadge, TuiChevron, TuiCopy, TuiDataListWrapper, TuiSelect} from '@taiga-ui/kit';
 import {AsyncPipe} from '@angular/common';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {ProviderEntity} from '../../entities/provider-entity';
@@ -13,6 +13,9 @@ import {TuiLet} from '@taiga-ui/cdk';
 import {takeUntilDestroyed, toObservable} from '@angular/core/rxjs-interop';
 import {patchState, signalState} from '@ngrx/signals';
 import {UserService} from '../../services/user.service';
+import {SubscriptionPlanByIdPipe} from '../../pipes/subscription-plan-by-id-pipe';
+import {GiveSubscriptionDialog} from '../give-subscription-dialog/give-subscription-dialog.component';
+import {FormatDatePipe} from '../../pipes/format-date-pipe';
 
 interface Store {
   provider: ProviderEntity | null;
@@ -32,7 +35,11 @@ interface Store {
     TuiLet,
     TuiCopy,
     TuiAvatar,
-    TuiButton
+    TuiButton,
+    TuiBadge,
+    SubscriptionPlanByIdPipe,
+    TuiHint,
+    FormatDatePipe
   ],
   templateUrl: './user-card.html',
   styleUrl: './user-card.scss',
@@ -80,5 +87,14 @@ export class UserCard implements OnInit {
     this.userService.deleteUser(this.user().id).pipe(
       takeUntilDestroyed(this.destroyRef),
     ).subscribe();
+  }
+
+  private readonly giveSubscriptionDialog = tuiDialog(GiveSubscriptionDialog, {
+    dismissible: false,
+    label: 'Выдача подписки',
+  });
+
+  protected giveSubscription() {
+    this.giveSubscriptionDialog(this.user().id).subscribe();
   }
 }

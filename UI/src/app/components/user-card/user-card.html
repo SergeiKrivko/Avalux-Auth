@@ -20,6 +20,21 @@
       <tui-copy>{{ account?.email }}</tui-copy>
     </div>
   </div>
+  <div class="subscriptions-container">
+    @if (user().subscriptions.length == 0) {
+      <label tuiLabel>Нет подписок</label>
+    } @else {
+      <label tuiLabel>Подписки:</label>
+      @for (subscription of user().subscriptions; track subscription.id) {
+        @let plan = subscription.planId | subscriptionPlanById | async;
+        <tui-badge [tuiHint]="planInfoTooltip">{{ plan?.info?.displayName }}</tui-badge>
+        <ng-template #planInfoTooltip>
+          <label tuiLabel>Действует до <b>{{ subscription.expiresAt | formatDate }}</b></label>
+        </ng-template>
+      }
+    }
+    <button tuiButton iconStart="@tui.plus" size="m" appearance="flat" (click)="giveSubscription()">Добавить</button>
+  </div>
 </div>
 
 <ng-template

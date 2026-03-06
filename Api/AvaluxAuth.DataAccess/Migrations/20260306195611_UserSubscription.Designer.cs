@@ -3,6 +3,7 @@ using System;
 using AvaluxAuth.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AvaluxAuth.DataAccess.Migrations
 {
     [DbContext(typeof(AvaluxAuthDbContext))]
-    partial class AvaluxAuthDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306195611_UserSubscription")]
+    partial class UserSubscription
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -354,8 +357,6 @@ namespace AvaluxAuth.DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PlanId");
-
                     b.HasIndex("UserId");
 
                     b.ToTable("UserSubscriptions");
@@ -439,7 +440,7 @@ namespace AvaluxAuth.DataAccess.Migrations
                 {
                     b.HasOne("AvaluxAuth.DataAccess.Entities.SubscriptionPlanEntity", "Plan")
                         .WithMany("Subscriptions")
-                        .HasForeignKey("PlanId")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

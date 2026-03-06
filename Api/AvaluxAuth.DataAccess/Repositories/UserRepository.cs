@@ -20,6 +20,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
         var res = await dbContext.Users
             .Where(x => x.Id == userId && x.DeletedAt == null)
             .Include(x => x.Accounts)
+            .Include(e => e.Subscriptions)
             .FirstOrDefaultAsync(ct);
         return res is null ? null : FromEntityWithAccounts(res);
     }
@@ -51,6 +52,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
         var users = await dbContext.Users
             .Where(x => x.ApplicationId == applicationId && x.DeletedAt == null)
             .Include(e => e.Accounts)
+            .Include(e => e.Subscriptions)
             .ToListAsync(ct);
         return users.Select(FromEntityWithAccounts);
     }
@@ -63,6 +65,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
             .Skip(page * limit)
             .Take(limit)
             .Include(e => e.Accounts)
+            .Include(e => e.Subscriptions)
             .ToListAsync(ct);
         return users.Select(FromEntityWithAccounts);
     }
@@ -147,6 +150,16 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
                     AvatarUrl = e.AvatarUrl,
                 }
             }).ToArray(),
+            Subscriptions = entity.Subscriptions
+                .Where(e => e.ExpiresAt > DateTime.UtcNow)
+                .Select(e => new UserSubscription
+                {
+                    Id = e.Id,
+                    PlanId = e.PlanId,
+                    UserId = e.UserId,
+                    CreatedAt = e.CreatedAt,
+                    ExpiresAt = e.ExpiresAt,
+                }).ToArray(),
         };
     }
 }

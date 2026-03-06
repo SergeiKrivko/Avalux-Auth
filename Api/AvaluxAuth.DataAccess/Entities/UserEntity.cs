@@ -10,4 +10,5 @@ internal class UserEntity
     public ApplicationEntity Application { get; init; } = null!;
     public ICollection<AccountEntity> Accounts { get; init; } = [];
     public ICollection<RefreshTokenEntity> RefreshTokens { get; init; } = [];
+    public ICollection<UserSubscriptionEntity> Subscriptions { get; init; } = [];
 }

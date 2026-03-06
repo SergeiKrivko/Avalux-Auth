@@ -2368,7 +2368,7 @@ export class ApiClient {
      * @param providerKey (optional)
      * @return OK
      */
-    accessToken3(applicationId: string, userId: string, providerId: string | undefined, providerKey: string | undefined): Observable<UserWithAccounts> {
+    accessToken3(applicationId: string, userId: string, providerId: string | undefined, providerKey: string | undefined): Observable<string> {
         let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/users/{userId}/accessToken?";
         if (applicationId === undefined || applicationId === null)
             throw new Error("The parameter 'applicationId' must be defined.");
@@ -2402,14 +2402,14 @@ export class ApiClient {
                 try {
                     return this.processAccessToken3(response_ as any);
                 } catch (e) {
-                    return _observableThrow(e) as any as Observable<UserWithAccounts>;
+                    return _observableThrow(e) as any as Observable<string>;
                 }
             } else
-                return _observableThrow(response_) as any as Observable<UserWithAccounts>;
+                return _observableThrow(response_) as any as Observable<string>;
         }));
     }
 
-    protected processAccessToken3(response: HttpResponseBase): Observable<UserWithAccounts> {
+    protected processAccessToken3(response: HttpResponseBase): Observable<string> {
         const status = response.status;
         const responseBlob =
             response instanceof HttpResponse ? response.body :
@@ -2420,8 +2420,68 @@ export class ApiClient {
             return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
             let result200: any = null;
             let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
-            result200 = UserWithAccounts.fromJS(resultData200);
+                result200 = resultData200 !== undefined ? resultData200 : <any>null;
+
             return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @param body (optional)
+     * @return OK
+     */
+    subscriptionsPOST2(applicationId: string, userId: string, body: AddSubscriptionRequestSchema | undefined): Observable<void> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/users/{userId}/subscriptions";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        if (userId === undefined || userId === null)
+            throw new Error("The parameter 'userId' must be defined.");
+        url_ = url_.replace("{userId}", encodeURIComponent("" + userId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processSubscriptionsPOST2(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processSubscriptionsPOST2(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processSubscriptionsPOST2(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
             }));
         } else if (status !== 200 && status !== 204) {
             return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
@@ -2673,6 +2733,46 @@ export interface IAccountInfoSchema {
     email?: string | undefined;
     avatarUrl?: string | undefined;
     provider: string | undefined;
+}
+
+export class AddSubscriptionRequestSchema implements IAddSubscriptionRequestSchema {
+    planId!: string;
+    expiresAt!: moment.Moment;
+
+    constructor(data?: IAddSubscriptionRequestSchema) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.planId = _data["planId"];
+            this.expiresAt = _data["expiresAt"] ? moment(_data["expiresAt"].toString()) : <any>undefined;
+        }
+    }
+
+    static fromJS(data: any): AddSubscriptionRequestSchema {
+        data = typeof data === 'object' ? data : {};
+        let result = new AddSubscriptionRequestSchema();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["planId"] = this.planId;
+        data["expiresAt"] = this.expiresAt ? this.expiresAt.toISOString() : <any>undefined;
+        return data;
+    }
+}
+
+export interface IAddSubscriptionRequestSchema {
+    planId: string;
+    expiresAt: moment.Moment;
 }
 
 export class AdminCredentialsSchema implements IAdminCredentialsSchema {
@@ -3734,12 +3834,65 @@ export interface IUserInfoResponseSchema {
     accounts: AccountInfoSchema[] | undefined;
 }
 
+export class UserSubscription implements IUserSubscription {
+    id!: string;
+    userId!: string;
+    planId!: string;
+    createdAt!: moment.Moment;
+    expiresAt!: moment.Moment;
+
+    constructor(data?: IUserSubscription) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.id = _data["id"];
+            this.userId = _data["userId"];
+            this.planId = _data["planId"];
+            this.createdAt = _data["createdAt"] ? moment(_data["createdAt"].toString()) : <any>undefined;
+            this.expiresAt = _data["expiresAt"] ? moment(_data["expiresAt"].toString()) : <any>undefined;
+        }
+    }
+
+    static fromJS(data: any): UserSubscription {
+        data = typeof data === 'object' ? data : {};
+        let result = new UserSubscription();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["id"] = this.id;
+        data["userId"] = this.userId;
+        data["planId"] = this.planId;
+        data["createdAt"] = this.createdAt ? this.createdAt.toISOString() : <any>undefined;
+        data["expiresAt"] = this.expiresAt ? this.expiresAt.toISOString() : <any>undefined;
+        return data;
+    }
+}
+
+export interface IUserSubscription {
+    id: string;
+    userId: string;
+    planId: string;
+    createdAt: moment.Moment;
+    expiresAt: moment.Moment;
+}
+
 export class UserWithAccounts implements IUserWithAccounts {
     id!: string;
     applicationId!: string;
     createdAt!: moment.Moment;
     deletedAt?: moment.Moment | undefined;
     accounts!: AccountInfo[] | undefined;
+    subscriptions?: UserSubscription[] | undefined;
 
     constructor(data?: IUserWithAccounts) {
         if (data) {
@@ -3760,6 +3913,11 @@ export class UserWithAccounts implements IUserWithAccounts {
                 this.accounts = [] as any;
                 for (let item of _data["accounts"])
                     this.accounts!.push(AccountInfo.fromJS(item));
+            }
+            if (Array.isArray(_data["subscriptions"])) {
+                this.subscriptions = [] as any;
+                for (let item of _data["subscriptions"])
+                    this.subscriptions!.push(UserSubscription.fromJS(item));
             }
         }
     }
@@ -3782,6 +3940,11 @@ export class UserWithAccounts implements IUserWithAccounts {
             for (let item of this.accounts)
                 data["accounts"].push(item.toJSON());
         }
+        if (Array.isArray(this.subscriptions)) {
+            data["subscriptions"] = [];
+            for (let item of this.subscriptions)
+                data["subscriptions"].push(item.toJSON());
+        }
         return data;
     }
 }
@@ -3792,6 +3955,7 @@ export interface IUserWithAccounts {
     createdAt: moment.Moment;
     deletedAt?: moment.Moment | undefined;
     accounts: AccountInfo[] | undefined;
+    subscriptions?: UserSubscription[] | undefined;
 }
 
 export class UsersResponseSchema implements IUsersResponseSchema {

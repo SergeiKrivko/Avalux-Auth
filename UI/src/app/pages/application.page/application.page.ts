@@ -1,12 +1,12 @@
 import {ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit} from '@angular/core';
 import {ActivatedRoute, IsActiveMatchOptions, RouterLink, RouterLinkActive, RouterOutlet} from '@angular/router';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {NEVER, Observable, switchMap, tap} from 'rxjs';
+import {NEVER, switchMap, tap} from 'rxjs';
 import {ApplicationService} from '../../services/application.service';
 import {TuiScrollbar} from '@taiga-ui/core';
 import {TuiSegmented} from '@taiga-ui/kit';
-import {ApplicationEntity} from '../../entities/application-entity';
 import {AsyncPipe} from '@angular/common';
+import {SubscriptionService} from '../../services/subscription.service';
 
 @Component({
   standalone: true,
@@ -25,6 +25,7 @@ import {AsyncPipe} from '@angular/common';
 })
 export class ApplicationPage implements OnInit {
   private readonly applicationService = inject(ApplicationService);
+  private readonly subscriptionService = inject(SubscriptionService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -50,6 +51,10 @@ export class ApplicationPage implements OnInit {
             this.applicationService.selectApplication(app);
         }
       ),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe();
+
+    this.subscriptionService.loadPlansOnApplicationChange$.pipe(
       takeUntilDestroyed(this.destroyRef),
     ).subscribe();
   }

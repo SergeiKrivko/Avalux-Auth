@@ -1,4 +1,4 @@
-import {Duration, Moment} from 'moment';
+import {Moment} from 'moment';
 import {MoneyEntity} from './money-entity';
 
 export interface SubscriptionPlanEntity {
@@ -18,3 +18,10 @@ export interface SubscriptionPlanInfoEntity {
   price: MoneyEntity,
 }
 
+export interface UserSubscriptionEntity {
+  id: string;
+  userId: string;
+  planId: string;
+  createdAt?: Moment;
+  expiresAt?: Moment;
+}

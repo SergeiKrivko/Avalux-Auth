@@ -95,5 +95,14 @@ const userInfoToEntity = (user: UserWithAccounts): UserEntity => {
         avatarUrl: account.userInfo.avatarUrl,
       }
     }) ?? [],
+    subscriptions: user.subscriptions?.map(subscription => {
+      return {
+        id: subscription.id,
+        planId: subscription.planId,
+        userId: subscription.userId,
+        createdAt: subscription.createdAt,
+        expiresAt: subscription.expiresAt,
+      };
+    }) ?? [],
   }
 }

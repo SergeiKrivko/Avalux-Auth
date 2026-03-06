@@ -19,5 +19,9 @@ internal class SubscriptionPlanConfiguration : IEntityTypeConfiguration<Subscrip
         builder.Property(e => e.IsHidden).HasDefaultValue(false);
         builder.Property(e => e.IsDefault).HasDefaultValue(false);
         builder.Property(e => e.CreatedAt).IsRequired();
+
+        builder.HasMany(x => x.Subscriptions)
+            .WithOne(x => x.Plan)
+            .HasForeignKey(x => x.PlanId);
     }
 }

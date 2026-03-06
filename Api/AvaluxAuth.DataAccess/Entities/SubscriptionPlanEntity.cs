@@ -20,4 +20,5 @@ internal class SubscriptionPlanEntity
     public required DateTime CreatedAt { get; init; }
 
     public ApplicationEntity Application { get; init; } = null!;
+    public ICollection<UserSubscriptionEntity> Subscriptions { get; init; } = [];
 }

@@ -12,6 +12,7 @@ public class User
 public class UserWithAccounts : User
 {
     public required AccountInfo[] Accounts { get; init; }
+    public UserSubscription[] Subscriptions { get; init; } = [];
 }
 
 public class AccountInfo

@@ -21,5 +21,8 @@ internal class UserConfiguration : IEntityTypeConfiguration<UserEntity>
         builder.HasMany(x => x.RefreshTokens)
             .WithOne(x => x.User)
             .HasForeignKey(x => x.UserId);
+        builder.HasMany(x => x.Subscriptions)
+            .WithOne(x => x.User)
+            .HasForeignKey(x => x.UserId);
     }
 }

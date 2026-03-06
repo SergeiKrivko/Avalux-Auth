@@ -1,0 +1,25 @@
+<form class="container" [formGroup]="control" (submit)="submit()">
+  <label tuiLabel>План:</label>
+  <tui-textfield tuiChevron tuiTextfieldSize="m" [tuiTextfieldCleaner]="false"
+                 [stringify]="stringify" class="input-currency">
+    <input tuiSelect formControlName="plan"/>
+    <tui-data-list-wrapper *tuiTextfieldDropdown new [items]="plans$ | async" [itemContent]="content"/>
+  </tui-textfield>
+
+  <ng-template #content let-plan>
+    <div class="plan-info-container">
+      <h3>{{ plan.info.displayName }}</h3>
+      <p>{{ plan.info.description }}</p>
+    </div>
+  </ng-template>
+
+  <label tuiLabel>Действует до:</label>
+    <tui-textfield>
+      <input tuiInputDate formControlName="expiresAt"/>
+      <tui-calendar *tuiTextfieldDropdown/>
+    </tui-textfield>
+
+  <div class="bottom-container">
+    <button tuiButton [loading]="loading" type="submit">Создать</button>
+  </div>
+</form>
