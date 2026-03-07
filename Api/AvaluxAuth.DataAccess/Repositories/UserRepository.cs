@@ -15,6 +15,16 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
         return res is null ? null : FromEntity(res);
     }
 
+    public async Task<UserWithSubscriptions?> GetUserWithSubscriptionsAsync(Guid userId, CancellationToken ct = default)
+    {
+        var res = await dbContext.UserSubscriptions
+            .Where(x => x.UserId == userId)
+            .Include(x => x.User)
+            .Include(e => e.Plan)
+            .ToListAsync(ct);
+        return FromEntityWithSubscriptions(res);
+    }
+
     public async Task<UserWithAccounts?> GetUserWithAccountsAsync(Guid userId, CancellationToken ct = default)
     {
         var res = await dbContext.Users
@@ -158,6 +168,27 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
                     PlanId = e.PlanId,
                     UserId = e.UserId,
                     CreatedAt = e.CreatedAt,
+                    ExpiresAt = e.ExpiresAt,
+                }).ToArray(),
+        };
+    }
+
+    private static UserWithSubscriptions? FromEntityWithSubscriptions(List<UserSubscriptionEntity> entities)
+    {
+        if (entities.Count == 0)
+            return null;
+        var user = entities[0].User;
+        return new UserWithSubscriptions
+        {
+            Id = user.Id,
+            ApplicationId = user.ApplicationId,
+            CreatedAt = user.CreatedAt,
+            DeletedAt = user.DeletedAt,
+            Subscriptions = entities
+                .Where(e => e.ExpiresAt > DateTime.UtcNow)
+                .Select(e => new SubscriptionInfo
+                {
+                    Plan = e.Plan.Key,
                     ExpiresAt = e.ExpiresAt,
                 }).ToArray(),
         };

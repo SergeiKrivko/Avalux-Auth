@@ -154,7 +154,7 @@ public class AuthorizationService(
 
     private async Task<UserCredentials> GetCredentialsAsync(Guid userId, CancellationToken ct = default)
     {
-        var user = await userRepository.GetUserAsync(userId, ct);
+        var user = await userRepository.GetUserWithSubscriptionsAsync(userId, ct);
         if (user == null)
             throw new Exception("User not found");
         var application = await applicationRepository.GetApplicationByIdAsync(user.ApplicationId, ct);
@@ -188,7 +188,7 @@ public class AuthorizationService(
     }
 
 
-    private async Task<string> CreateJwt(User user, Application application, DateTime expiresAt,
+    private async Task<string> CreateJwt(UserWithSubscriptions user, Application application, DateTime expiresAt,
         CancellationToken ct = default)
     {
         var jwt = new JwtSecurityToken(
@@ -196,7 +196,8 @@ public class AuthorizationService(
             audience: application.Parameters.Name,
             claims:
             [
-                new Claim("UserId", user.Id.ToString())
+                new Claim("UserId", user.Id.ToString()),
+                new Claim("Subscriptions", string.Join(';', user.Subscriptions.Select(e => e.Plan)))
             ],
             expires: expiresAt,
             signingCredentials: await GetSecurityKeyAsync(ct)
@@ -221,7 +222,7 @@ public class AuthorizationService(
             return null;
         }
 
-        var user = await userRepository.GetUserAsync(userId.Value, ct);
+        var user = await userRepository.GetUserWithSubscriptionsAsync(userId.Value, ct);
         if (user is null)
         {
             logger.LogWarning("User from refresh token not found");

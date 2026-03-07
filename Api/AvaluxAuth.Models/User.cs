@@ -20,3 +20,14 @@ public class AccountInfo
     public required Guid ProviderId { get; init; }
     public required UserInfo UserInfo { get; init; }
 }
+
+public class UserWithSubscriptions : User
+{
+    public SubscriptionInfo[] Subscriptions { get; init; } = [];
+}
+
+public class SubscriptionInfo
+{
+    public required string Plan { get; init; }
+    public required DateTime ExpiresAt { get; init; }
+}
