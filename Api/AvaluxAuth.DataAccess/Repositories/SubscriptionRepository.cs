@@ -67,6 +67,8 @@ public class SubscriptionRepository(AvaluxAuthDbContext dbContext) : ISubscripti
                 e.SetProperty(x => x.Advantages, info.Advantages);
                 e.SetProperty(x => x.IsDefault, info.IsDefault);
                 e.SetProperty(x => x.IsHidden, info.IsHidden);
+                e.SetProperty(x => x.PriceAmount, info.Price.Amount);
+                e.SetProperty(x => x.PriceCurrency, info.Price.Currency);
             }, ct);
         await dbContext.SaveChangesAsync(ct);
         return count > 0;
