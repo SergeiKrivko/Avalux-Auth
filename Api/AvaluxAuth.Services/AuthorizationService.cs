@@ -108,6 +108,7 @@ public class AuthorizationService(
                 await provider.RevokeTokenAsync(p.Parameters, UnprotectCredentials(account.TokenPair), ct);
             await accountRepository.UpdateAccountTokensAsync(account.Id,
                 p.Parameters.SaveTokens ? ProtectCredentials(credentials) : new AccountCredentials(), ct);
+            await accountRepository.UpdateAccountInfoAsync(account.Id, info, ct);
         }
 
         if (!p.Parameters.SaveTokens)

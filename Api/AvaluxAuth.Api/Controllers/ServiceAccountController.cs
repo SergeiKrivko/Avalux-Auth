@@ -72,6 +72,7 @@ public class ServiceAccountController(
                     .Key,
                 Id = account.UserInfo.Id,
                 Name = account.UserInfo.Name,
+                Login = account.UserInfo.Login,
                 Email = account.UserInfo.Email,
                 AvatarUrl = account.UserInfo.AvatarUrl,
             }).ToArray(),

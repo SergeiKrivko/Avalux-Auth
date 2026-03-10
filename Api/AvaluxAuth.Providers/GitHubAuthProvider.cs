@@ -100,6 +100,7 @@ public class GitHubAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         {
             Id = json.Id.ToString(),
             Name = json.Name ?? json.Login,
+            Login = json.Login,
             Email = email,
             AvatarUrl = json.AvatarUrl,
         };

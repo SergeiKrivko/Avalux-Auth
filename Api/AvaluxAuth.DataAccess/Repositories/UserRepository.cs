@@ -122,6 +122,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
                     {
                         Id = e.ProviderUserId,
                         Name = e.Name,
+                        Login = e.Login,
                         Email = e.Email,
                         AvatarUrl = e.AvatarUrl,
                     }
@@ -156,6 +157,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
                 {
                     Id = e.ProviderUserId,
                     Name = e.Name,
+                    Login = e.Login,
                     Email = e.Email,
                     AvatarUrl = e.AvatarUrl,
                 }

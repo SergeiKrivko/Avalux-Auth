@@ -54,6 +54,7 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
             ProviderId = providerId,
             ProviderUserId = account.Id,
             Name = account.Name,
+            Login = account.Login,
             Email = account.Email,
             AvatarUrl = account.AvatarUrl,
             AccessToken = accountCredentials?.AccessToken,
@@ -89,6 +90,7 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
             .ExecuteUpdateAsync(a =>
             {
                 a.SetProperty(x => x.Name, info.Name);
+                a.SetProperty(x => x.Login, info.Login);
                 a.SetProperty(x => x.Email, info.Email);
                 a.SetProperty(x => x.AvatarUrl, info.AvatarUrl);
             }, ct);
@@ -119,6 +121,7 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
             {
                 Id = entity.ProviderUserId,
                 Name = entity.Name,
+                Login = entity.Login,
                 Email = entity.Email,
                 AvatarUrl = entity.AvatarUrl,
             },
