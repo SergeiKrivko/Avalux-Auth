@@ -88,7 +88,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
     }
 
     public async Task<IEnumerable<UserWithAccounts>> SearchUsersAsync(Guid applicationId, string? username,
-        string? email, Guid? providerId, int page, int? limit,
+        string? login, string? email, Guid? providerId, int page, int? limit,
         CancellationToken ct = default)
     {
         var query = dbContext.Accounts
@@ -96,6 +96,8 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
             .Where(e => e.User.ApplicationId == applicationId && e.DeletedAt == null);
         if (username != null)
             query = query.Where(e => e.Name != null && e.Name.StartsWith(username));
+        if (login != null)
+            query = query.Where(e => e.Login != null && e.Login.StartsWith(login));
         if (email != null)
             query = query.Where(e => e.Email != null && e.Email.StartsWith(email));
         if (providerId != null)

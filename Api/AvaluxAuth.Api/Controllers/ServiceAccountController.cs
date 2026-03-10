@@ -21,6 +21,7 @@ public class ServiceAccountController(
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserInfoResponseSchema>>> GetUsers([FromQuery] string? username = null,
+        [FromQuery] string? login = null,
         [FromQuery] string? email = null,
         [FromQuery] string? provider = null,
         [FromQuery] int page = 0,
@@ -37,14 +38,10 @@ public class ServiceAccountController(
             p = await providerRepository.GetProviderByProviderIdAsync(applicationId, authProvider.Id, ct);
         }
 
-        var users = await userRepository.SearchUsersAsync(applicationId, username, email, p?.Id, page, limit,
+        var users = await userRepository.SearchUsersAsync(applicationId, username, login, email, p?.Id, page, limit,
             ct);
-        var lst = new List<UserInfoResponseSchema>();
-        foreach (var user in users)
-        {
-            lst.Add(await ConvertUser(user, ct));
-        }
-        return Ok(lst);
+        var providers = (await providerRepository.GetAllProvidersAsync(applicationId, ct)).ToList();
+        return Ok(users.Select(e => ConvertUser(e, providers)));
     }
 
     [HttpGet("{userId:guid}")]
@@ -57,12 +54,12 @@ public class ServiceAccountController(
             return Unauthorized();
         if (user == null)
             return NotFound();
-        return Ok(await ConvertUser(user, ct));
+        var providers = await providerRepository.GetAllProvidersAsync(user.ApplicationId, ct);
+        return Ok(ConvertUser(user, providers.ToList()));
     }
 
-    private async Task<UserInfoResponseSchema> ConvertUser(UserWithAccounts user, CancellationToken ct = default)
+    private UserInfoResponseSchema ConvertUser(UserWithAccounts user, ICollection<Provider> providers)
     {
-        var providers = await providerRepository.GetAllProvidersAsync(user.ApplicationId, ct);
         return new UserInfoResponseSchema
         {
             Id = user.Id,

@@ -15,7 +15,7 @@ public interface IUserRepository
     public Task<IEnumerable<UserWithAccounts>> GetUsersAsync(Guid applicationId, int page, int limit,
         CancellationToken ct = default);
 
-    public Task<IEnumerable<UserWithAccounts>> SearchUsersAsync(Guid applicationId, string? username, string? email,
-        Guid? providerId, int page, int? limit,
+    public Task<IEnumerable<UserWithAccounts>> SearchUsersAsync(Guid applicationId, string? username, string? login,
+        string? email, Guid? providerId, int page, int? limit,
         CancellationToken ct = default);
 }
