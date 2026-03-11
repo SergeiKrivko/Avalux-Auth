@@ -33,12 +33,16 @@ public class TokenPermission
     public static TokenPermission ReadUserAccessToken { get; } =
         new("readUserAccessToken", "Получение access-токена провайдера для пользователя");
 
+    public static TokenPermission ReadSubscriptionPlans { get; } = new("readSubscriptionPlans",
+        "Получение информации о подписках");
+
     public static TokenPermission[] All =>
     [
         ReadUserInfo,
         SearchUsers,
         DeleteUser,
-        ReadUserAccessToken
+        ReadUserAccessToken,
+        ReadSubscriptionPlans
     ];
 
     public static string[] AllKeys => All.Select(e => e.Key).ToArray();
