@@ -118,6 +118,7 @@ const planToEntity = (plan: SubscriptionPlan): SubscriptionPlanEntity => {
       isDefault: plan.info.isDefault ?? false,
       isHidden: plan.info.isHidden ?? false,
       price: {amount: plan.info.price.amount, currency: plan.info.price.currency ?? 'RUB'},
+      data: plan.info.data,
     },
     createdAt: plan.createdAt,
   }

@@ -32,6 +32,13 @@
         grid-column-end: 3;
       }
     }
+
+    .json-editor-card {
+      padding: 1rem;
+      border-radius: 1rem;
+      border: 1px solid var(--tui-border-normal);
+      background-color: #1e1e1e;
+    }
   }
 
   .buttons-container {

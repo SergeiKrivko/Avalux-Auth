@@ -30,6 +30,11 @@
     <label tuiLabel class="label">Стоимость за 1 день:</label>
     <app-input-money formControlName="price"/>
 
+    <label tuiLabel class="label">Данные:</label>
+    <div class="json-editor-card">
+      <ngx-monaco-editor [options]="editorOptions" formControlName="data"/>
+    </div>
+
   </form>
   <div class="buttons-container">
     @if (isNew) {

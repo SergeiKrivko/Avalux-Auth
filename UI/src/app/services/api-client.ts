@@ -1397,18 +1397,23 @@ export class ApiClient {
 
     /**
      * @param username (optional)
+     * @param login (optional)
      * @param email (optional)
      * @param provider (optional)
      * @param page (optional)
      * @param limit (optional)
      * @return OK
      */
-    usersAll(username: string | undefined, email: string | undefined, provider: string | undefined, page: number | undefined, limit: number | undefined): Observable<UserInfoResponseSchema[]> {
+    usersAll(username: string | undefined, login: string | undefined, email: string | undefined, provider: string | undefined, page: number | undefined, limit: number | undefined): Observable<UserInfoResponseSchema[]> {
         let url_ = this.baseUrl + "/api/v1/service/users?";
         if (username === null)
             throw new Error("The parameter 'username' cannot be null.");
         else if (username !== undefined)
             url_ += "username=" + encodeURIComponent("" + username) + "&";
+        if (login === null)
+            throw new Error("The parameter 'login' cannot be null.");
+        else if (login !== undefined)
+            url_ += "login=" + encodeURIComponent("" + login) + "&";
         if (email === null)
             throw new Error("The parameter 'email' cannot be null.");
         else if (email !== undefined)
@@ -2686,6 +2691,7 @@ export interface IAccountInfo {
 export class AccountInfoSchema implements IAccountInfoSchema {
     id!: string | undefined;
     name?: string | undefined;
+    login?: string | undefined;
     email?: string | undefined;
     avatarUrl?: string | undefined;
     provider!: string | undefined;
@@ -2703,6 +2709,7 @@ export class AccountInfoSchema implements IAccountInfoSchema {
         if (_data) {
             this.id = _data["id"];
             this.name = _data["name"];
+            this.login = _data["login"];
             this.email = _data["email"];
             this.avatarUrl = _data["avatarUrl"];
             this.provider = _data["provider"];
@@ -2720,6 +2727,7 @@ export class AccountInfoSchema implements IAccountInfoSchema {
         data = typeof data === 'object' ? data : {};
         data["id"] = this.id;
         data["name"] = this.name;
+        data["login"] = this.login;
         data["email"] = this.email;
         data["avatarUrl"] = this.avatarUrl;
         data["provider"] = this.provider;
@@ -2730,6 +2738,7 @@ export class AccountInfoSchema implements IAccountInfoSchema {
 export interface IAccountInfoSchema {
     id: string | undefined;
     name?: string | undefined;
+    login?: string | undefined;
     email?: string | undefined;
     avatarUrl?: string | undefined;
     provider: string | undefined;
@@ -3523,6 +3532,7 @@ export class SubscriptionPlanInfo implements ISubscriptionPlanInfo {
     isHidden?: boolean;
     isDefault?: boolean;
     price!: Money;
+    data?: any | undefined;
 
     constructor(data?: ISubscriptionPlanInfo) {
         if (data) {
@@ -3549,6 +3559,7 @@ export class SubscriptionPlanInfo implements ISubscriptionPlanInfo {
             this.isHidden = _data["isHidden"];
             this.isDefault = _data["isDefault"];
             this.price = _data["price"] ? Money.fromJS(_data["price"]) : new Money();
+            this.data = _data["data"];
         }
     }
 
@@ -3572,6 +3583,7 @@ export class SubscriptionPlanInfo implements ISubscriptionPlanInfo {
         data["isHidden"] = this.isHidden;
         data["isDefault"] = this.isDefault;
         data["price"] = this.price ? this.price.toJSON() : <any>undefined;
+        data["data"] = this.data;
         return data;
     }
 }
@@ -3584,6 +3596,7 @@ export interface ISubscriptionPlanInfo {
     isHidden?: boolean;
     isDefault?: boolean;
     price: Money;
+    data?: any | undefined;
 }
 
 export class Token implements IToken {
@@ -3741,6 +3754,7 @@ export interface IUserCredentials {
 export class UserInfo implements IUserInfo {
     id!: string | undefined;
     name?: string | undefined;
+    login?: string | undefined;
     email?: string | undefined;
     avatarUrl?: string | undefined;
 
@@ -3757,6 +3771,7 @@ export class UserInfo implements IUserInfo {
         if (_data) {
             this.id = _data["id"];
             this.name = _data["name"];
+            this.login = _data["login"];
             this.email = _data["email"];
             this.avatarUrl = _data["avatarUrl"];
         }
@@ -3773,6 +3788,7 @@ export class UserInfo implements IUserInfo {
         data = typeof data === 'object' ? data : {};
         data["id"] = this.id;
         data["name"] = this.name;
+        data["login"] = this.login;
         data["email"] = this.email;
         data["avatarUrl"] = this.avatarUrl;
         return data;
@@ -3782,6 +3798,7 @@ export class UserInfo implements IUserInfo {
 export interface IUserInfo {
     id: string | undefined;
     name?: string | undefined;
+    login?: string | undefined;
     email?: string | undefined;
     avatarUrl?: string | undefined;
 }

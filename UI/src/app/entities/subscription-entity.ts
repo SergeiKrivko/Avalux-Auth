@@ -16,6 +16,7 @@ export interface SubscriptionPlanInfoEntity {
   isHidden: boolean;
   isDefault: boolean;
   price: MoneyEntity,
+  data: any;
 }
 
 export interface UserSubscriptionEntity {
