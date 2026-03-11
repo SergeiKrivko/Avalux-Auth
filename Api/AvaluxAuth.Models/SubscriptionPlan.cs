@@ -22,4 +22,9 @@ public class SubscriptionPlanInfo
     /// Стоимость подписки за 1 день
     /// </summary>
     public required Money Price { get; init; }
+
+    /// <summary>
+    /// Данные о тарифах в формате json
+    /// </summary>
+    public object? Data { get; init; }
 }

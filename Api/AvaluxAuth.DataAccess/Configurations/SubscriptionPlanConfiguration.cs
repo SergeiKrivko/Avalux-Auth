@@ -18,6 +18,9 @@ internal class SubscriptionPlanConfiguration : IEntityTypeConfiguration<Subscrip
         builder.Property(e => e.Advantages);
         builder.Property(e => e.IsHidden).HasDefaultValue(false);
         builder.Property(e => e.IsDefault).HasDefaultValue(false);
+        builder.Property(e => e.PriceCurrency).IsRequired();
+        builder.Property(e => e.PriceAmount).IsRequired();
+        builder.Property(e => e.Data);
         builder.Property(e => e.CreatedAt).IsRequired();
 
         builder.HasMany(x => x.Subscriptions)

@@ -1,4 +1,5 @@
-﻿using AvaluxAuth.Abstractions;
+﻿using System.Text.Json;
+using AvaluxAuth.Abstractions;
 using AvaluxAuth.DataAccess.Entities;
 using AvaluxAuth.Models;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,7 @@ public class SubscriptionRepository(AvaluxAuthDbContext dbContext) : ISubscripti
             IsHidden = info.IsHidden,
             PriceCurrency = info.Price.Currency,
             PriceAmount = info.Price.Amount,
+            Data = JsonSerializer.Serialize(info.Data),
             CreatedAt = DateTime.UtcNow,
         };
         await dbContext.SubscriptionPlans.AddAsync(entity, ct);
@@ -69,6 +71,7 @@ public class SubscriptionRepository(AvaluxAuthDbContext dbContext) : ISubscripti
                 e.SetProperty(x => x.IsHidden, info.IsHidden);
                 e.SetProperty(x => x.PriceAmount, info.Price.Amount);
                 e.SetProperty(x => x.PriceCurrency, info.Price.Currency);
+                e.SetProperty(x => x.Data, JsonSerializer.Serialize(info.Data));
             }, ct);
         await dbContext.SaveChangesAsync(ct);
         return count > 0;
@@ -109,6 +112,7 @@ public class SubscriptionRepository(AvaluxAuthDbContext dbContext) : ISubscripti
                     Currency = entity.PriceCurrency,
                     Amount = entity.PriceAmount,
                 },
+                Data = entity.Data == null ? null : JsonSerializer.Deserialize<object>(entity.Data),
             },
             CreatedAt = entity.CreatedAt,
         };

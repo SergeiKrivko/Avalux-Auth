@@ -16,6 +16,7 @@ internal class SubscriptionPlanEntity
     public bool IsDefault { get; init; }
     [MaxLength(10)] public required string PriceCurrency { get; init; }
     public required decimal PriceAmount { get; init; }
+    [MaxLength(2048)] public string? Data { get; init; }
 
     public required DateTime CreatedAt { get; init; }
 
