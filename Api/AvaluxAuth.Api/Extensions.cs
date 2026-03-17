@@ -36,4 +36,15 @@ public static class Extensions
             return claimsPrincipal.IsAdmin || claimsPrincipal.ApplicationId == applicationId;
         }
     }
+
+    extension(HttpRequest request)
+    {
+        public string GetBaseUrl()
+        {
+            var scheme = request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? request.Scheme;
+            var host = request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? request.Host.ToString();
+
+            return $"{scheme}://{host}";
+        }
+    }
 }
