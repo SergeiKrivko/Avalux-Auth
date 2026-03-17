@@ -55,7 +55,7 @@ public class AuthController(
 
     [HttpPost("link")]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.UserPolicy)]
-    public async Task<ActionResult<UserCredentials>> LinkAccount(
+    public async Task<ActionResult> LinkAccount(
         [FromForm(Name = "client_id")] string clientId,
         [FromForm(Name = "client_secret")] string clientSecret,
         [FromForm(Name = "code")] string code,
@@ -120,7 +120,7 @@ public class AuthController(
 
     [HttpGet("{providerKey}/accessToken")]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.UserPolicy)]
-    public async Task<ActionResult<UserInfoResponseSchema>> GetAccessToken(string providerKey,
+    public async Task<ActionResult<AccountCredentialsSchema>> GetAccessToken(string providerKey,
         CancellationToken ct = default)
     {
         if (!Guid.TryParse(User.FindFirst("UserId")?.Value, out var userId))
@@ -129,6 +129,10 @@ public class AuthController(
         if (credentials is null)
             return NotFound();
 
-        return Ok(credentials);
+        return Ok(new AccountCredentialsSchema
+        {
+            AccessToken = credentials.AccessToken ?? throw new Exception("Access token is null"),
+            ExpiresAt = credentials.ExpiresAt,
+        });
     }
 }

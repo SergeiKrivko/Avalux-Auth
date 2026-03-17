@@ -14,4 +14,5 @@
     <File Path="Dockerfile" />
   </Folder>
   <Project Path="AvaluxAuth.TestCli/AvaluxAuth.TestCli.csproj" />
+  <Project Path="AvaluxAuth.UserClient/AvaluxAuth.UserClient.csproj" />
 </Solution>
