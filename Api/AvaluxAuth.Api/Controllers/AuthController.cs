@@ -36,8 +36,69 @@ public class AuthController(
         [FromQuery(Name = "redirect_uri")] string redirectUri,
         CancellationToken ct = default)
     {
-        var url = await authorizationService.GetAuthUrlAsync(clientId, providerKey, redirectUri, ct);
-        return Redirect(url);
+        try
+        {
+            var url = await authorizationService.GetAuthUrlAsync(clientId, providerKey, redirectUri, ct);
+            return Redirect(url);
+        }
+        catch (Exception ex)
+        {
+            var errorHtml = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <title>Ошибка авторизации</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            line-height: 1.6;
+        }}
+        .error-container {{
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            background-color: #f8d7da;
+            color: #721c24;
+        }}
+        .error-title {{
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }}
+        .error-message {{
+            margin-bottom: 15px;
+            word-wrap: break-word;
+        }}
+        .error-details {{
+            font-size: 0.9em;
+            color: #6c757d;
+            border-top: 1px solid #f5c6cb;
+            padding-top: 10px;
+            margin-top: 10px;
+        }}
+    </style>
+</head>
+<body>
+    <div class='error-container'>
+        <div class='error-title'>Ошибка авторизации</div>
+        <div class='error-message'><strong>{HtmlEncode(ex.Message)}</strong></div>
+        {(ex.InnerException != null ? $"<div class='error-details'>Детали: {HtmlEncode(ex.InnerException.Message)}</div>" : "")}
+    </div>
+</body>
+</html>";
+
+            return Content(errorHtml, "text/html; charset=utf-8");
+        }
+    }
+
+    // Вспомогательный метод для безопасного отображения текста в HTML
+    private static string HtmlEncode(string text)
+    {
+        return System.Net.WebUtility.HtmlEncode(text);
     }
 
     [HttpGet("{providerKey}/callback")]
