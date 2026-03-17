@@ -8,10 +8,10 @@ namespace AvaluxAuth.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/.well-known")]
+[AllowAnonymous]
 public class WellKnownController(ISigningKeyService signingKeyService, IConfiguration configuration) : ControllerBase
 {
     [HttpGet("jwks.json")]
-    [AllowAnonymous]
     public async Task<ActionResult<JwksResponseSchema>> GetPublicKeys(CancellationToken ct)
     {
         var keys = await signingKeyService.GetAllKeysAsync(ct);
@@ -44,7 +44,7 @@ public class WellKnownController(ISigningKeyService signingKeyService, IConfigur
         return Ok(new OpenIdConfigurationResponse
         {
             Issuer = configuration["Security.Issuer"] ?? "",
-            AuthorizationEndpoint = $"{apiUrl}/api/v1/auth/<provider>/authorize",
+            AuthorizationEndpoint = $"{apiUrl}/api/v1/auth/authorize",
             TokenEndpoint = $"{apiUrl}/api/v1/auth/token",
             JwksUri = $"{apiUrl}/api/v1/.well-known/jwks.json",
         });

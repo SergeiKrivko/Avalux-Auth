@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Versioning;
 using Avalux.Auth.UserClient.Models;
 
 namespace Avalux.Auth.UserClient;
@@ -65,7 +66,8 @@ public interface IAuthClient
     /// <param name="force">Следует ли выполнить обновление несмотря на то, что токен доступа еще действует. По умолчанию <c>false</c></param>
     /// <param name="ct">CancellationToken</param>
     /// <returns>Пара токенов (доступа + обновления) и время, до которого действителен токен доступа</returns>
-    public Task<UserCredentials> RefreshTokenAsync(UserCredentials credentials, bool force = false, CancellationToken ct = default);
+    public Task<UserCredentials> RefreshTokenAsync(UserCredentials credentials, bool force = false,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Обмен токена обновления на новую пару токенов.
@@ -127,4 +129,28 @@ public interface IAuthClient
     /// <param name="ct">CancellationToken</param>
     /// <returns><c>AccountCredentials</c> - токен доступа и время, до которого актуален</returns>
     public Task<AccountCredentials> GetAccountCredentialsAsync(string provider, CancellationToken ct = default);
+
+    /// <summary>
+    /// Полный процесс авторизации для десктопного или консольного приложения.
+    /// </summary>
+    /// <param name="provider">Строковый идентификатор провайдера. Например: <c>google</c>, <c>yandex</c>, <c>github</c></param>
+    /// <param name="redirectUrl">Url для приема кода авторизации. Должен быть <c>http://localhost:{port}</c></param>
+    /// <param name="ct"></param>
+    /// <returns>CancellationToken</returns>
+    [SupportedOSPlatform("Windows")]
+    [SupportedOSPlatform("Linux")]
+    [SupportedOSPlatform("Macos")]
+    public Task<UserCredentials> AuthorizeInstalledAsync(string provider, string redirectUrl, CancellationToken ct = default);
+
+    /// <summary>
+    /// Полный процесс добавления аккаунта для десктопного или консольного приложения.
+    /// </summary>
+    /// <param name="provider">Строковый идентификатор провайдера. Например: <c>google</c>, <c>yandex</c>, <c>github</c></param>
+    /// <param name="redirectUrl">Url для приема кода авторизации. Должен быть <c>http://localhost:{port}</c></param>
+    /// <param name="ct"></param>
+    /// <returns>CancellationToken</returns>
+    [SupportedOSPlatform("Windows")]
+    [SupportedOSPlatform("Linux")]
+    [SupportedOSPlatform("Macos")]
+    public Task LinkInstalledAsync(string provider, string redirectUrl, CancellationToken ct = default);
 }

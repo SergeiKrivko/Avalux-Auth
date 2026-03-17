@@ -15,11 +15,23 @@ public class AuthController(
     IUserRepository userRepository,
     IUserService userService,
     IProviderRepository providerRepository,
-    IEnumerable<IAuthProvider> authProviders)
+    IEnumerable<IAuthProvider> authProviders,
+    IConfiguration configuration)
     : ControllerBase
 {
     [HttpGet("{providerKey}/authorize")]
     public async Task<ActionResult> Authorize(string providerKey,
+        [FromQuery(Name = "client_id")] string clientId,
+        [FromQuery(Name = "redirect_uri")] string redirectUri,
+        CancellationToken ct = default)
+    {
+        var url = await authorizationService.GetAuthUrlAsync(clientId, providerKey, redirectUri, ct);
+        return Redirect(url);
+    }
+
+    [HttpGet("authorize")]
+    public async Task<ActionResult> AuthorizeFromQuery(
+        [FromQuery(Name = "provider")] string providerKey,
         [FromQuery(Name = "client_id")] string clientId,
         [FromQuery(Name = "redirect_uri")] string redirectUri,
         CancellationToken ct = default)
@@ -44,13 +56,28 @@ public class AuthController(
         [FromForm(Name = "client_id")] string clientId,
         [FromForm(Name = "client_secret")] string clientSecret,
         [FromForm(Name = "code")] string code,
+        [FromForm(Name = "refresh_token")] string refreshToken,
+        [FromForm(Name = "grant_type")] string grantType = "authorization_code",
         CancellationToken ct = default)
     {
-        if (!await authorizationService.CheckClientSecretAsync(clientId, clientSecret, ct))
+        if (configuration["Security.RequireClientSecret"] != null &&
+            !await authorizationService.CheckClientSecretAsync(clientId, clientSecret, ct))
             return Unauthorized("Client secret is incorrect");
 
-        var credentials = await authorizationService.AuthorizeUserAsync(code, ct);
-        return Ok(credentials);
+        UserCredentials? credentials;
+        switch (grantType)
+        {
+            case "authorization_code":
+                credentials = await authorizationService.AuthorizeUserAsync(code, ct);
+                return Ok(credentials);
+            case "refresh_token":
+                credentials = await authorizationService.RefreshTokenAsync(refreshToken, ct);
+                if (credentials == null)
+                    return Unauthorized("Refresh token is incorrect");
+                return Ok(credentials);
+            default:
+                throw new Exception("invalid grant type");
+        }
     }
 
     [HttpPost("link")]
