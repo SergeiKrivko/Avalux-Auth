@@ -77,7 +77,7 @@ public class ServiceAccountController(
     }
 
     [HttpGet("{userId:guid}/accessToken")]
-    public async Task<ActionResult<AccountCredentials>> GetUserAccessToken(Guid userId,
+    public async Task<ActionResult<AccountCredentialsSchema>> GetUserAccessToken(Guid userId,
         [FromQuery] Guid? providerId, [FromQuery] string? providerKey,
         CancellationToken ct)
     {
@@ -95,7 +95,11 @@ public class ServiceAccountController(
             : await userService.GetAccessTokenAsync(userId, providerId.Value, ct);
         if (accessToken == null)
             return NotFound();
-        return Ok(accessToken);
+        return Ok(new AccountCredentialsSchema
+        {
+            AccessToken = accessToken.AccessToken ?? throw new Exception("Token not found"),
+            ExpiresAt = accessToken.ExpiresAt,
+        });
     }
 
     [HttpDelete("{userId:guid}")]
