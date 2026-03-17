@@ -22,7 +22,7 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
                $"client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUrl)}";
     }
 
-    public async Task<UserCredentials> GetTokenAsync(string code)
+    public async Task<UserCredentials> GetTokenAsync(string code, CancellationToken ct = default)
     {
         var resp = await httpClient.PostAsync("api/v1/auth/token", new FormUrlEncodedContent(
             new Dictionary<string, string>()
@@ -30,16 +30,16 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
                 { "client_id", clientId },
                 { "client_secret", clientSecret },
                 { "code", code },
-            }));
+            }), ct);
         resp.EnsureSuccessStatusCode();
-        var data = await resp.Content.ReadFromJsonAsync<UserCredentials>() ?? throw new Exception("Invalid response");
+        var data = await resp.Content.ReadFromJsonAsync<UserCredentials>(ct) ?? throw new Exception("Invalid response");
         Credentials = data;
         return data;
     }
 
-    public async Task LinkAccountAsync(string code)
+    public async Task LinkAccountAsync(string code, CancellationToken ct = default)
     {
-        await RefreshTokenAsync();
+        await RefreshTokenAsync(false, ct);
         var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/auth/link")
         {
             Content = new FormUrlEncodedContent(
@@ -51,11 +51,11 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
                 }),
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", Credentials.AccessToken) }
         };
-        var resp = await httpClient.SendAsync(request);
+        var resp = await httpClient.SendAsync(request, ct);
         resp.EnsureSuccessStatusCode();
     }
 
-    public async Task<UserCredentials> RefreshTokenAsync(string refreshToken)
+    public async Task<UserCredentials> RefreshTokenAsync(string refreshToken, CancellationToken ct = default)
     {
         var resp = await httpClient.PostAsync("api/v1/auth/refresh", new FormUrlEncodedContent(
             new Dictionary<string, string>
@@ -63,29 +63,30 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
                 { "client_id", clientId },
                 { "client_secret", clientSecret },
                 { "refresh_token", refreshToken },
-            }));
+            }), ct);
         resp.EnsureSuccessStatusCode();
-        var data = await resp.Content.ReadFromJsonAsync<UserCredentials>() ?? throw new Exception("Invalid response");
+        var data = await resp.Content.ReadFromJsonAsync<UserCredentials>(ct) ?? throw new Exception("Invalid response");
         return data;
     }
 
-    public async Task<UserCredentials> RefreshTokenAsync(UserCredentials credentials, bool force = false)
+    public async Task<UserCredentials> RefreshTokenAsync(UserCredentials credentials, bool force = false,
+        CancellationToken ct = default)
     {
         if (force && credentials.ExpiresAt - DateTime.UtcNow > TimeSpan.FromMinutes(1))
             return credentials;
-        return await RefreshTokenAsync(credentials.RefreshToken);
+        return await RefreshTokenAsync(credentials.RefreshToken, ct);
     }
 
     [MemberNotNull(nameof(Credentials))]
-    public async Task<UserCredentials> RefreshTokenAsync(bool force = false)
+    public async Task<UserCredentials> RefreshTokenAsync(bool force = false, CancellationToken ct = default)
     {
         if (Credentials == null)
             throw new Exception("Not authorized");
-        Credentials = await RefreshTokenAsync(Credentials, force);
+        Credentials = await RefreshTokenAsync(Credentials, force, ct);
         return Credentials;
     }
 
-    public async Task RevokeTokenAsync(string refreshToken)
+    public async Task RevokeTokenAsync(string refreshToken, CancellationToken ct = default)
     {
         var resp = await httpClient.PostAsync("api/v1/auth/revoke", new FormUrlEncodedContent(
             new Dictionary<string, string>
@@ -93,46 +94,46 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
                 { "client_id", clientId },
                 { "client_secret", clientSecret },
                 { "refresh_token", refreshToken },
-            }));
+            }), ct);
         resp.EnsureSuccessStatusCode();
     }
 
-    public async Task RevokeTokenAsync(UserCredentials credentials)
+    public async Task RevokeTokenAsync(UserCredentials credentials, CancellationToken ct = default)
     {
-        await RevokeTokenAsync(credentials.RefreshToken);
+        await RevokeTokenAsync(credentials.RefreshToken, ct);
     }
 
-    public async Task RevokeTokenAsync()
+    public async Task RevokeTokenAsync(CancellationToken ct = default)
     {
         if (Credentials == null)
             return;
-        await RevokeTokenAsync(Credentials);
+        await RevokeTokenAsync(Credentials, ct);
         Credentials = null;
     }
 
-    public async Task<UserInfo> GetUserInfoAsync()
+    public async Task<UserInfo> GetUserInfoAsync(CancellationToken ct = default)
     {
-        await RefreshTokenAsync();
+        await RefreshTokenAsync(false, ct);
         var request = new HttpRequestMessage(HttpMethod.Get, "api/v1/auth/userinfo")
         {
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", Credentials.AccessToken) }
         };
-        var resp = await httpClient.SendAsync(request);
+        var resp = await httpClient.SendAsync(request, ct);
         resp.EnsureSuccessStatusCode();
-        var data = await resp.Content.ReadFromJsonAsync<UserInfo>() ?? throw new Exception("Invalid response");
+        var data = await resp.Content.ReadFromJsonAsync<UserInfo>(ct) ?? throw new Exception("Invalid response");
         return data;
     }
 
-    public async Task<AccountCredentials> GetAccountCredentialsAsync(string provider)
+    public async Task<AccountCredentials> GetAccountCredentialsAsync(string provider, CancellationToken ct = default)
     {
-        await RefreshTokenAsync();
+        await RefreshTokenAsync(false, ct);
         var request = new HttpRequestMessage(HttpMethod.Get, $"api/v1/auth/{provider}/accessToken")
         {
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", Credentials.AccessToken) }
         };
-        var resp = await httpClient.SendAsync(request);
+        var resp = await httpClient.SendAsync(request, ct);
         resp.EnsureSuccessStatusCode();
-        var data = await resp.Content.ReadFromJsonAsync<AccountCredentials>() ??
+        var data = await resp.Content.ReadFromJsonAsync<AccountCredentials>(ct) ??
                    throw new Exception("Invalid response");
         return data;
     }
