@@ -14,6 +14,7 @@ internal class UserSubscriptionConfiguration : IEntityTypeConfiguration<UserSubs
         builder.Property(x => x.UserId).IsRequired();
         builder.Property(x => x.PlanId).IsRequired();
         builder.Property(x => x.CreatedAt).IsRequired();
+        builder.Property(x => x.StartsAt);
         builder.Property(x => x.ExpiresAt).IsRequired();
     }
 }

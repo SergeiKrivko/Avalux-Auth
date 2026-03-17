@@ -172,6 +172,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
                     PlanId = e.PlanId,
                     UserId = e.UserId,
                     CreatedAt = e.CreatedAt,
+                    StartsAt = e.StartsAt ?? e.CreatedAt,
                     ExpiresAt = e.ExpiresAt,
                 }).ToArray(),
         };

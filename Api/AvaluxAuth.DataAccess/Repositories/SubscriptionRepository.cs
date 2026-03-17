@@ -77,7 +77,8 @@ public class SubscriptionRepository(AvaluxAuthDbContext dbContext) : ISubscripti
         return count > 0;
     }
 
-    public async Task<Guid> AddUserSubscriptionAsync(Guid userId, Guid planId, DateTime expiredAt, CancellationToken ct = default)
+    public async Task<Guid> AddUserSubscriptionAsync(Guid userId, Guid planId, DateTime? startsAt, DateTime expiredAt,
+        CancellationToken ct = default)
     {
         var id = Guid.NewGuid();
         var entity = new UserSubscriptionEntity
@@ -86,6 +87,7 @@ public class SubscriptionRepository(AvaluxAuthDbContext dbContext) : ISubscripti
             UserId = userId,
             PlanId = planId,
             CreatedAt = DateTime.UtcNow,
+            StartsAt = startsAt ?? DateTime.UtcNow,
             ExpiresAt = expiredAt,
         };
         await dbContext.UserSubscriptions.AddAsync(entity, ct);

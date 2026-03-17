@@ -72,7 +72,7 @@ public class UsersController(
     public async Task<ActionResult> AddUserSubscription(Guid applicationId, Guid userId,
         AddSubscriptionRequestSchema schema, CancellationToken ct)
     {
-        await subscriptionRepository.AddUserSubscriptionAsync(userId, schema.PlanId, schema.ExpiresAt, ct);
+        await subscriptionRepository.AddUserSubscriptionAsync(userId, schema.PlanId, schema.StartsAt, schema.ExpiresAt, ct);
         return Ok();
     }
 }
