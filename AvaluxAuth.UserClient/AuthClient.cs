@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using Avalux.Auth.UserClient.Models;
 
 namespace Avalux.Auth.UserClient;
@@ -18,6 +19,11 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
         new HttpClient { BaseAddress = new Uri(apiUrl) }, clientId, clientSecret)
     {
     }
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
 
     public string GetAuthorizationUrl(string provider, string redirectUrl)
     {
@@ -36,7 +42,7 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
                 { "code", code },
             }), ct);
         resp.EnsureSuccessStatusCode();
-        var data = await resp.Content.ReadFromJsonAsync<UserCredentialsSchema>(ct) ??
+        var data = await resp.Content.ReadFromJsonAsync<UserCredentialsSchema>(JsonOptions, ct) ??
                    throw new Exception("Invalid response");
         Credentials = UserCredentials.FromSchema(data);
         return Credentials;
@@ -71,7 +77,7 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
                 { "refresh_token", refreshToken },
             }), ct);
         resp.EnsureSuccessStatusCode();
-        var data = await resp.Content.ReadFromJsonAsync<UserCredentialsSchema>(ct) ??
+        var data = await resp.Content.ReadFromJsonAsync<UserCredentialsSchema>(JsonOptions, ct) ??
                    throw new Exception("Invalid response");
         return UserCredentials.FromSchema(data);
     }
@@ -127,7 +133,8 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
         };
         var resp = await httpClient.SendAsync(request, ct);
         resp.EnsureSuccessStatusCode();
-        var data = await resp.Content.ReadFromJsonAsync<UserInfo>(ct) ?? throw new Exception("Invalid response");
+        var data = await resp.Content.ReadFromJsonAsync<UserInfo>(JsonOptions, ct) ??
+                   throw new Exception("Invalid response");
         return data;
     }
 
@@ -140,7 +147,7 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
         };
         var resp = await httpClient.SendAsync(request, ct);
         resp.EnsureSuccessStatusCode();
-        var data = await resp.Content.ReadFromJsonAsync<AccountCredentials>(ct) ??
+        var data = await resp.Content.ReadFromJsonAsync<AccountCredentials>(JsonOptions, ct) ??
                    throw new Exception("Invalid response");
         return data;
     }

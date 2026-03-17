@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <RootNamespace>Avalux.Auth.ApiClient</RootNamespace>
         <PackageId>Avalux.Auth.ApiClient</PackageId>
-        <PackageVersion>1.1.0</PackageVersion>
+        <PackageVersion>1.1.1</PackageVersion>
 
         <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
         <PackageReadmeFile>README.md</PackageReadmeFile>
