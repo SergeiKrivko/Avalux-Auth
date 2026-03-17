@@ -1,4 +1,4 @@
-﻿using AvaluxAuth.Models;
+﻿using Avalux.Auth.UserClient.Models;
 
 namespace AvaluxAuth.TestCli;
 

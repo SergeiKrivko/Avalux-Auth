@@ -21,7 +21,7 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
 
     public string GetAuthorizationUrl(string provider, string redirectUrl)
     {
-        return $"{httpClient.BaseAddress?.AbsoluteUri}/api/v1/auth/authorize?provider={provider}" +
+        return $"{httpClient.BaseAddress?.AbsoluteUri}api/v1/auth/authorize?provider={provider}" +
                $"&client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUrl)}";
     }
 

@@ -5,7 +5,7 @@ namespace AvaluxAuth.TestCli;
 public class DefaultArguments
 {
     [Option(longName: "apiUrl", Required = false)]
-    public string ApiUrl { get; set; } = "https://localhost:5000";
+    public string ApiUrl { get; set; } = "http://localhost:5000";
 
     [Option(longName: "clientId", Required = true)]
     public required string ClientId { get; set; }

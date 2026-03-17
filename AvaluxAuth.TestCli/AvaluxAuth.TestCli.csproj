@@ -8,11 +8,8 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="Avalux.Auth.UserClient" Version="1.2.0" />
       <PackageReference Include="CommandLineParser" Version="2.9.1" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\Api\AvaluxAuth.Models\AvaluxAuth.Models.csproj" />
     </ItemGroup>
 
 </Project>

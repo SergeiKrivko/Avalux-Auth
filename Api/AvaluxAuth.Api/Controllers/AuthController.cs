@@ -55,8 +55,8 @@ public class AuthController(
     public async Task<ActionResult<UserCredentials>> GetToken(
         [FromForm(Name = "client_id")] string clientId,
         [FromForm(Name = "client_secret")] string clientSecret,
-        [FromForm(Name = "code")] string code,
-        [FromForm(Name = "refresh_token")] string refreshToken,
+        [FromForm(Name = "code")] string? code = null,
+        [FromForm(Name = "refresh_token")] string? refreshToken = null,
         [FromForm(Name = "grant_type")] string grantType = "authorization_code",
         CancellationToken ct = default)
     {
@@ -68,9 +68,13 @@ public class AuthController(
         switch (grantType)
         {
             case "authorization_code":
+                if (code == null)
+                    return BadRequest("Parameter 'code' not specified");
                 credentials = await authorizationService.AuthorizeUserAsync(code, ct);
                 return Ok(credentials);
             case "refresh_token":
+                if (refreshToken == null)
+                    return BadRequest("Parameter 'code' not specified");
                 credentials = await authorizationService.RefreshTokenAsync(refreshToken, ct);
                 if (credentials == null)
                     return Unauthorized("Refresh token is incorrect");

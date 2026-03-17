@@ -1,6 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
 using System.Reflection;
+using Avalux.Auth.UserClient;
 using AvaluxAuth.TestCli;
 using CommandLine;
 
@@ -14,14 +15,10 @@ async Task Run(object obj)
     {
         case LogInArguments o:
         {
-            var apiClient = new ApiClient();
-            apiClient.StartAuthorization(o.Provider, o.ClientId);
-            var code = await Utils.ReceiveAuthCodeAsync();
-            if (string.IsNullOrEmpty(code))
-                throw new Exception("Code is empty");
-            var credentials = await apiClient.GetAccessToken(code, o.ClientId, o.ClientSecret);
+            var apiClient = new AuthClient(o.ApiUrl, o.ClientId, o.ClientSecret);
+            var credentials = await apiClient.AuthorizeInstalledAsync(o.Provider, Utils.CallbackUrl);
 
-            var userInfo = await apiClient.GetUserInfo(credentials);
+            var userInfo = await apiClient.GetUserInfoAsync();
             Console.WriteLine($"User ID: {userInfo.Id}");
             foreach (var account in userInfo.Accounts)
             {
@@ -33,19 +30,16 @@ async Task Run(object obj)
             break;
         case LinkArguments o:
         {
-            var apiClient = new ApiClient();
-            apiClient.StartAuthorization(o.Provider, o.ClientId);
-            var code = await Utils.ReceiveAuthCodeAsync();
-            if (string.IsNullOrEmpty(code))
-                throw new Exception("Code is empty");
+            var apiClient = new AuthClient(o.ApiUrl, o.ClientId, o.ClientSecret);
             var credentials = await Utils.LoadCredentials();
             if (credentials == null)
                 throw new Exception("Can not load credentials");
-            credentials = await apiClient.RefreshToken(credentials);
+            apiClient.Credentials = credentials;
+            credentials = await apiClient.RefreshTokenAsync();
             await Utils.SaveCredentials(credentials);
-            await apiClient.LinkAccount(code, o.ClientId, o.ClientSecret, credentials);
+            await apiClient.LinkInstalledAsync(o.Provider, Utils.CallbackUrl);
 
-            var userInfo = await apiClient.GetUserInfo(credentials);
+            var userInfo = await apiClient.GetUserInfoAsync();
             Console.WriteLine($"User ID: {userInfo.Id}");
             foreach (var account in userInfo.Accounts)
             {
