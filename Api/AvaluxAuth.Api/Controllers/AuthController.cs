@@ -27,7 +27,7 @@ public class AuthController(
         [FromQuery(Name = "redirect_uri")] string redirectUri,
         CancellationToken ct = default)
     {
-        var url = await oauthService.GetAuthUrlAsync(clientId, providerKey, redirectUri, null, null, ct);
+        var url = await oauthService.GetAuthUrlAsync(clientId, providerKey, redirectUri, null, null, null, ct);
         return Redirect(url);
     }
 
@@ -37,12 +37,14 @@ public class AuthController(
         [FromQuery(Name = "client_id")] string clientId,
         [FromQuery(Name = "redirect_uri")] string redirectUri,
         [FromQuery(Name = "state")] string? state = null,
+        [FromQuery(Name = "nonce")] string? nonce = null,
         [FromQuery(Name = "link_code")] string? linkCode = null,
         CancellationToken ct = default)
     {
         try
         {
-            var url = await oauthService.GetAuthUrlAsync(clientId, providerKey, redirectUri, state, linkCode, ct);
+            var url = await oauthService.GetAuthUrlAsync(clientId, providerKey, redirectUri, state, nonce, linkCode,
+                ct);
             return Redirect(url);
         }
         catch (Exception e)
@@ -61,7 +63,8 @@ public class AuthController(
             var processed = await oauthService.ProcessCodeAsync(
                 Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString()), state, ct);
 
-            var code = await authorizationService.CreateAuthorizationCodeAsync(processed.UserId, ct);
+            var code = await authorizationService.CreateAuthorizationCodeAsync(processed.UserId,
+                processed.State.UserNonce, ct);
 
             var builder = new UrlBuilder(processed.State.RedirectUrl)
                 .AddQuery("code", code);

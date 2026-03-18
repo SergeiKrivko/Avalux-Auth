@@ -6,7 +6,8 @@ public interface IOauthService
 {
     public Task<string> CreateLinkCode(Guid userId, CancellationToken ct = default);
 
-    public Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUri, string? state, string? linkCode,
+    public Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUri,
+        string? state, string? nonce, string? linkCode,
         CancellationToken ct = default);
 
     public Task<ProcessedAuthorizationState> ProcessCodeAsync(Dictionary<string, string> query, string state,

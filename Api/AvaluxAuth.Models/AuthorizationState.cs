@@ -4,6 +4,7 @@ public class AuthorizationState
 {
     public required string State { get; init; }
     public string? UserState { get; init; }
+    public string? UserNonce { get; init; }
     public required Guid ApplicationId { get; init; }
     public required Guid ProviderId { get; init; }
     public Guid? LinkUserId { get; init; }

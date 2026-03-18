@@ -22,7 +22,7 @@ public class OauthService(
     public async Task<string> CreateLinkCode(Guid userId, CancellationToken ct = default)
     {
         var linkCode = RandomNumberGenerator.GetRandomString(64);
-        await linkCodeRepository.SaveCodeAsync(new AuthCode
+        await linkCodeRepository.SaveCodeAsync(new LinkCode
         {
             Code = linkCode,
             UserId = userId,
@@ -31,7 +31,7 @@ public class OauthService(
     }
 
     public async Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUri,
-        string? userState, string? linkCode,
+        string? userState, string? userNonce, string? linkCode,
         CancellationToken ct = default)
     {
         var application = await applicationRepository.GetApplicationByClientIdAsync(clientId, ct);
@@ -47,11 +47,15 @@ public class OauthService(
         if (providerSettings == null)
             throw new Exception("Provider is not added to this application");
 
+        var link = linkCode == null ? null : await linkCodeRepository.TakeCodeAsync(linkCode);
+
         var state = RandomNumberGenerator.GetRandomString(64);
         await stateRepository.SaveStateAsync(new AuthorizationState
         {
             State = state,
             UserState = userState,
+            UserNonce = userNonce,
+            LinkUserId = link?.UserId,
             ApplicationId = application.Id,
             ProviderId = providerSettings.Id,
             RedirectUrl = redirectUri,

@@ -11,4 +11,8 @@ public class UserCredentials
     [JsonPropertyName("expires_in")] public double ExpiresIn => (ExpiresAt - DateTime.UtcNow).TotalSeconds;
 
     [JsonPropertyName("token_type")] public string TokenType => "Bearer";
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("id_token")]
+    public string? IdToken { get; init; }
 }

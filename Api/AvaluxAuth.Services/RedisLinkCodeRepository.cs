@@ -9,17 +9,17 @@ public class RedisLinkCodeRepository(IConnectionMultiplexer redis) : ILinkCodeRe
 {
     private const string RedisKeyPrefix = "LinkCode-";
 
-    public async Task SaveCodeAsync(AuthCode code)
+    public async Task SaveCodeAsync(LinkCode code)
     {
         var db = redis.GetDatabase();
         await db.StringSetAsync(RedisKeyPrefix + code.Code, JsonSerializer.Serialize(code), TimeSpan.FromHours(1));
     }
 
-    public async Task<AuthCode?> GetCodeAsync(string code)
+    public async Task<LinkCode?> GetCodeAsync(string code)
     {
         var db = redis.GetDatabase();
         var result = await db.StringGetAsync(RedisKeyPrefix + code);
-        return JsonSerializer.Deserialize<AuthCode>(result.ToString());
+        return JsonSerializer.Deserialize<LinkCode>(result.ToString());
     }
 
     public async Task DeleteCodeAsync(string code)
@@ -28,13 +28,13 @@ public class RedisLinkCodeRepository(IConnectionMultiplexer redis) : ILinkCodeRe
         await db.KeyDeleteAsync(RedisKeyPrefix + code);
     }
 
-    public async Task<AuthCode?> TakeCodeAsync(string code)
+    public async Task<LinkCode?> TakeCodeAsync(string code)
     {
         var db = redis.GetDatabase();
         var result = await db.StringGetAsync(RedisKeyPrefix + code);
         if (!result.HasValue)
             return null;
         await db.KeyDeleteAsync(RedisKeyPrefix + code);
-        return JsonSerializer.Deserialize<AuthCode>(result.ToString());
+        return JsonSerializer.Deserialize<LinkCode>(result.ToString());
     }
 }

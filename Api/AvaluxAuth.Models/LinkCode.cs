@@ -1,9 +1,7 @@
 ﻿namespace AvaluxAuth.Models;
 
-public class AuthCode
+public class LinkCode
 {
     public required string Code { get; init; }
     public required Guid UserId { get; init; }
-    public string? UserNonce { get; init; }
-    public DateTimeOffset AuthTime { get; init; }
 }
