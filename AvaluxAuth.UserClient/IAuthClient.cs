@@ -33,6 +33,20 @@ public interface IAuthClient
     public string GetAuthorizationUrl(string provider, string redirectUrl);
 
     /// <summary>
+    /// Получение ссылки для авторизации и линковки нового аккаунта к старым.
+    /// Не проверяет существование провайдера, но для успешной авторизации
+    /// он должен быть подключен через интерфейс администратора.
+    /// Далее нужно открыть ссылку в браузере и дождаться редиректа на <c>redirectUrl</c>.
+    /// Требует, чтобы текущий клиент был авторизован.
+    /// Обменивать полученный код на новый токен необязательно.
+    /// </summary>
+    /// <param name="provider">Строковый идентификатор провайдера. Например: <c>google</c>, <c>yandex</c>, <c>github</c></param>
+    /// <param name="redirectUrl">Url, на который будет перенаправлен пользователь после авторизации в провайдере</param>
+    /// <param name="ct">CancellationToken</param>
+    /// <returns></returns>
+    public Task<string> GetLinkUrl(string provider, string redirectUrl, CancellationToken ct = default);
+
+    /// <summary>
     /// Завершение авторизации. Авторизует текущий клиент.
     /// </summary>
     /// <param name="code">Код авторизации (query-параметр <c>code</c>)</param>
@@ -40,13 +54,6 @@ public interface IAuthClient
     /// <returns>Пара токенов (доступа + обновления) и время, до которого действителен токен доступа</returns>
     [MemberNotNull(nameof(Credentials))]
     public Task<UserCredentials> GetTokenAsync(string code, CancellationToken ct = default);
-
-    /// <summary>
-    /// Связывает новый аккаунт с текущим. Требует, чтобы клиент был авторизован.
-    /// </summary>
-    /// <param name="code">Код авторизации (query-параметр <c>code</c>)</param>
-    /// <param name="ct">CancellationToken</param>
-    public Task LinkAccountAsync(string code, CancellationToken ct = default);
 
     /// <summary>
     /// Обмен токена обновления на новую пару токенов. Старый токен обновления перестанет действовать.

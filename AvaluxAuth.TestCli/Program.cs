@@ -30,23 +30,31 @@ async Task Run(object obj)
             break;
         case LinkArguments o:
         {
-            var apiClient = new AuthClient(o.ApiUrl, o.ClientId, o.ClientSecret);
-            var credentials = await Utils.LoadCredentials();
-            if (credentials == null)
-                throw new Exception("Can not load credentials");
-            apiClient.Credentials = credentials;
-            credentials = await apiClient.RefreshTokenAsync();
-            await Utils.SaveCredentials(credentials);
-            await apiClient.LinkInstalledAsync(o.Provider, Utils.CallbackUrl);
-
-            var userInfo = await apiClient.GetUserInfoAsync();
-            Console.WriteLine($"User ID: {userInfo.Id}");
-            foreach (var account in userInfo.Accounts)
+            var apiClient = new AuthClient(o.ApiUrl, o.ClientId, o.ClientSecret)
             {
-                Console.WriteLine($"{account.Provider} --- {account.Name}, {account.Email}");
+                Credentials = await Utils.LoadCredentials()
+            };
+            if (apiClient.Credentials == null)
+                throw new Exception("Can not load credentials");
+            try
+            {
+                await apiClient.LinkInstalledAsync(o.Provider, Utils.CallbackUrl);
+
+                var userInfo = await apiClient.GetUserInfoAsync();
+                Console.WriteLine($"User ID: {userInfo.Id}");
+                foreach (var account in userInfo.Accounts)
+                {
+                    Console.WriteLine($"{account.Provider} --- {account.Name}, {account.Email}");
+                }
+            }
+            catch (Exception)
+            {
+                if (apiClient.Credentials != null)
+                    await Utils.SaveCredentials(apiClient.Credentials);
+                throw;
             }
 
-            await Utils.SaveCredentials(credentials);
+            await Utils.SaveCredentials(apiClient.Credentials);
         }
             break;
         case LogoutArguments o:

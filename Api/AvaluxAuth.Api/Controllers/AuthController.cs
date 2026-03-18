@@ -1,6 +1,7 @@
 ﻿using AvaluxAuth.Abstractions;
 using AvaluxAuth.Api.Schemas;
 using AvaluxAuth.Models;
+using AvaluxAuth.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,94 +12,43 @@ namespace AvaluxAuth.Api.Controllers;
 [ApiController]
 [Route("api/v1/auth")]
 public class AuthController(
-    IAuthorizationService authorizationService,
+    IOauthService oauthService,
     IUserRepository userRepository,
     IUserService userService,
     IProviderRepository providerRepository,
     IEnumerable<IAuthProvider> authProviders,
+    IAuthorizationService authorizationService,
     IConfiguration configuration)
     : ControllerBase
 {
     [HttpGet("{providerKey}/authorize")]
-    public async Task<ActionResult> Authorize(string providerKey,
+    public async Task<ActionResult> AuthorizeOld(string providerKey,
         [FromQuery(Name = "client_id")] string clientId,
         [FromQuery(Name = "redirect_uri")] string redirectUri,
         CancellationToken ct = default)
     {
-        var url = await authorizationService.GetAuthUrlAsync(clientId, providerKey, redirectUri, ct);
+        var url = await oauthService.GetAuthUrlAsync(clientId, providerKey, redirectUri, null, null, ct);
         return Redirect(url);
     }
 
     [HttpGet("authorize")]
-    public async Task<ActionResult> AuthorizeFromQuery(
+    public async Task<ActionResult> Authorize(
         [FromQuery(Name = "provider")] string providerKey,
         [FromQuery(Name = "client_id")] string clientId,
         [FromQuery(Name = "redirect_uri")] string redirectUri,
+        [FromQuery(Name = "state")] string? state = null,
+        [FromQuery(Name = "link_code")] string? linkCode = null,
         CancellationToken ct = default)
     {
         try
         {
-            var url = await authorizationService.GetAuthUrlAsync(clientId, providerKey, redirectUri, ct);
+            var url = await oauthService.GetAuthUrlAsync(clientId, providerKey, redirectUri, state, linkCode, ct);
             return Redirect(url);
         }
-        catch (Exception ex)
+        catch (Exception e)
         {
-            var errorHtml = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset='utf-8'>
-    <title>Ошибка авторизации</title>
-    <style>
-        body {{
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            line-height: 1.6;
-        }}
-        .error-container {{
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #f5c6cb;
-            border-radius: 5px;
-            background-color: #f8d7da;
-            color: #721c24;
-        }}
-        .error-title {{
-            font-size: 1.5em;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }}
-        .error-message {{
-            margin-bottom: 15px;
-            word-wrap: break-word;
-        }}
-        .error-details {{
-            font-size: 0.9em;
-            color: #6c757d;
-            border-top: 1px solid #f5c6cb;
-            padding-top: 10px;
-            margin-top: 10px;
-        }}
-    </style>
-</head>
-<body>
-    <div class='error-container'>
-        <div class='error-title'>Ошибка авторизации</div>
-        <div class='error-message'><strong>{HtmlEncode(ex.Message)}</strong></div>
-        {(ex.InnerException != null ? $"<div class='error-details'>Детали: {HtmlEncode(ex.InnerException.Message)}</div>" : "")}
-    </div>
-</body>
-</html>";
-
-            return Content(errorHtml, "text/html; charset=utf-8");
+            return ErrorHtml(e);
         }
-    }
-
-    // Вспомогательный метод для безопасного отображения текста в HTML
-    private static string HtmlEncode(string text)
-    {
-        return System.Net.WebUtility.HtmlEncode(text);
     }
 
     [HttpGet("{providerKey}/callback")]
@@ -106,10 +56,23 @@ public class AuthController(
         [FromQuery(Name = "state")] string state,
         CancellationToken ct = default)
     {
-        var redirectUrl = await
-            authorizationService.SaveCodeAsync(
+        try
+        {
+            var processed = await oauthService.ProcessCodeAsync(
                 Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString()), state, ct);
-        return Redirect(redirectUrl);
+
+            var code = await authorizationService.CreateAuthorizationCodeAsync(processed.UserId, ct);
+
+            var builder = new UrlBuilder(processed.State.RedirectUrl)
+                .AddQuery("code", code);
+            if (processed.State.UserState != null)
+                builder.AddQuery("state", processed.State.UserState);
+            return Redirect(builder.ToString());
+        }
+        catch (Exception e)
+        {
+            return ErrorHtml(e);
+        }
     }
 
     [HttpPost("token")]
@@ -122,7 +85,7 @@ public class AuthController(
         CancellationToken ct = default)
     {
         if (configuration["Security.RequireClientSecret"] != null &&
-            !await authorizationService.CheckClientSecretAsync(clientId, clientSecret, ct))
+            !await oauthService.CheckClientSecretAsync(clientId, clientSecret, ct))
             return Unauthorized("Client secret is incorrect");
 
         UserCredentials? credentials;
@@ -131,11 +94,11 @@ public class AuthController(
             case "authorization_code":
                 if (code == null)
                     return BadRequest("Parameter 'code' not specified");
-                credentials = await authorizationService.AuthorizeUserAsync(code, ct);
+                credentials = await authorizationService.GetTokenAsync(code, ct);
                 return Ok(credentials);
             case "refresh_token":
                 if (refreshToken == null)
-                    return BadRequest("Parameter 'code' not specified");
+                    return BadRequest("Parameter 'refresh_token' not specified");
                 credentials = await authorizationService.RefreshTokenAsync(refreshToken, ct);
                 if (credentials == null)
                     return Unauthorized("Refresh token is incorrect");
@@ -145,20 +108,14 @@ public class AuthController(
         }
     }
 
-    [HttpPost("link")]
+    [HttpGet("linkCode")]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Policy = Config.UserPolicy)]
-    public async Task<ActionResult> LinkAccount(
-        [FromForm(Name = "client_id")] string clientId,
-        [FromForm(Name = "client_secret")] string clientSecret,
-        [FromForm(Name = "code")] string code,
-        CancellationToken ct = default)
+    public async Task<ActionResult<string>> GetLinkCode(CancellationToken ct = default)
     {
         if (!Guid.TryParse(User.FindFirst("UserId")?.Value, out var userId))
             return Unauthorized();
-        if (!await authorizationService.CheckClientSecretAsync(clientId, clientSecret, ct))
-            return Unauthorized("Client secret is incorrect");
 
-        await authorizationService.LinkAccountAsync(userId, code, ct);
+        await oauthService.CreateLinkCode(userId, ct);
         return Ok();
     }
 
@@ -226,5 +183,61 @@ public class AuthController(
             AccessToken = credentials.AccessToken ?? throw new Exception("Access token is null"),
             ExpiresAt = credentials.ExpiresAt,
         });
+    }
+
+    private ContentResult ErrorHtml(params string[] errors)
+    {
+        var errorHtml = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <title>Ошибка авторизации</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            line-height: 1.6;
+        }}
+        .error-container {{
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            background-color: #f8d7da;
+            color: #721c24;
+        }}
+        .error-title {{
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }}
+        .error-message {{
+            margin-bottom: 15px;
+            word-wrap: break-word;
+        }}
+        .error-details {{
+            font-size: 0.9em;
+            color: #6c757d;
+            border-top: 1px solid #f5c6cb;
+            padding-top: 10px;
+            margin-top: 10px;
+        }}
+    </style>
+</head>
+<body>
+    <div class='error-container'>
+        <div class='error-title'>Ошибка авторизации</div>
+        {string.Join('\n', errors.Select(e => $"<div class='error-message'>{e}</div>"))}
+    </div>
+</body>
+</html>";
+        return Content(errorHtml, "text/html; charset=utf-8");
+    }
+
+    private ContentResult ErrorHtml(Exception ex)
+    {
+        return ex.InnerException == null ? ErrorHtml(ex.Message) : ErrorHtml(ex.Message, ex.InnerException.Message);
     }
 }

@@ -11,141 +11,24 @@ using Microsoft.IdentityModel.Tokens;
 namespace AvaluxAuth.Services;
 
 public class AuthorizationService(
-    IProviderFactory providerFactory,
     IApplicationRepository applicationRepository,
-    IProviderRepository providerRepository,
-    IStateRepository stateRepository,
     IAuthCodeRepository authCodeRepository,
     IConfiguration configuration,
-    IAccountRepository accountRepository,
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ISigningKeyService signingKeyService,
     ISecretProtector secretProtector,
-    ILogger<AuthorizationService> logger) : IAuthorizationService
+    ILogger<OauthService> logger) : IAuthorizationService
 {
-    public async Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUrl,
-        CancellationToken ct = default)
+    public async Task<string> CreateAuthorizationCodeAsync(Guid userId, CancellationToken ct = default)
     {
-        var application = await applicationRepository.GetApplicationByClientIdAsync(clientId, ct);
-        if (application == null)
-            throw new Exception("Client not found");
-
-        if (!application.Parameters.RedirectUrls.Contains(redirectUrl))
-            throw new Exception("Invalid redirect url");
-
-        if (!providerFactory.TryGetProvider(providerKey, out var provider))
-            throw new Exception("Provider not found");
-        var p = await providerRepository.GetProviderByProviderIdAsync(application.Id, provider.Id, ct);
-        if (p == null)
-            throw new Exception("Provider is not added to this application");
-
-        var state = RandomNumberGenerator.GetRandomString(64);
-        await stateRepository.SaveStateAsync(new AuthorizationState
-        {
-            State = state,
-            ApplicationId = application.Id,
-            ProviderId = p.Id,
-            RedirectUrl = redirectUrl,
-        });
-
-        return provider.GetAuthUrl(p.Parameters, GetCallbackUrl(provider.Key), state);
-    }
-
-    public async Task<string> SaveCodeAsync(Dictionary<string, string> query, string state,
-        CancellationToken ct = default)
-    {
-        var parameters = await stateRepository.TakeStateAsync(state);
-        if (parameters is null)
-            throw new Exception("State not found");
-
         var code = RandomNumberGenerator.GetRandomString();
         await authCodeRepository.SaveCodeAsync(new AuthCode
         {
             Code = code,
-            Query = query,
-            State = parameters,
+            UserId = userId,
         });
-        return new UrlBuilder(parameters.RedirectUrl)
-            .AddQuery("code", code)
-            .ToString();
-    }
-
-    public async Task<bool> CheckClientSecretAsync(string clientId, string clientSecret, CancellationToken ct = default)
-    {
-        var application = await applicationRepository.GetApplicationByClientIdAsync(clientId, ct);
-        if (application == null)
-            throw new Exception("Client not found");
-        return application.ClientSecret == clientSecret;
-    }
-
-    public async Task<UserCredentials> AuthorizeUserAsync(string code, CancellationToken ct = default)
-    {
-        var codeData = await authCodeRepository.TakeCodeAsync(code);
-        if (codeData is null)
-            throw new Exception("Code not found");
-        var p = await providerRepository.GetProviderByIdAsync(codeData.State.ProviderId, ct);
-        if (p == null)
-            throw new Exception("Provider not found");
-        if (!providerFactory.TryGetProvider(p.ProviderId, out var provider))
-            throw new Exception("Provider not found");
-        var credentials = await provider.GetTokenAsync(p.Parameters, codeData.Query, GetCallbackUrl(provider.Key), ct);
-        var info = await provider.GetUserInfoAsync(p.Parameters, credentials, ct);
-
-        var account = await accountRepository.GetAccountByProviderIdAsync(codeData.State.ApplicationId, info.Id, ct);
-        Guid userId;
-        if (account == null)
-        {
-            userId = await userRepository.CreateUserAsync(p.ApplicationId, ct);
-            await accountRepository.CreateAccountAsync(userId, p.Id, info,
-                p.Parameters.SaveTokens ? ProtectCredentials(credentials) : null,
-                ct);
-        }
-        else
-        {
-            userId = account.UserId;
-            if (!string.IsNullOrEmpty(account.TokenPair.RefreshToken))
-                await provider.RevokeTokenAsync(p.Parameters, UnprotectCredentials(account.TokenPair), ct);
-            await accountRepository.UpdateAccountTokensAsync(account.Id,
-                p.Parameters.SaveTokens ? ProtectCredentials(credentials) : new AccountCredentials(), ct);
-            await accountRepository.UpdateAccountInfoAsync(account.Id, info, ct);
-        }
-
-        if (!p.Parameters.SaveTokens)
-            await provider.RevokeTokenAsync(p.Parameters, credentials, ct);
-
-        return await GetCredentialsAsync(userId, ct);
-    }
-
-    public async Task LinkAccountAsync(Guid userId, string code, CancellationToken ct = default)
-    {
-        var codeData = await authCodeRepository.TakeCodeAsync(code);
-        if (codeData is null)
-            return;
-        var p = await providerRepository.GetProviderByIdAsync(codeData.State.ProviderId, ct);
-        if (p == null)
-            throw new Exception("Provider not found");
-        if (!providerFactory.TryGetProvider(p.ProviderId, out var provider))
-            throw new Exception("Provider not found");
-        var credentials = await provider.GetTokenAsync(p.Parameters, codeData.Query, GetCallbackUrl(provider.Key), ct);
-        var info = await provider.GetUserInfoAsync(p.Parameters, credentials, ct);
-
-        var account = await accountRepository.GetAccountByProviderIdAsync(codeData.State.ApplicationId, info.Id, ct);
-        if (account == null)
-            await accountRepository.CreateAccountAsync(userId, p.Id, info,
-                p.Parameters.SaveTokens ? ProtectCredentials(credentials) : null, ct);
-        else
-        {
-            if (account.UserId != userId)
-                throw new Exception("Account is already linked to another user");
-            if (!string.IsNullOrEmpty(account.TokenPair.RefreshToken))
-                await provider.RevokeTokenAsync(p.Parameters, UnprotectCredentials(account.TokenPair), ct);
-            await accountRepository.UpdateAccountTokensAsync(account.Id,
-                p.Parameters.SaveTokens ? ProtectCredentials(credentials) : new AccountCredentials(), ct);
-        }
-
-        if (!p.Parameters.SaveTokens)
-            await provider.RevokeTokenAsync(p.Parameters, credentials, ct);
+        return code;
     }
 
     public async Task<bool> RevokeTokenAsync(string refreshToken, CancellationToken ct = default)
@@ -153,7 +36,7 @@ public class AuthorizationService(
         return await refreshTokenRepository.DeleteRefreshTokenAsync(refreshToken, ct);
     }
 
-    private async Task<UserCredentials> GetCredentialsAsync(Guid userId, CancellationToken ct = default)
+    public async Task<UserCredentials> GetTokenAsync(Guid userId, CancellationToken ct = default)
     {
         var user = await userRepository.GetUserWithSubscriptionsAsync(userId, ct);
         if (user == null)
@@ -171,6 +54,14 @@ public class AuthorizationService(
             RefreshToken = refreshToken,
             ExpiresAt = expiresAt,
         };
+    }
+
+    public async Task<UserCredentials> GetTokenAsync(string code, CancellationToken ct = default)
+    {
+        var codeData = await authCodeRepository.TakeCodeAsync(code);
+        if (codeData == null)
+            throw new Exception("Invalid auth code");
+        return await GetTokenAsync(codeData.UserId, ct);
     }
 
     private async Task<SigningCredentials> GetSecurityKeyAsync(CancellationToken ct = default)
@@ -239,33 +130,6 @@ public class AuthorizationService(
             AccessToken = accessToken,
             RefreshToken = newToken,
             ExpiresAt = expiresAt,
-        };
-    }
-
-    private string GetCallbackUrl(string providerKey)
-    {
-        return
-            $"{configuration["Api.ApiUrl"] ?? throw new Exception("Api url not found")}/api/v1/auth/{providerKey}/callback";
-    }
-
-    private AccountCredentials ProtectCredentials(AccountCredentials unprotected)
-    {
-        return new AccountCredentials
-        {
-            AccessToken = unprotected.AccessToken is null ? null : secretProtector.Protect(unprotected.AccessToken),
-            RefreshToken = unprotected.RefreshToken is null ? null : secretProtector.Protect(unprotected.RefreshToken),
-            ExpiresAt = unprotected.ExpiresAt,
-        };
-    }
-
-    private AccountCredentials UnprotectCredentials(AccountCredentials credentials)
-    {
-        return new AccountCredentials
-        {
-            AccessToken = credentials.AccessToken is null ? null : secretProtector.Unprotect(credentials.AccessToken),
-            RefreshToken =
-                credentials.RefreshToken is null ? null : secretProtector.Unprotect(credentials.RefreshToken),
-            ExpiresAt = credentials.ExpiresAt,
         };
     }
 }

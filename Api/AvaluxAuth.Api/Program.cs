@@ -23,6 +23,7 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddSingleton<IStateRepository, RedisStateRepository>();
 builder.Services.AddSingleton<IAuthCodeRepository, RedisCodeRepository>();
+builder.Services.AddSingleton<ILinkCodeRepository, RedisLinkCodeRepository>();
 builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 
@@ -31,6 +32,7 @@ builder.Services.AddDataProtection()
 builder.Services.AddSingleton<ISecretProtector, SecretProtector>();
 
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
+builder.Services.AddScoped<IOauthService, OauthService>();
 builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
 builder.Services.AddScoped<ISigningKeyService, SigningKeyService>();
 builder.Services.AddScoped<ITokenService, TokenService>();

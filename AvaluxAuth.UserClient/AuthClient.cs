@@ -31,6 +31,25 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
                $"&client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUrl)}";
     }
 
+    public async Task<string> GetLinkUrl(string provider, string redirectUrl, CancellationToken ct = default)
+    {
+        return $"{httpClient.BaseAddress?.AbsoluteUri}api/v1/auth/authorize?provider={provider}" +
+               $"&client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUrl)}" +
+               $"&link_code={await GetLinkCodeAsync(ct)}";
+    }
+
+    private async Task<string> GetLinkCodeAsync(CancellationToken ct = default)
+    {
+        await RefreshTokenAsync(false, ct);
+        var request = new HttpRequestMessage(HttpMethod.Get, "api/v1/auth/linkCode")
+        {
+            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", Credentials.AccessToken) }
+        };
+        var resp = await httpClient.SendAsync(request, ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadAsStringAsync(ct);
+    }
+
     public async Task<UserCredentials> GetTokenAsync(string code, CancellationToken ct = default)
     {
         var resp = await httpClient.PostAsync("api/v1/auth/token", new FormUrlEncodedContent(
@@ -46,24 +65,6 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
                    throw new Exception("Invalid response");
         Credentials = UserCredentials.FromSchema(data);
         return Credentials;
-    }
-
-    public async Task LinkAccountAsync(string code, CancellationToken ct = default)
-    {
-        await RefreshTokenAsync(false, ct);
-        var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/auth/link")
-        {
-            Content = new FormUrlEncodedContent(
-                new Dictionary<string, string>
-                {
-                    { "client_id", clientId },
-                    { "client_secret", clientSecret },
-                    { "code", code },
-                }),
-            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", Credentials.AccessToken) }
-        };
-        var resp = await httpClient.SendAsync(request, ct);
-        resp.EnsureSuccessStatusCode();
     }
 
     public async Task<UserCredentials> RefreshTokenAsync(string refreshToken, CancellationToken ct = default)
@@ -85,7 +86,7 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
     public async Task<UserCredentials> RefreshTokenAsync(UserCredentials credentials, bool force = false,
         CancellationToken ct = default)
     {
-        if (force && credentials.ExpiresAt - DateTime.UtcNow > TimeSpan.FromMinutes(1))
+        if (!force && credentials.ExpiresAt - DateTime.UtcNow > TimeSpan.FromMinutes(1))
             return credentials;
         return await RefreshTokenAsync(credentials.RefreshToken, ct);
     }
@@ -165,13 +166,12 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
 
     public async Task LinkInstalledAsync(string provider, string redirectUrl, CancellationToken ct = default)
     {
-        await RefreshTokenAsync(true, ct);
-        var url = GetAuthorizationUrl(provider, redirectUrl);
+        await RefreshTokenAsync(false, ct);
+        var url = await GetLinkUrl(provider, redirectUrl, ct);
         OpenUrl(url);
         var code = await ReceiveAuthCodeAsync(redirectUrl, ct);
         if (code == null)
             throw new Exception("Authorization failed");
-        await LinkAccountAsync(code, ct);
     }
 
     private static void OpenUrl(string url)
