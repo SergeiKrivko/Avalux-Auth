@@ -118,8 +118,8 @@ public class AuthController(
         if (!Guid.TryParse(User.FindFirst("UserId")?.Value, out var userId))
             return Unauthorized();
 
-        await oauthService.CreateLinkCode(userId, ct);
-        return Ok();
+        var linkCode = await oauthService.CreateLinkCode(userId, ct);
+        return Ok(linkCode);
     }
 
     [HttpPost("refresh")]
