@@ -8,7 +8,12 @@ public interface IAuthProvider
     public string Key { get; }
     public int Id { get; }
     public string? ProviderUrl => null;
-    public string[] Fields => [nameof(ProviderParameters.ClientId), nameof(ProviderParameters.ClientSecret)];
+
+    public string[] Fields =>
+    [
+        nameof(ProviderParameters.ClientId), nameof(ProviderParameters.ClientSecret),
+        nameof(ProviderParameters.SaveTokens), nameof(ProviderParameters.DefaultScope)
+    ];
 
     public string GetAuthUrl(ProviderParameters parameters, string redirectUrl, string state);
 

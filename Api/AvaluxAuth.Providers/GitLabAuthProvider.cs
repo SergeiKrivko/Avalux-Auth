@@ -21,7 +21,9 @@ public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvide
     [
         nameof(ProviderParameters.ClientId),
         nameof(ProviderParameters.ClientSecret),
-        nameof(ProviderParameters.ProviderUrl)
+        nameof(ProviderParameters.ProviderUrl),
+        nameof(ProviderParameters.SaveTokens),
+        nameof(ProviderParameters.DefaultScope),
     ];
 
     public string GetAuthUrl(ProviderParameters parameters, string redirectUrl, string state)

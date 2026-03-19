@@ -1,15 +1,14 @@
 ﻿using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
-using AvaluxAuth.Utils;
-using Microsoft.Extensions.Configuration;
 
 namespace AvaluxAuth.Providers;
 
-public class PasswordAuthProvider(IConfiguration configuration) : IAuthProvider
+public class PasswordAuthProvider : IAuthProvider
 {
     public string Name => "Логин и пароль";
     public string Key => "password";
     public int Id => 0;
+    public string[] Fields => [];
 
     public string GetAuthUrl(ProviderParameters parameters, string redirectUrl, string state)
     {

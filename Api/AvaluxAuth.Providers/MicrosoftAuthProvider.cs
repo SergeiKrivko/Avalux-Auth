@@ -18,7 +18,7 @@ public class MicrosoftAuthProvider(IHttpClientFactory httpClientFactory) : IAuth
     public string Name => "Microsoft";
     public string Key => "microsoft";
     public int Id => 5;
-    public string ProviderUrl => "https://www.microsoft.com";
+    public string ProviderUrl => "https://entra.microsoft.com";
 
     public string GetAuthUrl(ProviderParameters parameters, string redirectUrl, string state)
     {

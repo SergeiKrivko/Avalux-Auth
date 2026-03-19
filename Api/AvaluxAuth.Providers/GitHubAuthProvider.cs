@@ -20,6 +20,8 @@ public class GitHubAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         nameof(ProviderParameters.ClientName),
         nameof(ProviderParameters.ClientId),
         nameof(ProviderParameters.ClientSecret),
+        nameof(ProviderParameters.SaveTokens),
+        nameof(ProviderParameters.DefaultScope),
     ];
 
     public string GetAuthUrl(ProviderParameters config, string redirectUrl, string state)

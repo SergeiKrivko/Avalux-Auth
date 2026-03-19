@@ -1,7 +1,7 @@
 <div class="container" *tuiLet="selectedProviderInfo$ | async as providerInfo">
   <a tuiButton routerLink="../" iconStart="@tui.chevron-left" appearance="flat">Назад</a>
 
-  @if (providerInfo) {
+  @if (providerInfo && providerInfo.url) {
     <p tuiLabel class="provider-info">
       Создайте приложение {{ providerInfo?.name }} (<a [href]="providerInfo?.url">{{ providerInfo?.url }}</a>).
       Укажите Redirect URL
@@ -38,15 +38,21 @@
       </tui-textfield>
     }
 
-    <label tuiLabel class="label">Сохранять токены:</label>
-    <input tuiSwitch type="checkbox" formControlName="saveTokens"/>
+    @if (providerInfo?.fields?.includes('SaveTokens')) {
+      <label tuiLabel class="label">Сохранять токены:</label>
+      <input tuiSwitch type="checkbox" formControlName="saveTokens"/>
+    }
 
-    <label tuiLabel class="label">Scope:</label>
-    <app-input-string-array formControlName="defaultScope"/>
+    @if (providerInfo?.fields?.includes('DefaultScope')) {
+      <label tuiLabel class="label">Scope:</label>
+      <app-input-string-array formControlName="defaultScope"/>
+    }
 
   </form>
   <div class="buttons-container">
-    <button tuiButton iconStart="@tui.save" (click)="saveChanges()" [loading]="isSaving | async">Сохранить</button>
+    @if (providerInfo?.fields?.length) {
+      <button tuiButton iconStart="@tui.save" (click)="saveChanges()" [loading]="isSaving | async">Сохранить</button>
+    }
     <button tuiButton iconStart="@tui.ban" (click)="deleteProvider()" [loading]="isSaving | async"
             appearance="flat-destructive">
       Отключить

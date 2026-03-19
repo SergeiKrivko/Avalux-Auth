@@ -1,5 +1,5 @@
 import {ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit} from '@angular/core';
-import {TuiInputRange, TuiPagination} from '@taiga-ui/kit';
+import {TuiPagination} from '@taiga-ui/kit';
 import {UserService} from '../../services/user.service';
 import {AsyncPipe} from '@angular/common';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
@@ -10,8 +10,7 @@ import {UserCard} from '../../components/user-card/user-card';
   imports: [
     TuiPagination,
     AsyncPipe,
-    TuiInputRange,
-    UserCard
+    UserCard,
   ],
   templateUrl: './users.page.html',
   styleUrl: './users.page.scss',

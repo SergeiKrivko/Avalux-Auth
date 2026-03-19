@@ -3,7 +3,9 @@
     <app-logo/>
     <button tuiButton iconStart="@tui.user" appearance="flat-destructive" (click)="logOut()">Выйти</button>
   </div>
-  <div class="content-container">
-    <router-outlet/>
-  </div>
+  <tui-scrollbar>
+    <div class="content-container">
+      <router-outlet/>
+    </div>
+  </tui-scrollbar>
 </div>

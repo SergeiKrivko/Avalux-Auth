@@ -1,6 +1,6 @@
 import {Component, DestroyRef, inject, OnInit} from '@angular/core';
 import {Router, RouterOutlet} from '@angular/router';
-import {TuiButton} from '@taiga-ui/core';
+import {TuiButton, TuiScrollbar} from '@taiga-ui/core';
 import {AuthService} from '../../services/auth.service';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {Logo} from '../../components/logo/logo';
@@ -14,6 +14,7 @@ import {ProviderService} from '../../services/provider.service';
     RouterOutlet,
     TuiButton,
     Logo,
+    TuiScrollbar,
   ],
   templateUrl: './root.page.html',
   styleUrl: './root.page.scss',
