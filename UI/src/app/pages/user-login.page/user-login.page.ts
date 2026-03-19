@@ -42,7 +42,6 @@ class UserLoginPage {
   protected error = new BehaviorSubject<string>("");
 
   protected readonly clientName$ = this.apiClient.clientInfo(this.route.snapshot.queryParams['state']).pipe(
-    tap(console.log),
     map(resp => resp.name),
   );
 
@@ -70,9 +69,8 @@ class UserLoginPage {
           return NEVER;
         }),
         tap(resp => {
-          console.log(resp);
-          // if (resp.redirectUrl)
-          //   window.location.href = resp.redirectUrl;
+          if (resp.redirectUrl)
+            window.location.href = resp.redirectUrl;
         }),
       ).subscribe();
   }
