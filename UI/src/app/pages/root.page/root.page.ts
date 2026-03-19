@@ -1,11 +1,11 @@
 import {Component, DestroyRef, inject, OnInit} from '@angular/core';
-import {RouterOutlet} from '@angular/router';
+import {Router, RouterOutlet} from '@angular/router';
 import {TuiButton} from '@taiga-ui/core';
 import {AuthService} from '../../services/auth.service';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {Logo} from '../../components/logo/logo';
 import {ApplicationService} from '../../services/application.service';
-import {combineLatest} from 'rxjs';
+import {combineLatest, from, NEVER, switchMap} from 'rxjs';
 import {ProviderService} from '../../services/provider.service';
 
 @Component({
@@ -24,11 +24,25 @@ export class RootPage implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly applicationService = inject(ApplicationService);
   private readonly providerService = inject(ProviderService);
+  private readonly router = inject(Router);
 
   ngOnInit() {
     combineLatest([
       this.applicationService.loadApplicationsOnAuthChange$,
       this.providerService.loadProvidersOnApplicationChange$,
+    ]).pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe();
+
+    combineLatest([
+      this.authService.load(),
+      this.authService.state$.pipe(
+        switchMap(state => {
+          if (state.isLoaded && !state.isAuthenticated)
+            return from(this.router.navigate(['/admin-auth'])).pipe(switchMap(() => NEVER));
+          return NEVER;
+        }),
+      )
     ]).pipe(
       takeUntilDestroyed(this.destroyRef),
     ).subscribe();

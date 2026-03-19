@@ -1,0 +1,52 @@
+<div class="container">
+  <h1>{{ clientName$ | async }}</h1>
+  <form tuiCardLarge class="card-container" [formGroup]="control" (ngSubmit)="submit()">
+    <h2>Авторизация</h2>
+
+    <tui-segmented size="l" class="switch">
+      <label>
+        <input type="radio" [value]="false" formControlName="isSignUp"/>
+        Вход
+      </label>
+      <label>
+        <input type="radio" [value]="true" formControlName="isSignUp"/>
+        Регистрация
+      </label>
+    </tui-segmented>
+
+    <label tuiLabel>Логин</label>
+    <tui-textfield>
+      <input tuiTextfield formControlName="login"/>
+    </tui-textfield>
+    <label tuiLabel>Пароль</label>
+    <tui-textfield>
+      <input tuiTextfield type="password" formControlName="password"/>
+    </tui-textfield>
+
+    @let isSignUp = isSignUp$ | async;
+    @if (isSignUp) {
+      <label tuiLabel>Пароль еще раз</label>
+      <tui-textfield>
+        <input tuiTextfield type="password" formControlName="passwordAgain"/>
+      </tui-textfield>
+      <label tuiLabel>Имя пользователя (не обязательно)</label>
+      <tui-textfield>
+        <input tuiTextfield formControlName="username"/>
+      </tui-textfield>
+      <label tuiLabel>Email (не обязательно)</label>
+      <tui-textfield>
+        <input tuiTextfield type="email" formControlName="email"/>
+      </tui-textfield>
+    }
+
+    <tui-error [error]="error | async"></tui-error>
+
+    <button tuiButton type="submit">
+      @if (isSignUp) {
+        Создать аккаунт
+      } @else {
+        Войти
+      }
+    </button>
+  </form>
+</div>

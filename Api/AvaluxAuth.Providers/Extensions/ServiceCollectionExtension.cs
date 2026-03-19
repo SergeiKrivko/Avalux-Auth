@@ -11,6 +11,7 @@ public static class ServiceCollectionExtension
         {
             serviceCollection.AddScoped<IProviderFactory, ProviderFactory>();
 
+            serviceCollection.AddScoped<IAuthProvider, PasswordAuthProvider>();
             serviceCollection.AddScoped<IAuthProvider, YandexAuthProvider>();
             serviceCollection.AddScoped<IAuthProvider, GoogleAuthProvider>();
             serviceCollection.AddScoped<IAuthProvider, GitHubAuthProvider>();

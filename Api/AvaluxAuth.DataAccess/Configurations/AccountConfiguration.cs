@@ -13,6 +13,7 @@ internal class AccountConfiguration : IEntityTypeConfiguration<AccountEntity>
         builder.Property(x => x.UserId).IsRequired();
         builder.Property(x => x.ProviderId).IsRequired();
         builder.Property(x => x.ProviderUserId).IsRequired();
+        builder.Property(x => x.PasswordHash);
         builder.Property(x => x.Name);
         builder.Property(x => x.Login);
         builder.Property(x => x.Email);

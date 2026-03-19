@@ -5,7 +5,7 @@ namespace AvaluxAuth.Abstractions;
 public interface IAccountRepository
 {
     public Task<Account?> GetAccountByIdAsync(Guid id, CancellationToken ct = default);
-    public Task<Account?> GetAccountByProviderIdAsync(Guid applicationId, string id, CancellationToken ct = default);
+    public Task<Account?> GetAccountByProviderIdAsync(Guid providerId, string id, CancellationToken ct = default);
     public Task<IEnumerable<Account>> GetAccountsOfUserAsync(Guid userId, CancellationToken ct = default);
 
     public Task<Account?> FindAccountAsync(Guid userId, Guid providerId,
@@ -19,5 +19,6 @@ public interface IAccountRepository
         CancellationToken ct = default);
 
     public Task<bool> UpdateAccountInfoAsync(Guid accountId, UserInfo info, CancellationToken ct = default);
+    public Task<bool> ChangePasswordAsync(Guid accountId, string newPasswordHash, CancellationToken ct = default);
     public Task<bool> DeleteAccountAsync(Guid accountId, CancellationToken ct = default);
 }

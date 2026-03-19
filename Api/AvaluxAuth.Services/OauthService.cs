@@ -61,7 +61,9 @@ public class OauthService(
             RedirectUrl = redirectUri,
         });
 
-        return provider.GetAuthUrl(providerSettings.Parameters, GetCallbackUrl(provider.Key), state);
+        return provider.Id == 0
+            ? $"{configuration["Api.ApiUrl"]}/login?state={state}"
+            : provider.GetAuthUrl(providerSettings.Parameters, GetCallbackUrl(provider.Key), state);
     }
 
     private string GetCallbackUrl(string providerKey)
@@ -90,7 +92,7 @@ public class OauthService(
             $"?text={GenerateAvatarText(info.Name ?? info.Email ?? "")}" +
             $"&color={Random.Shared.Next(10)}";
 
-        var account = await accountRepository.GetAccountByProviderIdAsync(state.ApplicationId, info.Id, ct);
+        var account = await accountRepository.GetAccountByProviderIdAsync(providerSettings.Id, info.Id, ct);
         Guid userId;
         if (account == null)
         {

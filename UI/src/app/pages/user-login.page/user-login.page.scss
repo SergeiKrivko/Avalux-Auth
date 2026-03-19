@@ -1,0 +1,21 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  gap: 2rem;
+
+  .card-container {
+    width: min(100%, 30rem);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+
+    .switch {
+      label {
+        width: 50%;
+      }
+    }
+  }
+}

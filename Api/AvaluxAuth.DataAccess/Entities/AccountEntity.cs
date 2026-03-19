@@ -8,6 +8,7 @@ internal class AccountEntity
     public required Guid UserId { get; init; }
     public required Guid ProviderId { get; init; }
     [MaxLength(50)] public required string ProviderUserId { get; init; }
+    [MaxLength(256)] public string? PasswordHash { get; init; }
 
     [MaxLength(50)] public string? Name { get; init; }
     [MaxLength(50)] public string? Email { get; init; }

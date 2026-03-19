@@ -12,23 +12,5 @@ import {combineLatest, from, NEVER, of, switchMap} from 'rxjs';
   standalone: true,
   styleUrl: './app.scss'
 })
-export class App implements OnInit {
-  private readonly router = inject(Router);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly authService = inject(AuthService);
-
-  ngOnInit() {
-    combineLatest([
-      this.authService.load(),
-      this.authService.state$.pipe(
-        switchMap(state => {
-          if (state.isLoaded && !state.isAuthenticated)
-            return from(this.router.navigate(['/login'])).pipe(switchMap(() => NEVER));
-          return NEVER;
-        }),
-      )
-    ]).pipe(
-      takeUntilDestroyed(this.destroyRef),
-    ).subscribe();
-  }
+export class App {
 }

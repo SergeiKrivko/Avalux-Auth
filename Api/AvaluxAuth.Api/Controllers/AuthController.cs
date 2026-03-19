@@ -1,9 +1,11 @@
-﻿using AvaluxAuth.Abstractions;
+﻿using System.Security.Cryptography;
+using AvaluxAuth.Abstractions;
 using AvaluxAuth.Api.Schemas;
 using AvaluxAuth.Models;
 using AvaluxAuth.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using IAuthorizationService = AvaluxAuth.Abstractions.IAuthorizationService;
 
@@ -18,19 +20,13 @@ public class AuthController(
     IProviderRepository providerRepository,
     IEnumerable<IAuthProvider> authProviders,
     IAuthorizationService authorizationService,
+    IPasswordService passwordService,
+    IStateRepository stateRepository,
+    IAuthCodeRepository codeRepository,
+    IApplicationRepository applicationRepository,
     IConfiguration configuration)
     : ControllerBase
 {
-    [HttpGet("{providerKey}/authorize")]
-    public async Task<ActionResult> AuthorizeOld(string providerKey,
-        [FromQuery(Name = "client_id")] string clientId,
-        [FromQuery(Name = "redirect_uri")] string redirectUri,
-        CancellationToken ct = default)
-    {
-        var url = await oauthService.GetAuthUrlAsync(clientId, providerKey, redirectUri, null, null, null, ct);
-        return Redirect(url);
-    }
-
     [HttpGet("authorize")]
     public async Task<ActionResult> Authorize(
         [FromQuery(Name = "provider")] string providerKey,
@@ -185,6 +181,85 @@ public class AuthController(
         {
             AccessToken = credentials.AccessToken ?? throw new Exception("Access token is null"),
             ExpiresAt = credentials.ExpiresAt,
+        });
+    }
+
+    [HttpPost("password/signup")]
+    [EnableCors(PolicyName = Config.AdminPolicy)]
+    public async Task<ActionResult<PasswordAuthResponseSchema>> PasswordSignUp([FromQuery] string state,
+        [FromBody] PasswordSignUpSchema schema,
+        CancellationToken ct = default)
+    {
+        var stateData = await stateRepository.GetStateAsync(state);
+        if (stateData == null)
+            return Unauthorized();
+        var userId = stateData.LinkUserId ?? await userRepository.CreateUserAsync(stateData.ApplicationId, ct);
+        await passwordService.AddPasswordAsync(stateData.ApplicationId, userId, schema.Login, schema.Password,
+            schema.UserInfo, ct);
+
+        var code = RandomNumberGenerator.GetRandomString();
+        await codeRepository.SaveCodeAsync(new AuthCode
+        {
+            Code = code,
+            AuthTime = DateTimeOffset.UtcNow,
+            UserId = userId,
+            UserNonce = stateData.UserNonce,
+        });
+
+        var builder = new UrlBuilder(stateData.RedirectUrl)
+            .AddQuery("code", code);
+        if (stateData.UserState != null)
+            builder.AddQuery("state", stateData.UserState);
+        return Ok(new PasswordAuthResponseSchema
+        {
+            RedirectUrl = builder.ToString()
+        });
+    }
+
+    [HttpPost("password/signin")]
+    [EnableCors(PolicyName = Config.AdminPolicy)]
+    public async Task<ActionResult<PasswordAuthResponseSchema>> PasswordSignIn([FromQuery] string state,
+        [FromBody] PasswordSignInSchema schema,
+        CancellationToken ct = default)
+    {
+        var stateData = await stateRepository.GetStateAsync(state);
+        if (stateData == null)
+            return Unauthorized();
+        var userId = await passwordService.VerifyPasswordAsync(stateData.ApplicationId, schema.Login, schema.Password,
+            ct);
+        if (userId == null)
+            return Unauthorized();
+
+        var code = RandomNumberGenerator.GetRandomString();
+        await codeRepository.SaveCodeAsync(new AuthCode
+        {
+            Code = code,
+            AuthTime = DateTimeOffset.UtcNow,
+            UserId = userId.Value,
+            UserNonce = stateData.UserNonce,
+        });
+
+        var builder = new UrlBuilder(stateData.RedirectUrl)
+            .AddQuery("code", code);
+        if (stateData.UserState != null)
+            builder.AddQuery("state", stateData.UserState);
+        return Ok(new PasswordAuthResponseSchema
+        {
+            RedirectUrl = builder.ToString()
+        });
+    }
+
+    [HttpGet("password/clientInfo")]
+    [EnableCors(PolicyName = Config.AdminPolicy)]
+    public async Task<ActionResult<ClientInfoResponse>> GetClientName([FromQuery] string state, CancellationToken ct = default)
+    {
+        var stateData = await stateRepository.GetStateAsync(state);
+        if (stateData == null)
+            return Unauthorized();
+        var application = await applicationRepository.GetApplicationByIdAsync(stateData.ApplicationId, ct);
+        return Ok(new ClientInfoResponse
+        {
+            Name = application?.Parameters.Name
         });
     }
 

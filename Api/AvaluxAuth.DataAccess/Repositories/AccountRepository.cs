@@ -15,12 +15,12 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
         return res is null ? null : FromEntity(res);
     }
 
-    public async Task<Account?> GetAccountByProviderIdAsync(Guid applicationId, string id, CancellationToken ct = default)
+    public async Task<Account?> GetAccountByProviderIdAsync(Guid providerId, string id, CancellationToken ct = default)
     {
         var res = await dbContext.Accounts
             .Where(a => a.ProviderUserId == id && a.DeletedAt == null)
-            .Include(a => a.User)
-            .Where(a => a.User.ApplicationId == applicationId && a.User.DeletedAt == null)
+            .Include(a => a.Provider)
+            .Where(a => a.Provider.Id == providerId && a.Provider.DeletedAt == null)
             .FirstOrDefaultAsync(ct);
         return res is null ? null : FromEntity(res);
     }
@@ -98,6 +98,18 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
         return count > 0;
     }
 
+    public async Task<bool> ChangePasswordAsync(Guid accountId, string newPasswordHash, CancellationToken ct = default)
+    {
+        var count = await dbContext.Accounts
+            .Where(a => a.Id == accountId && a.DeletedAt == null)
+            .ExecuteUpdateAsync(a =>
+            {
+                a.SetProperty(x => x.PasswordHash, newPasswordHash);
+            }, ct);
+        await dbContext.SaveChangesAsync(ct);
+        return count > 0;
+    }
+
     public async Task<bool> DeleteAccountAsync(Guid accountId, CancellationToken ct = default)
     {
         var count = await dbContext.Accounts
@@ -130,7 +142,8 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
                 AccessToken = entity.AccessToken,
                 RefreshToken = entity.RefreshToken,
                 ExpiresAt = entity.ExpiresAt,
-            }
+            },
+            PasswordHash = entity.PasswordHash,
         };
     }
 }

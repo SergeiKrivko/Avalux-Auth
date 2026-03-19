@@ -7,4 +7,5 @@ public class Account
     public required Guid ProviderId { get; init; }
     public required UserInfo Info { get; init; }
     public required AccountCredentials TokenPair { get; init; }
+    public string? PasswordHash { get; init; }
 }
