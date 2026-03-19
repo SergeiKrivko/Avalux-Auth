@@ -1,5 +1,7 @@
 ﻿using System.Reflection;
 using AvaluxAuth.Abstractions;
+using AvaluxAuth.Utils;
+using Microsoft.Extensions.Configuration;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;
@@ -8,27 +10,28 @@ using SixLabors.ImageSharp.Processing;
 
 namespace AvaluxAuth.Services;
 
-public class ImageService : IImageService
+public class ImageService(IConfiguration configuration) : IImageService
 {
+    private static readonly Color[] Colors =
+    [
+        Color.Red,
+        Color.Green,
+        Color.Blue,
+        Color.Yellow,
+        Color.Orange,
+        Color.Pink,
+        Color.Purple,
+        Color.Aqua,
+        Color.Violet,
+        Color.Gray,
+    ];
+
     public async Task<Stream> GenerateAvatar(string text = "", int? colorIndex = null, CancellationToken ct = default)
     {
         const int imageSize = 200;
-        var colors = new[]
-        {
-            Color.Red,
-            Color.Green,
-            Color.Blue,
-            Color.Yellow,
-            Color.Orange,
-            Color.Pink,
-            Color.Purple,
-            Color.Aqua,
-            Color.Violet,
-            Color.Gray,
-        };
 
         // Выбор цвета по индексу
-        var bgColor = colors[colorIndex ?? Random.Shared.Next(colors.Length)].ToPixel<Rgba32>();
+        var bgColor = Colors[colorIndex ?? Random.Shared.Next(Colors.Length)].ToPixel<Rgba32>();
 
         using var image = new Image<Rgba32>(imageSize, imageSize);
 
@@ -69,5 +72,37 @@ public class ImageService : IImageService
         var fontCollection = new FontCollection();
         var fontFamily = fontCollection.Add(resourceStream);
         return new Font(fontFamily, fontSize, FontStyle.Regular);
+    }
+
+    public string CreateRandomAvatarUrl(string username)
+    {
+        return new UrlBuilder($"{configuration["Api.ApiUrl"]}/api/v1/avatar")
+            .AddQuery("text", GenerateAvatarText(username))
+            .AddQuery("color", Random.Shared.Next(Colors.Length).ToString())
+            .ToString();
+    }
+
+    private static string GenerateAvatarText(string text)
+    {
+        var lst = new List<string>();
+
+        foreach (var word in text.Split())
+        {
+            if (string.IsNullOrEmpty(word))
+                continue;
+            lst.Add(word[..1]);
+            for (var i = 1; i < word.Length; i++)
+            {
+                var letter = word[i..(i + 1)];
+                if (letter == letter.ToUpper())
+                    lst.Add(letter);
+            }
+        }
+
+        if (lst.Count == 0)
+            return "";
+        if (lst.Count == 1)
+            return lst[0];
+        return string.Join(string.Empty, lst.Slice(0, 2));
     }
 }

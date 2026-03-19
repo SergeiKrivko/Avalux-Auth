@@ -3,7 +3,6 @@ using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
 using AvaluxAuth.Utils;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 namespace AvaluxAuth.Services;
 
@@ -17,7 +16,7 @@ public class OauthService(
     IUserRepository userRepository,
     ISecretProtector secretProtector,
     IConfiguration configuration,
-    ILogger<OauthService> logger) : IOauthService
+    IImageService imageService) : IOauthService
 {
     public async Task<string> CreateLinkCode(Guid userId, CancellationToken ct = default)
     {
@@ -87,10 +86,7 @@ public class OauthService(
         var credentials =
             await provider.GetTokenAsync(providerSettings.Parameters, query, GetCallbackUrl(provider.Key), ct);
         var info = await provider.GetUserInfoAsync(providerSettings.Parameters, credentials, ct);
-        info.AvatarUrl ??=
-            $"{configuration["Api.ApiUrl"]}/api/v1/avatar" +
-            $"?text={GenerateAvatarText(info.Name ?? info.Email ?? "")}" +
-            $"&color={Random.Shared.Next(10)}";
+        info.AvatarUrl ??= imageService.CreateRandomAvatarUrl(info.Name ?? info.Login ?? "");
 
         var account = await accountRepository.GetAccountByProviderIdAsync(providerSettings.Id, info.Id, ct);
         Guid userId;
@@ -151,29 +147,5 @@ public class OauthService(
                 credentials.RefreshToken is null ? null : secretProtector.Unprotect(credentials.RefreshToken),
             ExpiresAt = credentials.ExpiresAt,
         };
-    }
-
-    private static string GenerateAvatarText(string text)
-    {
-        var lst = new List<string>();
-
-        foreach (var word in text.Split())
-        {
-            if (string.IsNullOrEmpty(word))
-                continue;
-            lst.Add(word[..1]);
-            for (var i = 1; i < word.Length; i++)
-            {
-                var letter = word[i..(i + 1)];
-                if (letter == letter.ToUpper())
-                    lst.Add(letter);
-            }
-        }
-
-        if (lst.Count == 0)
-            return "";
-        if (lst.Count == 1)
-            return lst[0];
-        return string.Join(string.Empty, lst.Slice(0, 2));
     }
 }

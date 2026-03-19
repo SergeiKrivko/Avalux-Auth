@@ -6,7 +6,8 @@ namespace AvaluxAuth.Services;
 public class PasswordService(
     IAccountRepository accountRepository,
     IUserRepository userRepository,
-    IProviderRepository providerRepository) : IPasswordService
+    IProviderRepository providerRepository,
+    IImageService imageService) : IPasswordService
 {
     public async Task<bool> AddPasswordAsync(Guid applicationId, Guid? userId, string login, string password,
         UserInfo userInfo, CancellationToken ct = default)
@@ -21,8 +22,11 @@ public class PasswordService(
 
         userId ??= await userRepository.CreateUserAsync(applicationId, ct);
 
+        if (string.IsNullOrEmpty(userInfo.Name))
+            userInfo.Name = null;
         userInfo.Id = login;
-        userInfo.Login = login;
+        userInfo.Login ??= login;
+        userInfo.AvatarUrl ??= imageService.CreateRandomAvatarUrl(userInfo.Name ?? login);
         var accountId =
             await accountRepository.CreateAccountAsync(userId.Value, providerSettings.Id, userInfo, null, ct);
         await accountRepository.ChangePasswordAsync(accountId, BCrypt.Net.BCrypt.HashPassword(password), ct);

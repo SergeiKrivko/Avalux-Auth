@@ -194,8 +194,9 @@ public class AuthController(
         if (stateData == null)
             return Unauthorized();
         var userId = stateData.LinkUserId ?? await userRepository.CreateUserAsync(stateData.ApplicationId, ct);
-        await passwordService.AddPasswordAsync(stateData.ApplicationId, userId, schema.Login, schema.Password,
-            schema.UserInfo, ct);
+        if (!await passwordService.AddPasswordAsync(stateData.ApplicationId, userId, schema.Login, schema.Password,
+                schema.UserInfo, ct))
+            return Conflict("Account already exists");
 
         var code = RandomNumberGenerator.GetRandomString();
         await codeRepository.SaveCodeAsync(new AuthCode
@@ -251,7 +252,8 @@ public class AuthController(
 
     [HttpGet("password/clientInfo")]
     [EnableCors(PolicyName = Config.AdminPolicy)]
-    public async Task<ActionResult<ClientInfoResponse>> GetClientName([FromQuery] string state, CancellationToken ct = default)
+    public async Task<ActionResult<ClientInfoResponse>> GetClientName([FromQuery] string state,
+        CancellationToken ct = default)
     {
         var stateData = await stateRepository.GetStateAsync(state);
         if (stateData == null)
