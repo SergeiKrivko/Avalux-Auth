@@ -32,23 +32,7 @@ public class PasswordController(
         var userId =
             await passwordService.GetOrCreateAccountAsync(stateData.ApplicationId, stateData.LinkUserId, password, ct);
 
-        var code = RandomNumberGenerator.GetRandomString();
-        await codeRepository.SaveCodeAsync(new AuthCode
-        {
-            Code = code,
-            AuthTime = DateTimeOffset.UtcNow,
-            UserId = userId,
-            UserNonce = stateData.UserNonce,
-        });
-
-        var builder = new UrlBuilder(stateData.RedirectUrl)
-            .AddQuery("code", code);
-        if (stateData.UserState != null)
-            builder.AddQuery("state", stateData.UserState);
-        return Ok(new PasswordAuthResponseSchema
-        {
-            RedirectUrl = builder.ToString()
-        });
+        return Ok(await CreateResponseSchemaAsync(stateData, userId));
     }
 
     [HttpPost("signin")]
@@ -66,23 +50,7 @@ public class PasswordController(
         var userId =
             await passwordService.GetOrCreateAccountAsync(stateData.ApplicationId, stateData.LinkUserId, password, ct);
 
-        var code = RandomNumberGenerator.GetRandomString();
-        await codeRepository.SaveCodeAsync(new AuthCode
-        {
-            Code = code,
-            AuthTime = DateTimeOffset.UtcNow,
-            UserId = userId,
-            UserNonce = stateData.UserNonce,
-        });
-
-        var builder = new UrlBuilder(stateData.RedirectUrl)
-            .AddQuery("code", code);
-        if (stateData.UserState != null)
-            builder.AddQuery("state", stateData.UserState);
-        return Ok(new PasswordAuthResponseSchema
-        {
-            RedirectUrl = builder.ToString()
-        });
+        return Ok(await CreateResponseSchemaAsync(stateData, userId));
     }
 
     [HttpGet("clientInfo")]
@@ -97,5 +65,55 @@ public class PasswordController(
         {
             Name = application?.Parameters.Name
         });
+    }
+
+    [HttpGet("profile")]
+    public async Task<ActionResult<PasswordUserInfo>> GetUserInfo([FromQuery] string state, CancellationToken ct)
+    {
+        var stateData = await stateRepository.GetStateAsync(state);
+        if (stateData == null || stateData.LinkUserId == null)
+            return Unauthorized();
+        var user = await passwordService.GetByUserId(stateData.LinkUserId.Value, ct);
+        return Ok(user?.Info);
+    }
+
+    [HttpPut("profile")]
+    public async Task<ActionResult<PasswordAuthResponseSchema>> SaveProfile([FromQuery] string state,
+        [FromBody] UpdateProfileSchema schema,
+        CancellationToken ct)
+    {
+        var stateData = await stateRepository.GetStateAsync(state);
+        if (stateData == null || stateData.LinkUserId == null)
+            return Unauthorized();
+
+        var user = await passwordService.GetByUserId(stateData.LinkUserId.Value, ct);
+        if (user == null)
+            return NotFound("Profile not found");
+        var res = await passwordService.UpdateInfoAsync(user.Id, schema.UserInfo, ct);
+        if (!res)
+            return NotFound("Profile not found");
+
+        return Ok(await CreateResponseSchemaAsync(stateData, stateData.LinkUserId.Value));
+    }
+
+    private async Task<PasswordAuthResponseSchema> CreateResponseSchemaAsync(AuthorizationState stateData, Guid userId)
+    {
+        var code = RandomNumberGenerator.GetRandomString();
+        await codeRepository.SaveCodeAsync(new AuthCode
+        {
+            Code = code,
+            AuthTime = DateTimeOffset.UtcNow,
+            UserId = userId,
+            UserNonce = stateData.UserNonce,
+        });
+
+        var builder = new UrlBuilder(stateData.RedirectUrl)
+            .AddQuery("code", code);
+        if (stateData.UserState != null)
+            builder.AddQuery("state", stateData.UserState);
+        return new PasswordAuthResponseSchema
+        {
+            RedirectUrl = builder.ToString()
+        };
     }
 }

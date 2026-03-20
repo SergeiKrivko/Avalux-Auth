@@ -66,4 +66,24 @@ public class PasswordService(
             await accountRepository.CreateAccountAsync(userId.Value, providerInfo.Id, userInfo, null, ct);
         return userId.Value;
     }
+
+    public async Task<PasswordUser?> GetByUserId(Guid userId, CancellationToken ct = default)
+    {
+        var user = await userRepository.GetUserWithAccountsAsync(userId, ct);
+        if (user == null)
+            return null;
+        var provider = await providerRepository.GetProviderByProviderIdAsync(user.ApplicationId, 0, ct);
+        if (provider == null)
+            return null;
+        var account = user.Accounts.FirstOrDefault(e => e.ProviderId == provider.Id);
+        if (account == null)
+            return null;
+        var password = await passwordRepository.GetByIdAsync(Guid.Parse(account.UserInfo.Id), ct);
+        return password;
+    }
+
+    public async Task<bool> UpdateInfoAsync(Guid id, PasswordUserInfo info, CancellationToken ct = default)
+    {
+        return await passwordRepository.UpdateInfoAsync(id, info, ct);
+    }
 }

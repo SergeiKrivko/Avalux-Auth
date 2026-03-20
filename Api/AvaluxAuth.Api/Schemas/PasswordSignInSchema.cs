@@ -12,3 +12,8 @@ public class PasswordSignUpSchema : PasswordSignInSchema
 {
     public required PasswordUserInfo UserInfo { get; init; }
 }
+
+public class UpdateProfileSchema
+{
+    public required PasswordUserInfo UserInfo { get; init; }
+}

@@ -47,6 +47,14 @@ public class OauthService(
             throw new Exception("Provider is not added to this application");
 
         var link = linkCode == null ? null : await linkCodeRepository.TakeCodeAsync(linkCode);
+        Console.WriteLine(link == null);
+        var existingAccount = link == null
+            ? null
+            : (await accountRepository.GetAccountsOfUserAsync(link.UserId, ct)).FirstOrDefault(e =>
+                e.ProviderId == providerSettings.Id);
+        Console.WriteLine(existingAccount == null);
+        if (existingAccount != null && provider.Id != 0)
+            throw new Exception("Account of this provider is linked already");
 
         var state = RandomNumberGenerator.GetRandomString(64);
         await stateRepository.SaveStateAsync(new AuthorizationState
@@ -59,6 +67,9 @@ public class OauthService(
             ProviderId = providerSettings.Id,
             RedirectUrl = redirectUri,
         });
+
+        if (existingAccount != null)
+            return $"{configuration["Api.ApiUrl"]}/profile?state={state}";
 
         return provider.Id == 0
             ? $"{configuration["Api.ApiUrl"]}/login?state={state}"

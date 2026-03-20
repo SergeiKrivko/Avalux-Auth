@@ -12,4 +12,6 @@ public interface IPasswordService
 
     public Task<Guid> GetOrCreateAccountAsync(Guid applicationId, Guid? userId, PasswordUser password,
         CancellationToken ct = default);
+    public Task<PasswordUser?> GetByUserId(Guid userId, CancellationToken ct = default);
+    public Task<bool> UpdateInfoAsync(Guid id, PasswordUserInfo info, CancellationToken ct = default);
 }

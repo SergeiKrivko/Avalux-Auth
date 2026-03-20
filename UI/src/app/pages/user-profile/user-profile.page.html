@@ -1,0 +1,28 @@
+<div class="container">
+  <h1>{{ clientName$ | async }}</h1>
+  <form tuiCardLarge class="card-container" [formGroup]="control" (ngSubmit)="submit()">
+
+    <!--    <label tuiLabel>Пароль</label>-->
+    <!--    <tui-textfield>-->
+    <!--      <input tuiTextfield type="password" formControlName="password"/>-->
+    <!--    </tui-textfield>-->
+
+    <label tuiLabel>Имя пользователя</label>
+    <tui-textfield>
+      <input tuiTextfield formControlName="username"/>
+    </tui-textfield>
+    <label tuiLabel>Email</label>
+    <tui-textfield>
+      <input tuiTextfield type="email" formControlName="email"/>
+    </tui-textfield>
+    <label tuiLabel>Аватар</label>
+    <div class="avatar-container">
+      <tui-avatar size="xxl" [src]="'/api/v1/avatar/' + control.value.avatarId"/>
+    </div>
+    <app-file-uploader formControlName="avatarId"/>
+
+    <tui-error [error]="error | async"></tui-error>
+
+    <button tuiButton type="submit">Сохранить</button>
+  </form>
+</div>

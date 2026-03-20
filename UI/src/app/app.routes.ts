@@ -11,6 +11,7 @@ import {TokensPage} from './pages/tokens.page/tokens.page';
 import {ApplicationSubscriptionsPage} from './pages/application-subscriptions.page/application-subscriptions.page';
 import {SubscriptionPage} from './pages/subscription.page/subscription.page';
 import UserLoginPage from './pages/user-login.page/user-login.page';
+import {UserProfilePage} from './pages/user-profile/user-profile.page';
 
 export const routes: Routes = [
   {
@@ -31,5 +32,6 @@ export const routes: Routes = [
   },
   {path: "admin-auth", component: AuthPage},
   {path: "login", component: UserLoginPage},
+  {path: "profile", component: UserProfilePage},
   {path: "**", redirectTo: "/", pathMatch: "full"}
 ];

@@ -1231,6 +1231,57 @@ export class ApiClient {
     }
 
     /**
+     * @return OK
+     */
+    avatarGET2(id: string): Observable<void> {
+        let url_ = this.baseUrl + "/api/v1/avatar/{id}";
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processAvatarGET2(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processAvatarGET2(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processAvatarGET2(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
      * @param state (optional)
      * @param body (optional)
      * @return OK
@@ -1401,6 +1452,125 @@ export class ApiClient {
             let result200: any = null;
             let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
             result200 = ClientInfoResponse.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @param state (optional)
+     * @return OK
+     */
+    profileGET(state: string | undefined): Observable<PasswordUserInfo> {
+        let url_ = this.baseUrl + "/api/v1/password/profile?";
+        if (state === null)
+            throw new Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processProfileGET(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processProfileGET(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<PasswordUserInfo>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<PasswordUserInfo>;
+        }));
+    }
+
+    protected processProfileGET(response: HttpResponseBase): Observable<PasswordUserInfo> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = PasswordUserInfo.fromJS(resultData200);
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * @param state (optional)
+     * @param body (optional)
+     * @return OK
+     */
+    profilePUT(state: string | undefined, body: UpdateProfileSchema | undefined): Observable<PasswordAuthResponseSchema> {
+        let url_ = this.baseUrl + "/api/v1/password/profile?";
+        if (state === null)
+            throw new Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Content-Type": "application/json",
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processProfilePUT(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processProfilePUT(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<PasswordAuthResponseSchema>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<PasswordAuthResponseSchema>;
+        }));
+    }
+
+    protected processProfilePUT(response: HttpResponseBase): Observable<PasswordAuthResponseSchema> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = PasswordAuthResponseSchema.fromJS(resultData200);
             return _observableOf(result200);
             }));
         } else if (status !== 200 && status !== 204) {
@@ -4398,6 +4568,45 @@ export class TokenPermission implements ITokenPermission {
 export interface ITokenPermission {
     key?: string | undefined;
     description?: string | undefined;
+}
+
+export class UpdateProfileSchema implements IUpdateProfileSchema {
+    userInfo!: PasswordUserInfo;
+
+    constructor(data?: IUpdateProfileSchema) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+        if (!data) {
+            this.userInfo = new PasswordUserInfo();
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.userInfo = _data["userInfo"] ? PasswordUserInfo.fromJS(_data["userInfo"]) : new PasswordUserInfo();
+        }
+    }
+
+    static fromJS(data: any): UpdateProfileSchema {
+        data = typeof data === 'object' ? data : {};
+        let result = new UpdateProfileSchema();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["userInfo"] = this.userInfo ? this.userInfo.toJSON() : <any>undefined;
+        return data;
+    }
+}
+
+export interface IUpdateProfileSchema {
+    userInfo: PasswordUserInfo;
 }
 
 export class UserCredentials implements IUserCredentials {
