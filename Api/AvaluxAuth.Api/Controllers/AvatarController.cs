@@ -20,13 +20,16 @@ public class AvatarController(IImageService imageService, IFileRepository fileRe
     }
 
     [HttpPost]
-    [RequestSizeLimit(64 * 1024)]
+    [RequestSizeLimit(10 * 1024 * 1024)]
     [EnableCors(PolicyName = Config.AdminPolicy)]
     public async Task<ActionResult<Guid>> UploadAvatar(IFormFile file, CancellationToken ct = default)
     {
         var id = Guid.NewGuid();
-        await using var stream = file.OpenReadStream();
-        await fileRepository.UploadFileAsync(FileRepositoryBucket.Avatars, id, "avatar.png", stream, ct);
+
+        await using var notPngStream = file.OpenReadStream();
+        await using var pngStream = await imageService.ConvertToPng(notPngStream, ct);
+        await fileRepository.UploadFileAsync(FileRepositoryBucket.Avatars, id, "avatar.png", pngStream, ct);
+
         return Ok(id);
     }
 

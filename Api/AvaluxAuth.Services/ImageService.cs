@@ -105,4 +105,50 @@ public class ImageService(IConfiguration configuration) : IImageService
             return lst[0];
         return string.Join(string.Empty, lst.Slice(0, 2));
     }
+
+    private const int MaxSize = 200;
+
+    public async Task<Stream> ConvertToPng(Stream input, CancellationToken ct = default)
+    {
+        var image = await Image.LoadAsync(input, ct);
+
+        // Вычисляем новый размер с сохранением пропорций
+        int newWidth, newHeight;
+
+        var newSize = int.Min(MaxSize, int.Min(image.Height, image.Width));
+        if (image.Width < image.Height)
+        {
+            newWidth = newSize;
+            newHeight = (int)((float)image.Height / image.Width * newSize);
+        }
+        else
+        {
+            newHeight = newSize;
+            newWidth = (int)((float)image.Width / image.Height * newSize);
+        }
+
+        // Изменяем размер
+        image.Mutate(x => x.Resize(newWidth, newHeight));
+
+        // Создаем квадратное изображение с белым фоном
+        using var squareImage = new Image<Rgba32>(newSize, newSize);
+
+        squareImage.Mutate(ctx =>
+        {
+            // Заливаем фон (по умолчанию белый)
+            ctx.BackgroundColor(Color.White);
+
+            // Вычисляем позицию для центрирования
+            var x = (newSize - newWidth) / 2;
+            var y = (newSize - newHeight) / 2;
+
+            // Вставляем измененное изображение по центру
+            ctx.DrawImage(image, new Point(x, y), 1f);
+        });
+
+        var memoryStream = new MemoryStream();
+        await squareImage.SaveAsPngAsync(memoryStream, ct);
+        memoryStream.Seek(0, SeekOrigin.Begin);
+        return memoryStream;
+    }
 }

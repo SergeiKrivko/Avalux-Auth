@@ -22,6 +22,7 @@ COPY ["Api/AvaluxAuth.DataAccess/AvaluxAuth.DataAccess.csproj", "Api/AvaluxAuth.
 COPY ["Api/AvaluxAuth.Utils/AvaluxAuth.Utils.csproj", "Api/AvaluxAuth.Utils/"]
 COPY ["Api/AvaluxAuth.Providers/AvaluxAuth.Providers.csproj", "Api/AvaluxAuth.Providers/"]
 COPY ["Api/AvaluxAuth.Services/AvaluxAuth.Services.csproj", "Api/AvaluxAuth.Services/"]
+COPY ["Api/AvaluxAuth.Services/AvaluxAuth.S3.csproj", "Api/AvaluxAuth.S3/"]
 RUN dotnet restore "Api/AvaluxAuth.Api/AvaluxAuth.Api.csproj"
 COPY . .
 COPY --from=angular-build /src/dist/UI/browser ./Api/AvaluxAuth.Api/wwwroot/
