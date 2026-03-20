@@ -37,6 +37,8 @@
       <tui-textfield>
         <input tuiTextfield type="email" formControlName="email"/>
       </tui-textfield>
+      <label tuiLabel>Аватар (необязательно)</label>
+      <app-file-uploader formControlName="avatarId" />
     }
 
     <tui-error [error]="error | async"></tui-error>

@@ -1,5 +1,6 @@
 ﻿using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
+using Microsoft.Extensions.Configuration;
 
 namespace AvaluxAuth.Services;
 
@@ -8,13 +9,13 @@ public class PasswordService(
     IUserRepository userRepository,
     IProviderRepository providerRepository,
     IPasswordRepository passwordRepository,
+    IConfiguration configuration,
     IImageService imageService) : IPasswordService
 {
     public async Task<bool> CheckUserExistsAsync(string login, CancellationToken ct = default)
     {
         var user = await passwordRepository.GetByLoginAsync(login, ct);
-        Console.WriteLine($"User = {user}");
-        return user == null;
+        return user != null;
     }
 
     public async Task<PasswordUser> CreateUserAsync(string login, string password, PasswordUserInfo info,
@@ -47,8 +48,10 @@ public class PasswordService(
             Id = password.Id.ToString(),
             Name = password.Info.Name,
             Email = password.Info.Email,
-            AvatarUrl = account?.Info.AvatarUrl ??
-                        imageService.CreateRandomAvatarUrl(password.Info.Name ?? password.Login),
+            AvatarUrl = password.Info.AvatarId.HasValue
+                ? $"{configuration["Api.ApiUrl"]}/api/v1/avatar/{password.Info.AvatarId}"
+                : account?.Info.AvatarUrl ??
+                  imageService.CreateRandomAvatarUrl(password.Info.Name ?? password.Login),
         };
         if (account != null)
         {
@@ -61,6 +64,6 @@ public class PasswordService(
         userId ??= await userRepository.CreateUserAsync(applicationId, ct);
         var accountId =
             await accountRepository.CreateAccountAsync(userId.Value, providerInfo.Id, userInfo, null, ct);
-        return accountId;
+        return userId.Value;
     }
 }

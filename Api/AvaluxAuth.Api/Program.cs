@@ -3,6 +3,7 @@ using AvaluxAuth.Api;
 using AvaluxAuth.DataAccess;
 using AvaluxAuth.DataAccess.Repositories;
 using AvaluxAuth.Providers.Extensions;
+using AvaluxAuth.S3;
 using AvaluxAuth.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
@@ -27,6 +28,7 @@ builder.Services.AddSingleton<ILinkCodeRepository, RedisLinkCodeRepository>();
 builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<IPasswordRepository, PasswordRepository>();
+builder.Services.AddSingleton<IFileRepository, S3Repository>();
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["Security.KeysPath"] ?? "./keys"));

@@ -7,6 +7,7 @@ import {AsyncPipe} from '@angular/common';
 import {ApiClient, ApiException, PasswordSignInSchema, PasswordSignUpSchema} from '../../services/api-client';
 import {ActivatedRoute} from '@angular/router';
 import {BehaviorSubject, catchError, map, NEVER, tap} from 'rxjs';
+import {FileUploader} from '../../components/file-uploader/file-uploader';
 
 @Component({
   selector: 'app-user-login.page',
@@ -19,7 +20,8 @@ import {BehaviorSubject, catchError, map, NEVER, tap} from 'rxjs';
     TuiTextfieldDirective,
     TuiSegmented,
     AsyncPipe,
-    TuiError
+    TuiError,
+    FileUploader
   ],
   templateUrl: './user-login.page.html',
   styleUrl: './user-login.page.scss',
@@ -35,6 +37,7 @@ class UserLoginPage {
     passwordAgain: new FormControl<string>(""),
     username: new FormControl<string>(""),
     email: new FormControl<string>(""),
+    avatarId: new FormControl<string>(""),
   });
 
   protected readonly isSignUp$ = this.control.get('isSignUp')?.valueChanges;
@@ -63,9 +66,10 @@ class UserLoginPage {
         password: value.password,
         userInfo: {
           id: value.login,
-          name: value.username,
+          name: value.username || null,
           login: value.login,
-          email: value.email,
+          email: value.email || null,
+          avatarId: value.avatarId || null,
         }
       }))
       : this.apiClient.signin(state, PasswordSignInSchema.fromJS({

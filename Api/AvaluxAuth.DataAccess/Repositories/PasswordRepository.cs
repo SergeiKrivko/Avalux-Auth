@@ -19,7 +19,7 @@ public class PasswordRepository(AvaluxAuthDbContext dbContext) : IPasswordReposi
     {
         var entity = await dbContext.Passwords
             .Where(p => p.Login == login && p.DeletedAt == null)
-            .SingleOrDefaultAsync(ct);
+            .FirstOrDefaultAsync(ct);
         return entity == null ? null : FromEntity(entity);
     }
 

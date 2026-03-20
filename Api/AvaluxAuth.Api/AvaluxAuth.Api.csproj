@@ -22,6 +22,7 @@
       <ProjectReference Include="..\AvaluxAuth.DataAccess\AvaluxAuth.DataAccess.csproj" />
       <ProjectReference Include="..\AvaluxAuth.Models\AvaluxAuth.Models.csproj" />
       <ProjectReference Include="..\AvaluxAuth.Providers\AvaluxAuth.Providers.csproj" />
+      <ProjectReference Include="..\AvaluxAuth.S3\AvaluxAuth.S3.csproj" />
       <ProjectReference Include="..\AvaluxAuth.Services\AvaluxAuth.Services.csproj" />
     </ItemGroup>
 

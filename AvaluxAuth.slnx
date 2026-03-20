@@ -5,6 +5,7 @@
     <Project Path="Api/AvaluxAuth.DataAccess/AvaluxAuth.DataAccess.csproj" />
     <Project Path="Api/AvaluxAuth.Models/AvaluxAuth.Models.csproj" />
     <Project Path="Api/AvaluxAuth.Providers/AvaluxAuth.Providers.csproj" />
+    <Project Path="Api/AvaluxAuth.S3/AvaluxAuth.S3.csproj" />
     <Project Path="Api/AvaluxAuth.Services/AvaluxAuth.Services.csproj" />
     <Project Path="Api/AvaluxAuth.Utils/AvaluxAuth.Utils.csproj" />
   </Folder>
