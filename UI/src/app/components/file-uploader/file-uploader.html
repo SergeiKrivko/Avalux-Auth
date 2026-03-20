@@ -4,7 +4,7 @@
     tuiInputFiles
   >
     <input
-      accept=".png"
+      accept="image/*"
       tuiInputFiles
       [formControl]="control"
     />
@@ -12,7 +12,7 @@
 
   <tui-files class="tui-space_top-1">
     <tui-file
-      *ngIf="control.value | tuiFileRejected: {accept: '.png'} | async as file"
+      *ngIf="control.value | tuiFileRejected: {accept: 'image/*'} | async as file"
       state="error"
       [file]="file"
       (remove)="removeFile()"
