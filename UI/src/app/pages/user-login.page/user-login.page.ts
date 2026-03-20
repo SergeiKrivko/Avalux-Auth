@@ -47,21 +47,30 @@ class UserLoginPage {
 
   protected submit() {
     const state = this.route.snapshot.queryParams['state'];
+    const value = this.control.value;
+    if (value.isSignUp && (!value.password || value.password?.length < 8)) {
+      this.error.next("Слишком короткий пароль");
+      return;
+    }
+    if (value.isSignUp && value.password != value.passwordAgain) {
+      this.error.next("Пароли не совпадают");
+      return;
+    }
 
-    (this.control.value.isSignUp
+    (value.isSignUp
       ? this.apiClient.signup(state, PasswordSignUpSchema.fromJS({
-        login: this.control.value.login,
-        password: this.control.value.password,
+        login: value.login,
+        password: value.password,
         userInfo: {
-          id: this.control.value.login,
-          name: this.control.value.username,
-          login: this.control.value.login,
-          email: this.control.value.email,
+          id: value.login,
+          name: value.username,
+          login: value.login,
+          email: value.email,
         }
       }))
       : this.apiClient.signin(state, PasswordSignInSchema.fromJS({
-        login: this.control.value.login,
-        password: this.control.value.password,
+        login: value.login,
+        password: value.password,
       })))
       .pipe(
         catchError((error: ApiException) => {
