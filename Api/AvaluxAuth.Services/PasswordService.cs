@@ -31,7 +31,7 @@ public class PasswordService(
         var user = await passwordRepository.GetByLoginAsync(login, ct);
         if (user == null)
             return null;
-        if (!BCrypt.Net.BCrypt.Verify(password, user?.PasswordHash) || user == null)
+        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             return null;
         return user;
     }
@@ -62,8 +62,7 @@ public class PasswordService(
         }
 
         userId ??= await userRepository.CreateUserAsync(applicationId, ct);
-        var accountId =
-            await accountRepository.CreateAccountAsync(userId.Value, providerInfo.Id, userInfo, null, ct);
+        await accountRepository.CreateAccountAsync(userId.Value, providerInfo.Id, userInfo, null, ct);
         return userId.Value;
     }
 
@@ -82,8 +81,28 @@ public class PasswordService(
         return password;
     }
 
-    public async Task<bool> UpdateInfoAsync(Guid id, PasswordUserInfo info, CancellationToken ct = default)
+    public async Task<bool> UpdateInfoAsync(Guid id, Guid userId, Guid applicationId, PasswordUserInfo info,
+        CancellationToken ct = default)
     {
-        return await passwordRepository.UpdateInfoAsync(id, info, ct);
+        var result = await passwordRepository.UpdateInfoAsync(id, info, ct);
+        if (!result)
+            return result;
+        var provider = await providerRepository.GetProviderByProviderIdAsync(applicationId, 0, ct);
+        if (provider == null)
+            return result;
+        var account = (await accountRepository.GetAccountsOfUserAsync(userId, ct))
+            .FirstOrDefault(e => e.ProviderId == provider.Id);
+        if (account != null)
+            await accountRepository.UpdateAccountInfoAsync(account.Id, new UserInfo
+            {
+                Id = id.ToString(),
+                Name = info.Name,
+                Email = info.Email,
+                Login = account.Info.Login,
+                AvatarUrl = info.AvatarId == null
+                    ? account.Info.AvatarUrl
+                    : $"{configuration["Api.ApiUrl"]}/api/v1/avatar/{info.AvatarId}"
+            }, ct);
+        return result;
     }
 }

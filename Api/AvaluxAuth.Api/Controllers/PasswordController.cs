@@ -89,7 +89,8 @@ public class PasswordController(
         var user = await passwordService.GetByUserId(stateData.LinkUserId.Value, ct);
         if (user == null)
             return NotFound("Profile not found");
-        var res = await passwordService.UpdateInfoAsync(user.Id, schema.UserInfo, ct);
+        var res = await passwordService.UpdateInfoAsync(user.Id, stateData.LinkUserId.Value, stateData.ApplicationId,
+            schema.UserInfo, ct);
         if (!res)
             return NotFound("Profile not found");
 
