@@ -4,9 +4,12 @@ namespace AvaluxAuth.Abstractions;
 
 public interface IPasswordService
 {
-    public Task<bool> AddPasswordAsync(Guid applicationId, Guid? userId, string login, string password,
-        UserInfo userInfo, CancellationToken ct = default);
+    public Task<bool> CheckUserExistsAsync(string login, CancellationToken ct = default);
+    public Task<PasswordUser> CreateUserAsync(string login, string password, PasswordUserInfo info,
+        CancellationToken ct = default);
 
-    public Task<Guid?> VerifyPasswordAsync(Guid applicationId, string login, string password,
+    public Task<PasswordUser?> VerifyPasswordAsync(string login, string password, CancellationToken ct = default);
+
+    public Task<Guid> GetOrCreateAccountAsync(Guid applicationId, Guid? userId, PasswordUser password,
         CancellationToken ct = default);
 }

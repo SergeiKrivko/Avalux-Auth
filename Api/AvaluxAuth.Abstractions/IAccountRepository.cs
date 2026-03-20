@@ -19,6 +19,5 @@ public interface IAccountRepository
         CancellationToken ct = default);
 
     public Task<bool> UpdateAccountInfoAsync(Guid accountId, UserInfo info, CancellationToken ct = default);
-    public Task<bool> ChangePasswordAsync(Guid accountId, string newPasswordHash, CancellationToken ct = default);
     public Task<bool> DeleteAccountAsync(Guid accountId, CancellationToken ct = default);
 }

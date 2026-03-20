@@ -98,18 +98,6 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
         return count > 0;
     }
 
-    public async Task<bool> ChangePasswordAsync(Guid accountId, string newPasswordHash, CancellationToken ct = default)
-    {
-        var count = await dbContext.Accounts
-            .Where(a => a.Id == accountId && a.DeletedAt == null)
-            .ExecuteUpdateAsync(a =>
-            {
-                a.SetProperty(x => x.PasswordHash, newPasswordHash);
-            }, ct);
-        await dbContext.SaveChangesAsync(ct);
-        return count > 0;
-    }
-
     public async Task<bool> DeleteAccountAsync(Guid accountId, CancellationToken ct = default)
     {
         var count = await dbContext.Accounts
@@ -143,7 +131,6 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
                 RefreshToken = entity.RefreshToken,
                 ExpiresAt = entity.ExpiresAt,
             },
-            PasswordHash = entity.PasswordHash,
         };
     }
 }

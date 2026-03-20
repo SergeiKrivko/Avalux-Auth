@@ -152,18 +152,20 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
             ApplicationId = entity.ApplicationId,
             CreatedAt = entity.CreatedAt,
             DeletedAt = entity.DeletedAt,
-            Accounts = entity.Accounts.Select(e => new AccountInfo
-            {
-                ProviderId = e.ProviderId,
-                UserInfo = new UserInfo
+            Accounts = entity.Accounts
+                .Where(e => e.DeletedAt == null)
+                .Select(e => new AccountInfo
                 {
-                    Id = e.ProviderUserId,
-                    Name = e.Name,
-                    Login = e.Login,
-                    Email = e.Email,
-                    AvatarUrl = e.AvatarUrl,
-                }
-            }).ToArray(),
+                    ProviderId = e.ProviderId,
+                    UserInfo = new UserInfo
+                    {
+                        Id = e.ProviderUserId,
+                        Name = e.Name,
+                        Login = e.Login,
+                        Email = e.Email,
+                        AvatarUrl = e.AvatarUrl,
+                    }
+                }).ToArray(),
             Subscriptions = entity.Subscriptions
                 .Where(e => e.ExpiresAt > DateTime.UtcNow)
                 .Select(e => new UserSubscription

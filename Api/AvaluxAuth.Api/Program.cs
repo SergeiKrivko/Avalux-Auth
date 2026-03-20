@@ -26,6 +26,7 @@ builder.Services.AddSingleton<IAuthCodeRepository, RedisCodeRepository>();
 builder.Services.AddSingleton<ILinkCodeRepository, RedisLinkCodeRepository>();
 builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
+builder.Services.AddScoped<IPasswordRepository, PasswordRepository>();
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["Security.KeysPath"] ?? "./keys"));

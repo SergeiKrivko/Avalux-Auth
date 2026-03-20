@@ -7,43 +7,60 @@ public class PasswordService(
     IAccountRepository accountRepository,
     IUserRepository userRepository,
     IProviderRepository providerRepository,
+    IPasswordRepository passwordRepository,
     IImageService imageService) : IPasswordService
 {
-    public async Task<bool> AddPasswordAsync(Guid applicationId, Guid? userId, string login, string password,
-        UserInfo userInfo, CancellationToken ct = default)
+    public async Task<bool> CheckUserExistsAsync(string login, CancellationToken ct = default)
     {
-        var providerSettings = await providerRepository.GetProviderByProviderIdAsync(applicationId, 0, ct);
-        if (providerSettings == null)
-            throw new Exception("Password authorization is not added for this application");
-
-        var existingAccount = await accountRepository.GetAccountByProviderIdAsync(providerSettings.Id, login, ct);
-        if (existingAccount != null)
-            return false;
-
-        userId ??= await userRepository.CreateUserAsync(applicationId, ct);
-
-        if (string.IsNullOrEmpty(userInfo.Name))
-            userInfo.Name = null;
-        userInfo.Id = login;
-        userInfo.Login ??= login;
-        userInfo.AvatarUrl ??= imageService.CreateRandomAvatarUrl(userInfo.Name ?? login);
-        var accountId =
-            await accountRepository.CreateAccountAsync(userId.Value, providerSettings.Id, userInfo, null, ct);
-        await accountRepository.ChangePasswordAsync(accountId, BCrypt.Net.BCrypt.HashPassword(password), ct);
-        return true;
+        var user = await passwordRepository.GetByLoginAsync(login, ct);
+        Console.WriteLine($"User = {user}");
+        return user == null;
     }
 
-    public async Task<Guid?> VerifyPasswordAsync(Guid applicationId, string login, string password,
+    public async Task<PasswordUser> CreateUserAsync(string login, string password, PasswordUserInfo info,
         CancellationToken ct = default)
     {
-        var providerSettings = await providerRepository.GetProviderByProviderIdAsync(applicationId, 0, ct);
-        if (providerSettings == null)
-            throw new Exception("Password authorization is not added for this application");
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
+        var id = await passwordRepository.CreateAsync(login, passwordHash, info, ct);
+        return await passwordRepository.GetByIdAsync(id, ct) ?? throw new Exception("Created account not found. What?");
+    }
 
-        var account = await accountRepository.GetAccountByProviderIdAsync(providerSettings.Id, login, ct);
-        if (account == null)
+    public async Task<PasswordUser?> VerifyPasswordAsync(string login, string password, CancellationToken ct = default)
+    {
+        var user = await passwordRepository.GetByLoginAsync(login, ct);
+        if (user == null)
             return null;
+        if (!BCrypt.Net.BCrypt.Verify(password, user?.PasswordHash) || user == null)
+            return null;
+        return user;
+    }
 
-        return BCrypt.Net.BCrypt.Verify(password, account.PasswordHash) ? account.UserId : null;
+    public async Task<Guid> GetOrCreateAccountAsync(Guid applicationId, Guid? userId, PasswordUser password,
+        CancellationToken ct = default)
+    {
+        var providerInfo = await providerRepository.GetProviderByProviderIdAsync(applicationId, 0, ct) ??
+                           throw new Exception("Password authorization is not added for this client");
+
+        var account = await accountRepository.GetAccountByProviderIdAsync(providerInfo.Id, password.Id.ToString(), ct);
+        var userInfo = new UserInfo
+        {
+            Id = password.Id.ToString(),
+            Name = password.Info.Name,
+            Email = password.Info.Email,
+            AvatarUrl = account?.Info.AvatarUrl ??
+                        imageService.CreateRandomAvatarUrl(password.Info.Name ?? password.Login),
+        };
+        if (account != null)
+        {
+            if (userId.HasValue && userId != account.UserId)
+                throw new Exception("Account is already linked to another user");
+            await accountRepository.UpdateAccountInfoAsync(account.Id, userInfo, ct);
+            return account.UserId;
+        }
+
+        userId ??= await userRepository.CreateUserAsync(applicationId, ct);
+        var accountId =
+            await accountRepository.CreateAccountAsync(userId.Value, providerInfo.Id, userInfo, null, ct);
+        return accountId;
     }
 }

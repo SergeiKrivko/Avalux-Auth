@@ -1112,12 +1112,70 @@ export class ApiClient {
     }
 
     /**
+     * @param text (optional)
+     * @param color (optional)
+     * @return OK
+     */
+    avatar(text: string | undefined, color: number | undefined): Observable<void> {
+        let url_ = this.baseUrl + "/api/v1/avatar?";
+        if (text === null)
+            throw new Error("The parameter 'text' cannot be null.");
+        else if (text !== undefined)
+            url_ += "text=" + encodeURIComponent("" + text) + "&";
+        if (color === null)
+            throw new Error("The parameter 'color' cannot be null.");
+        else if (color !== undefined)
+            url_ += "color=" + encodeURIComponent("" + color) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processAvatar(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processAvatar(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processAvatar(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
      * @param state (optional)
      * @param body (optional)
      * @return OK
      */
     signup(state: string | undefined, body: PasswordSignUpSchema | undefined): Observable<PasswordAuthResponseSchema> {
-        let url_ = this.baseUrl + "/api/v1/auth/password/signup?";
+        let url_ = this.baseUrl + "/api/v1/password/signup?";
         if (state === null)
             throw new Error("The parameter 'state' cannot be null.");
         else if (state !== undefined)
@@ -1179,7 +1237,7 @@ export class ApiClient {
      * @return OK
      */
     signin(state: string | undefined, body: PasswordSignInSchema | undefined): Observable<PasswordAuthResponseSchema> {
-        let url_ = this.baseUrl + "/api/v1/auth/password/signin?";
+        let url_ = this.baseUrl + "/api/v1/password/signin?";
         if (state === null)
             throw new Error("The parameter 'state' cannot be null.");
         else if (state !== undefined)
@@ -1240,7 +1298,7 @@ export class ApiClient {
      * @return OK
      */
     clientInfo(state: string | undefined): Observable<ClientInfoResponse> {
-        let url_ = this.baseUrl + "/api/v1/auth/password/clientInfo?";
+        let url_ = this.baseUrl + "/api/v1/password/clientInfo?";
         if (state === null)
             throw new Error("The parameter 'state' cannot be null.");
         else if (state !== undefined)
@@ -1283,64 +1341,6 @@ export class ApiClient {
             let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
             result200 = ClientInfoResponse.fromJS(resultData200);
             return _observableOf(result200);
-            }));
-        } else if (status !== 200 && status !== 204) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            }));
-        }
-        return _observableOf(null as any);
-    }
-
-    /**
-     * @param text (optional)
-     * @param color (optional)
-     * @return OK
-     */
-    avatar(text: string | undefined, color: number | undefined): Observable<void> {
-        let url_ = this.baseUrl + "/api/v1/avatar?";
-        if (text === null)
-            throw new Error("The parameter 'text' cannot be null.");
-        else if (text !== undefined)
-            url_ += "text=" + encodeURIComponent("" + text) + "&";
-        if (color === null)
-            throw new Error("The parameter 'color' cannot be null.");
-        else if (color !== undefined)
-            url_ += "color=" + encodeURIComponent("" + color) + "&";
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_ : any = {
-            observe: "response",
-            responseType: "blob",
-            withCredentials: true,
-            headers: new HttpHeaders({
-            })
-        };
-
-        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
-            return this.processAvatar(response_);
-        })).pipe(_observableCatch((response_: any) => {
-            if (response_ instanceof HttpResponseBase) {
-                try {
-                    return this.processAvatar(response_ as any);
-                } catch (e) {
-                    return _observableThrow(e) as any as Observable<void>;
-                }
-            } else
-                return _observableThrow(response_) as any as Observable<void>;
-        }));
-    }
-
-    protected processAvatar(response: HttpResponseBase): Observable<void> {
-        const status = response.status;
-        const responseBlob =
-            response instanceof HttpResponse ? response.body :
-            (response as any).error instanceof Blob ? (response as any).error : undefined;
-
-        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
-        if (status === 200) {
-            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
-            return _observableOf(null as any);
             }));
         } else if (status !== 200 && status !== 204) {
             return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
@@ -3794,7 +3794,7 @@ export interface IPasswordSignInSchema {
 export class PasswordSignUpSchema implements IPasswordSignUpSchema {
     login!: string | undefined;
     password!: string | undefined;
-    userInfo!: UserInfo;
+    userInfo!: PasswordUserInfo;
 
     constructor(data?: IPasswordSignUpSchema) {
         if (data) {
@@ -3804,7 +3804,7 @@ export class PasswordSignUpSchema implements IPasswordSignUpSchema {
             }
         }
         if (!data) {
-            this.userInfo = new UserInfo();
+            this.userInfo = new PasswordUserInfo();
         }
     }
 
@@ -3812,7 +3812,7 @@ export class PasswordSignUpSchema implements IPasswordSignUpSchema {
         if (_data) {
             this.login = _data["login"];
             this.password = _data["password"];
-            this.userInfo = _data["userInfo"] ? UserInfo.fromJS(_data["userInfo"]) : new UserInfo();
+            this.userInfo = _data["userInfo"] ? PasswordUserInfo.fromJS(_data["userInfo"]) : new PasswordUserInfo();
         }
     }
 
@@ -3835,7 +3835,51 @@ export class PasswordSignUpSchema implements IPasswordSignUpSchema {
 export interface IPasswordSignUpSchema {
     login: string | undefined;
     password: string | undefined;
-    userInfo: UserInfo;
+    userInfo: PasswordUserInfo;
+}
+
+export class PasswordUserInfo implements IPasswordUserInfo {
+    name?: string | undefined;
+    email?: string | undefined;
+    avatarId?: string | undefined;
+
+    constructor(data?: IPasswordUserInfo) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.name = _data["name"];
+            this.email = _data["email"];
+            this.avatarId = _data["avatarId"];
+        }
+    }
+
+    static fromJS(data: any): PasswordUserInfo {
+        data = typeof data === 'object' ? data : {};
+        let result = new PasswordUserInfo();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["name"] = this.name;
+        data["email"] = this.email;
+        data["avatarId"] = this.avatarId;
+        return data;
+    }
+}
+
+export interface IPasswordUserInfo {
+    name?: string | undefined;
+    email?: string | undefined;
+    avatarId?: string | undefined;
 }
 
 export class Provider implements IProvider {

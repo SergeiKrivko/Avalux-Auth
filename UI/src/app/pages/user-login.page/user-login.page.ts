@@ -4,7 +4,7 @@ import {TuiButton, TuiError, TuiLabel, TuiTextfieldComponent, TuiTextfieldDirect
 import {TuiCardLarge} from '@taiga-ui/layout';
 import {TuiSegmented} from '@taiga-ui/kit';
 import {AsyncPipe} from '@angular/common';
-import {ApiClient, PasswordSignInSchema, PasswordSignUpSchema} from '../../services/api-client';
+import {ApiClient, ApiException, PasswordSignInSchema, PasswordSignUpSchema} from '../../services/api-client';
 import {ActivatedRoute} from '@angular/router';
 import {BehaviorSubject, catchError, map, NEVER, tap} from 'rxjs';
 
@@ -39,7 +39,7 @@ class UserLoginPage {
 
   protected readonly isSignUp$ = this.control.get('isSignUp')?.valueChanges;
 
-  protected error = new BehaviorSubject<string>("");
+  protected error = new BehaviorSubject<string | null>(null);
 
   protected readonly clientName$ = this.apiClient.clientInfo(this.route.snapshot.queryParams['state']).pipe(
     map(resp => resp.name),
@@ -64,6 +64,10 @@ class UserLoginPage {
         password: this.control.value.password,
       })))
       .pipe(
+        catchError((error: ApiException) => {
+          this.error.next(error.response);
+          return NEVER;
+        }),
         catchError((error: Error) => {
           this.error.next(error.message);
           return NEVER;

@@ -14,6 +14,7 @@ public class AvaluxAuthDbContext : DbContext
     internal DbSet<SigningKeyEntity> SigningKeys { get; init; }
     internal DbSet<SubscriptionPlanEntity> SubscriptionPlans { get; init; }
     internal DbSet<UserSubscriptionEntity> UserSubscriptions { get; init; }
+    internal DbSet<PasswordEntity> Passwords { get; init; }
 
     public AvaluxAuthDbContext(DbContextOptions<AvaluxAuthDbContext> options) : base(options)
     {

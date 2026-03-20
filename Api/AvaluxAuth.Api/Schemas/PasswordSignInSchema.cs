@@ -10,5 +10,5 @@ public class PasswordSignInSchema
 
 public class PasswordSignUpSchema : PasswordSignInSchema
 {
-    public required UserInfo UserInfo { get; init; }
+    public required PasswordUserInfo UserInfo { get; init; }
 }
