@@ -105,4 +105,12 @@ public class PasswordService(
             }, ct);
         return result;
     }
+
+    public async Task<bool> ChangePasswordAsync(PasswordUser user, string oldPassword, string newPassword, CancellationToken ct = default)
+    {
+        if (!BCrypt.Net.BCrypt.Verify(oldPassword, user.PasswordHash))
+            throw new Exception("Wrong old password");
+        var hash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        return await passwordRepository.ChangePasswordAsync(user.Id, hash, ct);
+    }
 }

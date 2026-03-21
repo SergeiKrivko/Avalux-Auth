@@ -15,5 +15,10 @@ public interface IPasswordService
         CancellationToken ct = default);
 
     public Task<PasswordUser?> GetByUserId(Guid userId, CancellationToken ct = default);
-    public Task<bool> UpdateInfoAsync(Guid id, Guid userId, Guid applicationId, PasswordUserInfo info, CancellationToken ct = default);
+
+    public Task<bool> UpdateInfoAsync(Guid id, Guid userId, Guid applicationId, PasswordUserInfo info,
+        CancellationToken ct = default);
+
+    public Task<bool> ChangePasswordAsync(PasswordUser user, string oldPassword, string newPassword,
+        CancellationToken ct = default);
 }

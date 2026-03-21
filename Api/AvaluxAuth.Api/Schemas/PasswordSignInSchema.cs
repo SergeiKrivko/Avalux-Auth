@@ -15,5 +15,7 @@ public class PasswordSignUpSchema : PasswordSignInSchema
 
 public class UpdateProfileSchema
 {
+    public string? OldPassword { get; init; }
+    public string? NewPassword { get; init; }
     public required PasswordUserInfo UserInfo { get; init; }
 }

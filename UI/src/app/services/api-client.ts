@@ -4571,6 +4571,8 @@ export interface ITokenPermission {
 }
 
 export class UpdateProfileSchema implements IUpdateProfileSchema {
+    oldPassword?: string | undefined;
+    newPassword?: string | undefined;
     userInfo!: PasswordUserInfo;
 
     constructor(data?: IUpdateProfileSchema) {
@@ -4587,6 +4589,8 @@ export class UpdateProfileSchema implements IUpdateProfileSchema {
 
     init(_data?: any) {
         if (_data) {
+            this.oldPassword = _data["oldPassword"];
+            this.newPassword = _data["newPassword"];
             this.userInfo = _data["userInfo"] ? PasswordUserInfo.fromJS(_data["userInfo"]) : new PasswordUserInfo();
         }
     }
@@ -4600,12 +4604,16 @@ export class UpdateProfileSchema implements IUpdateProfileSchema {
 
     toJSON(data?: any) {
         data = typeof data === 'object' ? data : {};
+        data["oldPassword"] = this.oldPassword;
+        data["newPassword"] = this.newPassword;
         data["userInfo"] = this.userInfo ? this.userInfo.toJSON() : <any>undefined;
         return data;
     }
 }
 
 export interface IUpdateProfileSchema {
+    oldPassword?: string | undefined;
+    newPassword?: string | undefined;
     userInfo: PasswordUserInfo;
 }
 

@@ -22,17 +22,25 @@ public class PasswordController(
         [FromBody] PasswordSignUpSchema schema,
         CancellationToken ct = default)
     {
-        var stateData = await stateRepository.GetStateAsync(state);
-        if (stateData == null)
-            return Unauthorized();
+        try
+        {
+            var stateData = await stateRepository.GetStateAsync(state);
+            if (stateData == null)
+                return Unauthorized();
 
-        if (await passwordService.CheckUserExistsAsync(schema.Login, ct))
-            return Conflict("Account already exists");
-        var password = await passwordService.CreateUserAsync(schema.Login, schema.Password, schema.UserInfo, ct);
-        var userId =
-            await passwordService.GetOrCreateAccountAsync(stateData.ApplicationId, stateData.LinkUserId, password, ct);
+            if (await passwordService.CheckUserExistsAsync(schema.Login, ct))
+                return Conflict("Account already exists");
+            var password = await passwordService.CreateUserAsync(schema.Login, schema.Password, schema.UserInfo, ct);
+            var userId =
+                await passwordService.GetOrCreateAccountAsync(stateData.ApplicationId, stateData.LinkUserId, password,
+                    ct);
 
-        return Ok(await CreateResponseSchemaAsync(stateData, userId));
+            return Ok(await CreateResponseSchemaAsync(stateData, userId));
+        }
+        catch (Exception e)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
+        }
     }
 
     [HttpPost("signin")]
@@ -40,17 +48,25 @@ public class PasswordController(
         [FromBody] PasswordSignInSchema schema,
         CancellationToken ct = default)
     {
-        var stateData = await stateRepository.GetStateAsync(state);
-        if (stateData == null)
-            return Unauthorized();
+        try
+        {
+            var stateData = await stateRepository.GetStateAsync(state);
+            if (stateData == null)
+                return Unauthorized();
 
-        var password = await passwordService.VerifyPasswordAsync(schema.Login, schema.Password, ct);
-        if (password == null)
-            return Unauthorized("Wrong login or password");
-        var userId =
-            await passwordService.GetOrCreateAccountAsync(stateData.ApplicationId, stateData.LinkUserId, password, ct);
+            var password = await passwordService.VerifyPasswordAsync(schema.Login, schema.Password, ct);
+            if (password == null)
+                return Unauthorized("Wrong login or password");
+            var userId =
+                await passwordService.GetOrCreateAccountAsync(stateData.ApplicationId, stateData.LinkUserId, password,
+                    ct);
 
-        return Ok(await CreateResponseSchemaAsync(stateData, userId));
+            return Ok(await CreateResponseSchemaAsync(stateData, userId));
+        }
+        catch (Exception e)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
+        }
     }
 
     [HttpGet("clientInfo")]
@@ -82,23 +98,37 @@ public class PasswordController(
         [FromBody] UpdateProfileSchema schema,
         CancellationToken ct)
     {
-        var stateData = await stateRepository.GetStateAsync(state);
-        if (stateData == null || stateData.LinkUserId == null)
-            return Unauthorized();
+        try
+        {
+            var stateData = await stateRepository.GetStateAsync(state);
+            if (stateData == null || stateData.LinkUserId == null)
+                return Unauthorized();
 
-        var user = await passwordService.GetByUserId(stateData.LinkUserId.Value, ct);
-        if (user == null)
-            return NotFound("Profile not found");
-        var res = await passwordService.UpdateInfoAsync(user.Id, stateData.LinkUserId.Value, stateData.ApplicationId,
-            schema.UserInfo, ct);
-        if (!res)
-            return NotFound("Profile not found");
+            var user = await passwordService.GetByUserId(stateData.LinkUserId.Value, ct);
+            if (user == null)
+                return NotFound("Profile not found");
 
-        return Ok(await CreateResponseSchemaAsync(stateData, stateData.LinkUserId.Value));
+            if (!string.IsNullOrEmpty(schema.NewPassword) && schema.OldPassword != null)
+                await passwordService.ChangePasswordAsync(user, schema.OldPassword, schema.NewPassword, ct);
+
+            var res = await passwordService.UpdateInfoAsync(user.Id, stateData.LinkUserId.Value,
+                stateData.ApplicationId,
+                schema.UserInfo, ct);
+            if (!res)
+                return NotFound("Profile not found");
+
+            return Ok(await CreateResponseSchemaAsync(stateData, stateData.LinkUserId.Value));
+        }
+        catch (Exception e)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
+        }
     }
 
     private async Task<PasswordAuthResponseSchema> CreateResponseSchemaAsync(AuthorizationState stateData, Guid userId)
     {
+        await stateRepository.DeleteStateAsync(stateData.State);
+
         var code = RandomNumberGenerator.GetRandomString();
         await codeRepository.SaveCodeAsync(new AuthCode
         {

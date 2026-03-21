@@ -12,6 +12,13 @@
     align-items: stretch;
     gap: 0.5rem;
 
+    .switch-container {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 1rem;
+    }
+
     .avatar-container {
       display: flex;
       flex-direction: row;

@@ -2,10 +2,26 @@
   <h1>{{ clientName$ | async }}</h1>
   <form tuiCardLarge class="card-container" [formGroup]="control" (ngSubmit)="submit()">
 
-    <!--    <label tuiLabel>Пароль</label>-->
-    <!--    <tui-textfield>-->
-    <!--      <input tuiTextfield type="password" formControlName="password"/>-->
-    <!--    </tui-textfield>-->
+    <div class="switch-container">
+      <input tuiSwitch type="checkbox" formControlName="changePassword">
+      <label tuiLabel>Изменить пароль</label>
+    </div>
+    @if (changePassword$ | async) {
+      <label tuiLabel>Старый пароль</label>
+      <tui-textfield>
+        <input tuiTextfield type="password" formControlName="oldPassword"/>
+      </tui-textfield>
+
+      <label tuiLabel>Новый пароль</label>
+      <tui-textfield>
+        <input tuiTextfield type="password" formControlName="newPassword"/>
+      </tui-textfield>
+
+      <label tuiLabel>Новый пароль еще раз</label>
+      <tui-textfield>
+        <input tuiTextfield type="password" formControlName="newPasswordAgain"/>
+      </tui-textfield>
+    }
 
     <label tuiLabel>Имя пользователя</label>
     <tui-textfield>
