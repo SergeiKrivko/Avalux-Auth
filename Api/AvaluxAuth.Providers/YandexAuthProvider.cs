@@ -23,7 +23,7 @@ public class YandexAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         ArgumentNullException.ThrowIfNull(config.ClientId);
         ArgumentNullException.ThrowIfNull(config.ClientSecret);
 
-        var builder = new UrlBuilder("https://oauth.yandex.com/authorize")
+        var builder = new UrlBuilder("https://oauth.yandex.ru/authorize")
             .AddQuery("response_type", "code")
             .AddQuery("client_id", config.ClientId)
             .AddQuery("state", state)
@@ -43,7 +43,7 @@ public class YandexAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
             { "redirect_uri", redirectUrl }
         });
 
-        var response = await _httpClient.PostAsync("https://oauth.yandex.com/token", content, ct);
+        var response = await _httpClient.PostAsync("https://oauth.yandex.ru/token", content, ct);
         response.EnsureSuccessStatusCode();
 
         var data = await response.Content.ReadFromJsonAsync<TokenResponse>(ct);
@@ -75,7 +75,7 @@ public class YandexAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
             { "client_secret", config.ClientSecret },
         });
 
-        var response = await _httpClient.PostAsync("https://oauth.yandex.com/token", content, ct);
+        var response = await _httpClient.PostAsync("https://oauth.yandex.ru/token", content, ct);
         response.EnsureSuccessStatusCode();
 
         var data = await response.Content.ReadFromJsonAsync<TokenResponse>(ct);
@@ -99,7 +99,7 @@ public class YandexAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
             { "client_secret", config.ClientSecret },
         });
 
-        var response = await _httpClient.PostAsync("https://oauth.yandex.com/revoke_token", content, ct);
+        var response = await _httpClient.PostAsync("https://oauth.yandex.ru/revoke_token", content, ct);
         return response.IsSuccessStatusCode;
     }
 
