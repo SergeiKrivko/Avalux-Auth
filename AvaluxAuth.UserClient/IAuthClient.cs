@@ -6,7 +6,7 @@ namespace Avalux.Auth.UserClient;
 
 public interface IAuthClient
 {
-    public UserCredentials? Credentials { get; set; }
+    public UserCredentials? Credentials { get; }
 
     /// <summary>
     /// True, если клиент авторизован

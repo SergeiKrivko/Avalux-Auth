@@ -9,14 +9,19 @@ using Avalux.Auth.UserClient.Models;
 
 namespace Avalux.Auth.UserClient;
 
-public class AuthClient(HttpClient httpClient, string clientId, string clientSecret = "") : IAuthClient
+public class AuthClient(
+    HttpClient httpClient,
+    string clientId,
+    string clientSecret = "",
+    ICredentialsStore? credentialsStore = null) : IAuthClient
 {
-    public UserCredentials? Credentials { get; set; }
+    public UserCredentials? Credentials { get; private set; }
     public bool IsAuthenticated => Credentials != null;
     public string? AccessToken => Credentials?.AccessToken;
 
-    public AuthClient(string apiUrl, string clientId, string clientSecret = "") : this(
-        new HttpClient { BaseAddress = new Uri(apiUrl) }, clientId, clientSecret)
+    public AuthClient(string apiUrl, string clientId, string clientSecret = "",
+        ICredentialsStore? credentialsStore = null) : this(
+        new HttpClient { BaseAddress = new Uri(apiUrl) }, clientId, clientSecret, credentialsStore)
     {
     }
 
@@ -64,6 +69,8 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
         var data = await resp.Content.ReadFromJsonAsync<UserCredentialsSchema>(JsonOptions, ct) ??
                    throw new Exception("Invalid response");
         Credentials = UserCredentials.FromSchema(data);
+        if (credentialsStore != null)
+            await credentialsStore.SaveCredentials(Credentials, ct);
         return Credentials;
     }
 
@@ -94,9 +101,13 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
     [MemberNotNull(nameof(Credentials))]
     public async Task<UserCredentials> RefreshTokenAsync(bool force = false, CancellationToken ct = default)
     {
+        if (credentialsStore != null)
+            Credentials ??= await credentialsStore.LoadCredentials(ct);
         if (Credentials == null)
             throw new Exception("Not authorized");
         Credentials = await RefreshTokenAsync(Credentials, force, ct);
+        if (credentialsStore != null)
+            await credentialsStore.SaveCredentials(Credentials, ct);
         return Credentials;
     }
 
@@ -123,6 +134,8 @@ public class AuthClient(HttpClient httpClient, string clientId, string clientSec
             return;
         await RevokeTokenAsync(Credentials, ct);
         Credentials = null;
+        if (credentialsStore != null)
+            await credentialsStore.SaveCredentials(null, ct);
     }
 
     public async Task<UserInfo> GetUserInfoAsync(CancellationToken ct = default)
