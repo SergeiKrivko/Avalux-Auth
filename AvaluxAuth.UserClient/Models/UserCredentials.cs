@@ -14,7 +14,7 @@ public class UserCredentials
         {
             AccessToken = schema.AccessToken,
             RefreshToken = schema.RefreshToken,
-            ExpiresAt = DateTime.Now.AddSeconds(schema.ExpiresIn),
+            ExpiresAt = DateTime.UtcNow.AddSeconds(schema.ExpiresIn),
         };
     }
 }

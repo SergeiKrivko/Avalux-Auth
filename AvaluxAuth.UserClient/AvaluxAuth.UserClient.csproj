@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <RootNamespace>Avalux.Auth.UserClient</RootNamespace>
         <PackageId>Avalux.Auth.UserClient</PackageId>
-        <PackageVersion>1.3.0</PackageVersion>
+        <PackageVersion>1.3.1</PackageVersion>
         <IncludeSymbols>true</IncludeSymbols>
         
         <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
