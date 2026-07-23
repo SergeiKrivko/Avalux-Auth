@@ -98,16 +98,30 @@ public class AuthClient(
         return await RefreshTokenAsync(credentials.RefreshToken, ct);
     }
 
+    private bool _isRefreshing;
+
     [MemberNotNull(nameof(Credentials))]
     public async Task<UserCredentials> RefreshTokenAsync(bool force = false, CancellationToken ct = default)
     {
+        if (_isRefreshing)
+        {
+            while (_isRefreshing)
+                await Task.Delay(500, ct);
+            return Credentials ?? throw new Exception("Not authorized");
+        }
+
+        _isRefreshing = true;
         if (credentialsStore != null)
             Credentials ??= await credentialsStore.LoadCredentials(ct);
         if (Credentials == null)
+        {
+            _isRefreshing = false;
             throw new Exception("Not authorized");
+        }
         Credentials = await RefreshTokenAsync(Credentials, force, ct);
         if (credentialsStore != null)
             await credentialsStore.SaveCredentials(Credentials, ct);
+        _isRefreshing = false;
         return Credentials;
     }
 
