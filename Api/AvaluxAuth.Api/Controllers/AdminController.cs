@@ -20,8 +20,8 @@ public class AdminController(
     [HttpPost("login")]
     public async Task<ActionResult> Authenticate([FromBody] AdminCredentialsSchema credentials, CancellationToken ct)
     {
-        if (credentials.Login != configuration["Admin.Login"] ||
-            credentials.Password != configuration["Admin.Password"])
+        if (credentials.Login != configuration["Admin:Login"] ||
+            credentials.Password != configuration["Admin:Password"])
             return Unauthorized();
 
         var identity = new ClaimsIdentity(

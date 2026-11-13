@@ -119,7 +119,7 @@ public class AuthorizationService(
         CancellationToken ct = default)
     {
         var jwt = new JwtSecurityToken(
-            issuer: configuration["Security.Issuer"],
+            issuer: configuration["Security:Issuer"],
             audience: application.ClientId,
             claims: claims,
             expires: expiresAt,

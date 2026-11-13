@@ -66,7 +66,7 @@ public class TokenService(
         CancellationToken ct = default)
     {
         var jwt = new JwtSecurityToken(
-            issuer: configuration["Security.Issuer"],
+            issuer: configuration["Security:Issuer"],
             audience: ServiceAccountAudience,
             claims:
             [

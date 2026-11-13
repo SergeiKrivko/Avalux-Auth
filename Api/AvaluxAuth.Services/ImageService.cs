@@ -76,7 +76,7 @@ public class ImageService(IConfiguration configuration) : IImageService
 
     public string CreateRandomAvatarUrl(string username)
     {
-        return new UrlBuilder($"{configuration["Api.ApiUrl"]}/api/v1/avatar")
+        return new UrlBuilder($"{configuration["Api:ApiUrl"]}/api/v1/avatar")
             .AddQuery("text", GenerateAvatarText(username))
             .AddQuery("color", Random.Shared.Next(Colors.Length).ToString())
             .ToString();

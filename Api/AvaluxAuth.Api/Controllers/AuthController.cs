@@ -77,7 +77,7 @@ public class AuthController(
         [FromForm(Name = "grant_type")] string grantType = "authorization_code",
         CancellationToken ct = default)
     {
-        if (configuration["Security.RequireClientSecret"] != null &&
+        if (configuration["Security:RequireClientSecret"] != null &&
             !await oauthService.CheckClientSecretAsync(clientId, clientSecret, ct))
             return Unauthorized("Client secret is incorrect");
 

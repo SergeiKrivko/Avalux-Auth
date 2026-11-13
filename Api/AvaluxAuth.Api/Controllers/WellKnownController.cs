@@ -43,7 +43,7 @@ public class WellKnownController(ISigningKeyService signingKeyService, IConfigur
         var apiUrl = Request.GetBaseUrl();
         return Ok(new OpenIdConfigurationResponse
         {
-            Issuer = configuration["Security.Issuer"] ?? "",
+            Issuer = configuration["Security:Issuer"] ?? "",
             AuthorizationEndpoint = $"{apiUrl}/api/v1/auth/authorize",
             TokenEndpoint = $"{apiUrl}/api/v1/auth/token",
             JwksUri = $"{apiUrl}/api/v1/.well-known/jwks.json",

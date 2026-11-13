@@ -67,7 +67,7 @@ public class SigningKeyService(
             Algorithm = SecurityAlgorithms.RsaSha256,
             Use = "sig",
             CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddDays(double.Parse(configuration["Security.SigningKeyRotationDays"] ?? "30")),
+            ExpiresAt = DateTime.UtcNow.AddDays(double.Parse(configuration["Security:SigningKeyRotationDays"] ?? "30")),
             IsActive = true,
             PrivateKeyEncrypted = protectedPrivateKey,
             PublicJwkJson = jwkJson

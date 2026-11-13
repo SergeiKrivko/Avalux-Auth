@@ -31,7 +31,7 @@ builder.Services.AddScoped<IPasswordRepository, PasswordRepository>();
 builder.Services.AddSingleton<IFileRepository, S3Repository>();
 
 builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["Security.KeysPath"] ?? "./keys"));
+    .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["Security:KeysPath"] ?? "./keys"));
 builder.Services.AddSingleton<ISecretProtector, SecretProtector>();
 
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
@@ -48,11 +48,11 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<AvaluxAuthDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration["ConnectionStrings.Postgres"]);
+    options.UseNpgsql(builder.Configuration["ConnectionStrings:Postgres"]);
 });
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 {
-    var redisConnection = builder.Configuration["ConnectionStrings.Redis"];
+    var redisConnection = builder.Configuration["ConnectionStrings:Redis"];
     return ConnectionMultiplexer.Connect(redisConnection ?? "localhost:6379");
 });
 
@@ -70,14 +70,14 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     .AddJwtBearer(options =>
     {
         options.MetadataAddress =
-            $"{builder.Configuration["Api.ApiUrl.Local"]}/api/v1/.well-known/openid-configuration";
-        options.Authority = builder.Configuration["Security.AuthApiUrl"];
+            $"{builder.Configuration["Api:ApiUrl:Local"]}/api/v1/.well-known/openid-configuration";
+        options.Authority = builder.Configuration["Security:AuthApiUrl"];
         options.RequireHttpsMetadata = false;
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Security.Issuer"],
+            ValidIssuer = builder.Configuration["Security:Issuer"],
             ValidateAudience = false,
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,

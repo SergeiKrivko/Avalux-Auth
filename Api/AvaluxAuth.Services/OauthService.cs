@@ -69,17 +69,17 @@ public class OauthService(
         });
 
         if (existingAccount != null)
-            return $"{configuration["Api.ApiUrl"]}/profile?state={state}";
+            return $"{configuration["Api:ApiUrl"]}/profile?state={state}";
 
         return provider.Id == 0
-            ? $"{configuration["Api.ApiUrl"]}/login?state={state}"
+            ? $"{configuration["Api:ApiUrl"]}/login?state={state}"
             : provider.GetAuthUrl(providerSettings.Parameters, GetCallbackUrl(provider.Key), state);
     }
 
     private string GetCallbackUrl(string providerKey)
     {
         return
-            $"{configuration["Api.ApiUrl"] ?? throw new Exception("Api url not found")}/api/v1/auth/{providerKey}/callback";
+            $"{configuration["Api:ApiUrl"] ?? throw new Exception("Api url not found")}/api/v1/auth/{providerKey}/callback";
     }
 
     public async Task<ProcessedAuthorizationState> ProcessCodeAsync(Dictionary<string, string> query,

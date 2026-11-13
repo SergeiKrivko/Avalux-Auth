@@ -49,7 +49,7 @@ public class PasswordService(
             Name = password.Info.Name,
             Email = password.Info.Email,
             AvatarUrl = password.Info.AvatarId.HasValue
-                ? $"{configuration["Api.ApiUrl"]}/api/v1/avatar/{password.Info.AvatarId}"
+                ? $"{configuration["Api:ApiUrl"]}/api/v1/avatar/{password.Info.AvatarId}"
                 : account?.Info.AvatarUrl ??
                   imageService.CreateRandomAvatarUrl(password.Info.Name ?? password.Login),
         };
@@ -101,7 +101,7 @@ public class PasswordService(
                 Login = account.Info.Login,
                 AvatarUrl = info.AvatarId == null
                     ? account.Info.AvatarUrl
-                    : $"{configuration["Api.ApiUrl"]}/api/v1/avatar/{info.AvatarId}"
+                    : $"{configuration["Api:ApiUrl"]}/api/v1/avatar/{info.AvatarId}"
             }, ct);
         return result;
     }
