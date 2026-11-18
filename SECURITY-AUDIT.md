@@ -1,9 +1,9 @@
 # Аудит безопасности AvaluxAuth
 
-- **Дата:** 2026-11-18 (Europe/Moscow)
-- **Ревизия:** `ab6731d` (`master`); H-04 исправлена в коде 2026-11-18.
+- **Дата:** 2026-11-18 (Europe/Moscow); исправление H-07 выкачено 2026-11-19.
+- **Ревизия:** `ab6731d` (`master`) — аудит; `9c6575c` — код H-07 (валидация TLS Redis по приватному CA). На живом контуре — образ `c4c9617` (см. H-07, раздел «Порядок деплоя»).
 - **Область:** `Api/*` (API, сервисы, провайдеры, DataAccess, S3), `AuthUI`, `UI`, Docker/CI, клиентские библиотеки, живой контур в Portainer (стек `auth`).
-- **Статус:** H-01 исправлена; H-02, H-04 и H-05 исправлены в коде, но ещё не задеплоены на живой контур; остальные findings открыты.
+- **Статус:** H-01 и H-07 исправлены; H-02, H-04 и H-05 исправлены в коде, но ещё не задеплоены на живой контур; H-03 и H-06 открыты.
 - **Методика:** статический разбор кода и миграций, `dotnet list package --vulnerable --include-transitive`, `npm audit`, сверка с OSV/NuGet, безопасные проверки живого контура (GET/негативные POST без побочных эффектов, один инертный XSS-payload).
 - **Ограничения:** не выполнялись брутфорс, разрушительные действия, массовое сканирование и выгрузка секретов; полноценный пентест бизнес-логики не проводился.
 
@@ -21,7 +21,7 @@
 4. **H-04** — отзыв service-account токенов не работал: JWT жил до `exp` даже после удаления токена в админке. **Исправлено в коде 2026-11-18 (ждёт деплоя).**
 5. **H-05** — коды авторизации и refresh-токены не привязаны к клиенту, client secret в проде отключён, PKCE только заявлен. **Исправлено в коде 2026-11-18 (ждёт деплоя).**
 6. **H-06** — нет rate limiting/lockout; state переиспользуется при неудачном входе.
-7. **H-07** — Redis без пароля и Postgres на общей сети `proxy`.
+7. **H-07** — Redis без пароля и Postgres на общей сети `proxy`. **Исправлено 2026-11-19** (internal-сеть, auth+TLS, least-privilege DB-роль).
 
 ### Сводная таблица
 
@@ -33,7 +33,7 @@
 | H-04 | High | Отзыв service-account токенов не проверяется при аутентификации | **Исправлено в коде** |
 | H-05 | High | OAuth: нет привязки кода/refresh к клиенту, client secret отключён, PKCE фиктивный | **Исправлено в коде** |
 | H-06 | High | Нет rate limiting/lockout, переиспользование state, перечисление логинов | Открыто |
-| H-07 | High | Redis без auth и Postgres на общей сети `proxy` | Открыто |
+| H-07 | High | Redis без auth и Postgres на общей сети `proxy` | **Исправлено** |
 | M-01 | Medium | Анонимная запись в S3 без квот и очистки | Открыто |
 | M-02 | Medium | Будущие подписки выдаются сразу (`StartsAt` не учитывается) | Открыто |
 | M-03 | Medium | Смена пароля не инвалидирует сессии; refresh-токены бессрочные | Открыто |
@@ -52,7 +52,7 @@
 | L-04 | Low | Пагинация: неверный порядок `Take/Skip`, нет верхней границы `limit` | Открыто |
 | L-05 | Low | Google refresh отправляет `grant_type=authorization_code` | Открыто |
 | L-06 | Low | `ApiClient.GetAccessTokenAsync` игнорирует provider | Открыто |
-| L-07 | Low | Приложение работает под суперпользователем Postgres | Открыто |
+| L-07 | Low | Приложение работает под суперпользователем Postgres | **Исправлено (H-07)** |
 | L-08 | Low | CI: лишние права, теги вместо SHA/digest, нет scan/SBOM | Открыто |
 | L-09 | Low | `keys/` не в `.gitignore`/`.dockerignore` | Открыто |
 | L-10 | Low | Нет аудит-лога, healthcheck и resource limits у `auth` | Открыто |
@@ -266,13 +266,38 @@ Cache-Control: no-store
 
 ---
 
-### H-07. Redis без пароля и Postgres на общей сети `proxy`
+### H-07. Redis без пароля и Postgres на общей сети `proxy` — ИСПРАВЛЕНО
 
-**Где:** Portainer-стек `auth`: `auth-redis` без `requirepass`, оба сервиса в сети `proxy`; строка подключения — [Program.cs:55-57](Api/AvaluxAuth.Api/Program.cs#L55-L57).
+**Где:** Portainer-стек `auth`: `auth-redis` без `requirepass`, оба сервиса в сети `proxy`; строки подключения — [Program.cs:54-82](Api/AvaluxAuth.Api/Program.cs#L54-L82).
 
 Любой контейнер на `proxy` (ReportChecker, dsh и т.д.) может читать/писать Redis. Через **запись** `AuthorizationState` можно подменить `LinkUserId` на жертву и затем через `/password/signup?state=...` привязать к ней свой пароль; через **чтение** — украсть `link_code` или auth code и обменять на токены (тем более без client secret). Postgres тоже доступен на `proxy`, TLS нет.
 
-**Исправление.** Отдельная internal-сеть только для auth + БД/Redis; `requirepass`/ACL и TLS для Redis; TLS для Postgres; отдельный least-privilege DB-пользователь для рантайма (суперпользователь — только для миграций); мониторинг доступа.
+**Что сделано (2026-11-19).**
+
+- **Сеть.** Добавлена bridge-сеть `auth_auth-internal` с `internal: true`. `auth-postgres` и `auth-redis` подключены только к ней; `auth` — к ней и к `proxy` (через `proxy` работает Traefik). Контейнеры на `proxy` больше не резолвят `auth-postgres`/`auth-redis`.
+- **Redis.** `requirepass` (48-hex, генерируется и хранится в env стека), TLS на `tls-port 6379`, публичный plaintext-порт выключен (`--port 0`), `--tls-auth-clients no` + AUTH. Healthcheck проверяет TLS+AUTH. Сертификат — от приватного CA.
+- **Postgres.** TLS (`ssl=on`) с сертификатом приватного CA; TCP-доступ только `hostssl` (`hba_file=/certs/pg_hba.conf`), безшифровые подключения отклоняются. Клиент ходит с `SSL Mode=VerifyFull` + `Root Certificate`.
+- **Рантайм БД.** Создана роль `avaluxauth_app` (`LOGIN`, `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOBYPASSRLS`) — владелец БД и схемы `public`; `CONNECT` отозван у `PUBLIC`. Приложение подключается только этой ролью; суперпользователь остаётся для initdb/админских задач. Таблицы/последовательности переведены на `avaluxauth_app`, EF-миграции на старте применяются от неё.
+- **Секреты в рантайме.** `auth` больше не использует `env_file: stack.env`: окружение задано явно, поэтому пароль суперпользователя (`DB__PASS`) и сырые `DB__APP_PASS`/`REDIS__PASSWORD` не попадают в контейнер приложения (они есть только в строках подключения).
+- **TLS-материал.** Том `auth_auth_tls` (монтируется `:ro`): `ca.crt`, `ca-bundle.crt`, `postgres.crt/key` (0600, uid 70), `redis.crt/key` (0600, uid 999), `pg_hba.conf`; срок действия — до 2036-11-15. Приватный ключ CA — в отдельном томе `auth_auth_tls_ca`, в контейнеры не монтируется.
+- **Код.** В `:master` добавлена проверка TLS Redis по приватному CA (`Security:RedisCaCertificatePath`) — см. [Program.cs:56-82](Api/AvaluxAuth.Api/Program.cs#L56-L82). На живом контуре этот код пока не запущен (см. ниже), там CA добавляется через `SSL_CERT_FILE` в бандл системных корней.
+
+**Порядок деплоя (важно).** Образ `auth` закреплён по digest на сборку `c4c9617` — это состояние до H-02/H-04/H-05. Причина: в `:master` уже лежит H-05, которая требует PKCE и ломает десктоп-клиенты ReportChecker Studio/CLI/VS Code на `Avalux.Auth.UserClient` 1.3.2 (в `:master` пакет 1.4.0 ещё не опубликован). Поэтому H-07 выкачен на прежней ревизии, а TLS Redis там доверяется через `SSL_CERT_FILE=/certs/ca-bundle.crt`. Миграция `OAuthClientBinding` при временной проверке `:master` уже применилась к БД, поэтому при переходе на `:master` повторно не выполнится. После обновления клиентов и перевода стека на `:master`: вернуть тег `:master`, убрать `SSL_CERT_FILE` (CA начнёт проверяться явно), снять временные `DEFAULT ''`/`now()` с `RefreshTokens.ClientId/CreatedAt/ExpiresAt` и добить `ClientId` для токенов, выданных в переходный период (SQL — в `deploy/README.md`).
+
+**Проверка (2026-11-19).**
+
+- Из контейнера `dsh` (сеть `proxy`) `auth-postgres:5432` и `auth-redis:6379` — `EAI_AGAIN`; до фикса Redis отвечал `+PONG`, Postgres принимал TCP.
+- Redis: plaintext → `Connection reset by peer`; `redis-cli --tls --cacert /certs/ca.crt ... ping` → `PONG`; без пароля → `NOAUTH`.
+- Postgres: `pg_stat_ssl` для сессии приложения — `avaluxauth_app`, `ssl=true`; `sslmode=disable` → `no pg_hba.conf entry ... no encryption`.
+- Сквозной сценарий: `/authorize` → 302, `state` записан в Redis, `/password/clientInfo` вернул 200 `{"name":"ReportChecker"}`.
+- Рестарт `auth-postgres`/`auth-redis` не ломает конфигурацию: контейнеры поднимаются healthy, приложение переподключается.
+
+**Остаточный риск.**
+
+- TLS защищает от сниффинга в bridge-сети, но не от root на хосте; `auth` и хранилища по-прежнему на одной ВМ.
+- Мониторинга/аудит-лога доступа к Redis и Postgres нет — в инфраструктуре нет стека мониторинга (L-10).
+- Временный `DEFAULT` на `RefreshTokens.ClientId`/`CreatedAt`/`ExpiresAt` нужен только для работы старой ревизии; после деплоя `:master` его нужно снять.
+- Клиентские сертификаты/ACL для Redis не используются: аутентификация — пароль + TLS; при желании можно перейти на ACL-пользователя.
 
 ---
 
@@ -336,7 +361,7 @@ Cache-Control: no-store
 - **L-04. Пагинация.** [UserRepository.cs:105-106](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L105-L106): `Take(limit).Skip(page*limit)` — неверный порядок; `limit` без верхней границы; отрицательный `page` → 500.
 - **L-05. Google refresh.** [GoogleAuthProvider.cs](Api/AvaluxAuth.Providers/GoogleAuthProvider.cs) отправляет `grant_type=authorization_code` вместо `refresh_token` — refresh Google не работает.
 - **L-06. ApiClient.** `GetAccessTokenAsync` игнорирует `provider` — запрос без `providerKey` вернёт 400.
-- **L-07. DB-суперпользователь.** Приложение работает под `POSTGRES_USER`. Выделить роль.
+- **L-07. DB-суперпользователь.** ~~Приложение работает под `POSTGRES_USER`.~~ **Исправлено вместе с H-07:** рантайм работает под `avaluxauth_app`; суперпользователь остаётся только для initdb/админских задач.
 - **L-08. CI.** `.github/workflows/main.yml` даёт `contents: write`, образы/actions не запинены по digest/SHA, сборка на каждый push; нет Trivy/SBOM/подписи.
 - **L-09. `keys/`.** Не в `.gitignore`/`.dockerignore`. Локальный запуск создаёт key ring; добавить `**/keys/`.
 - **L-10. Наблюдаемость.** Нет аудит-лога админских действий/неудачных входов; у `auth` нет healthcheck/resource limits.
@@ -404,7 +429,7 @@ Cache-Control: no-store
 4. ~~Включить реальную проверку отзыва service-account токенов (`OnTokenValidated`), исправить `TokenRepository` (H-04).~~ **Сделано в коде (H-04), ждёт деплоя.**
 5. Ввести rate limiting + потребление state + lockout; серверная политика паролей (H-06).
 6. ~~Определиться с client authentication: secret для конфиденциального клиента, привязка code/refresh к клиенту, PKCE (H-05).~~ **Сделано в коде (H-05), ждёт деплоя и обновления десктоп-клиентов.**
-7. Вынести Redis/Postgres в internal-сеть, включить auth/TLS для Redis (H-07).
+7. ~~Вынести Redis/Postgres в internal-сеть, включить auth/TLS для Redis (H-07).~~ **Сделано 2026-11-19** (TLS также для Postgres, least-privilege DB-роль).
 
 **P1 (неделя):** фильтр `StartsAt`; revoke сессий при смене пароля/absolute expiry; ротация ключей с окном; security-заголовки; убрать PII/секреты из логов; 401 вместо 500 на state; `700` на keys; почистить redirect URI; constant-time/fail-closed admin login; unique index на `Passwords.Login`.
 

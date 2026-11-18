@@ -1,0 +1,166 @@
+# Mirror of the live Portainer stack `auth` (endpoint `local`, stack id 10),
+# updated 2026-11-19 with the H-07 fix. Secrets are not kept here: the
+# ${...} values live in the Portainer stack environment. See deploy/README.md.
+
+x-logging:
+  &default-logging
+  driver: "json-file"
+  options:
+    max-size: "1m"
+    max-file: "1"
+    tag: "{{.Name}}"
+
+services:
+  auth:
+    # Pinned to the c4c9617 build until the desktop clients (ReportChecker
+    # Studio/CLI/VS Code) move from Avalux.Auth.UserClient 1.3.2 to PKCE
+    # (>= 1.4.0). Re-target :master only after that - master also contains
+    # H-02/H-04/H-05, and H-05 rejects authorize requests without PKCE.
+    image: ghcr.io/sergeikrivko/avalux-auth@sha256:179c87144d90019908a3d01d0d6aaa0d79690b56836672c71a937a3340d699ed
+    container_name: auth
+    restart: always
+    networks:
+      - proxy
+      - auth-internal
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.auth.entrypoints=websecure
+      # Public API is an allowlist (fail-closed). Do NOT go back to
+      # PathPrefix(`/api`): Traefik path matching is case-sensitive while
+      # ASP.NET routing is case-insensitive, so `!PathPrefix(`/api/v1/admin`)`
+      # left /api/v1/ADMIN/... reachable on the public host (VPN bypass).
+      # Admin API is served only on auth-admin.reportchecker.ru (VPN-only,
+      # see auth-admin-api below).
+      - "traefik.http.routers.auth.rule=Host(`auth.reportchecker.ru`) && !PathRegexp(`(?i)^/api/v1/admin`) && (PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/password`) || PathPrefix(`/api/v1/avatar`) || PathPrefix(`/api/v1/service`) || PathPrefix(`/api/v1/.well-known`) || PathPrefix(`/static`) || PathPrefix(`/login`) || PathPrefix(`/profile`) || PathPrefix(`/auth`))"
+      - traefik.http.routers.auth.priority=100
+      - traefik.http.routers.auth.service=auth
+      - traefik.http.routers.auth.tls.certresolver=le
+      - traefik.http.services.auth.loadbalancer.server.port=8080
+      # The admin panel lives on its own domain; the API answers there too, so
+      # the panel keeps using relative /api URLs. VPN-only.
+      - traefik.http.routers.auth-admin-api.entrypoints=websecure
+      - "traefik.http.routers.auth-admin-api.rule=Host(`auth-admin.reportchecker.ru`) && PathPrefix(`/api`)"
+      - traefik.http.routers.auth-admin-api.priority=100
+      - traefik.http.routers.auth-admin-api.middlewares=internal@file
+      - traefik.http.routers.auth-admin-api.service=auth
+      - traefik.http.routers.auth-admin-api.tls.certresolver=le
+    # Explicit environment only: the initdb superuser password (DB__PASS) and
+    # the raw DB/Redis secrets stay out of the runtime container. The runtime
+    # gets its own least-privilege credentials via the connection strings.
+    environment:
+      Api__ApiUrl: "${Api__ApiUrl}"
+      Api__ApiUrl__Local: "http://127.0.0.1:8080"
+      Admin__Login: "${Admin__Login}"
+      Admin__Password: "${Admin__Password}"
+      S3__AccessKey: "${S3__AccessKey}"
+      S3__SecretKey: "${S3__SecretKey}"
+      S3__ServiceUrl: "${S3__ServiceUrl}"
+      S3__AuthorizationRegion: "${S3__AuthorizationRegion}"
+      S3__Buckets__Avatars: "${S3__Buckets__Avatars}"
+      Security__Issuer: "${Security__Issuer}"
+      Security__AuthApiUrl: "${Security__AuthApiUrl}"
+      # The pinned build predates the explicit CA support, so it trusts the
+      # bundle through SSL_CERT_FILE. Security__RedisCaCertificatePath is what
+      # a :master build (with H-07 code) uses instead.
+      SSL_CERT_FILE: "/certs/ca-bundle.crt"
+      Security__RedisCaCertificatePath: "/certs/ca.crt"
+      ConnectionStrings__Postgres: "Host=auth-postgres;Port=5432;Database=${DB__NAME};Username=${DB__APP_USER};Password=${DB__APP_PASS};SSL Mode=VerifyFull;Root Certificate=/certs/ca.crt"
+      ConnectionStrings__Redis: "auth-redis:6379,password=${REDIS__PASSWORD},ssl=true,sslHost=auth-redis,abortConnect=false,connectTimeout=5000"
+    volumes:
+      - auth_keys:/app/keys
+      - auth_tls:/certs:ro
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      auth-redis:
+        condition: service_healthy
+    logging: *default-logging
+
+  auth-admin:
+    image: ghcr.io/sergeikrivko/avalux-auth-admin:master
+    container_name: auth-admin
+    restart: always
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.auth-admin.entrypoints=websecure
+      - "traefik.http.routers.auth-admin.rule=Host(`auth-admin.reportchecker.ru`)"
+      - traefik.http.routers.auth-admin.priority=10
+      - traefik.http.routers.auth-admin.middlewares=internal@file
+      - traefik.http.routers.auth-admin.service=auth-admin
+      - traefik.http.routers.auth-admin.tls.certresolver=le
+      - traefik.http.services.auth-admin.loadbalancer.server.port=80
+    logging: *default-logging
+
+  auth-postgres:
+    image: postgres:17-alpine
+    container_name: auth-postgres
+    restart: always
+    # H-07: database and cache live only on the internal network. The runtime
+    # connects as the least-privilege role avaluxauth_app (DB__APP_USER), not
+    # as the initdb superuser.
+    environment:
+      POSTGRES_DB: ${DB__NAME}
+      POSTGRES_USER: ${DB__USER}
+      POSTGRES_PASSWORD: ${DB__PASS}
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/certs/postgres.crt
+      - -c
+      - ssl_key_file=/certs/postgres.key
+      - -c
+      - hba_file=/certs/pg_hba.conf
+    networks:
+      - auth-internal
+    volumes:
+      - auth_postgres:/var/lib/postgresql/data
+      - auth_tls:/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB__USER} -d ${DB__NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: *default-logging
+
+  auth-redis:
+    image: redis:7-alpine
+    container_name: auth-redis
+    restart: always
+    environment:
+      REDIS__PASSWORD: "${REDIS__PASSWORD}"
+    command: ["sh", "-c", "exec redis-server --appendonly yes --port 0 --tls-port 6379 --tls-cert-file /certs/redis.crt --tls-key-file /certs/redis.key --tls-ca-cert-file /certs/ca.crt --tls-auth-clients no --requirepass \"$$REDIS__PASSWORD\""]
+    networks:
+      - auth-internal
+    volumes:
+      - auth_redis:/data
+      - auth_tls:/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --tls --cacert /certs/ca.crt -h auth-redis -p 6379 -a \"$$REDIS__PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+
+networks:
+  proxy:
+    external: true
+  auth-internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  auth_keys:
+    driver: local
+  auth_postgres:
+    driver: local
+  auth_redis:
+    driver: local
+  auth_tls:
+    driver: local
