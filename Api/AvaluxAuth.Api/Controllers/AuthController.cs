@@ -1,4 +1,5 @@
-﻿using AvaluxAuth.Abstractions;
+﻿using System.Text.Encodings.Web;
+using AvaluxAuth.Abstractions;
 using AvaluxAuth.Api.Schemas;
 using AvaluxAuth.Models;
 using AvaluxAuth.Utils;
@@ -18,7 +19,8 @@ public class AuthController(
     IProviderRepository providerRepository,
     IEnumerable<IAuthProvider> authProviders,
     IAuthorizationService authorizationService,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    ILogger<AuthController> logger)
     : ControllerBase
 {
     [HttpGet("authorize")]
@@ -178,59 +180,83 @@ public class AuthController(
         });
     }
 
-    private ContentResult ErrorHtml(params string[] errors)
-    {
-        var errorHtml = $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset='utf-8'>
-    <title>Ошибка авторизации</title>
-    <style>
-        body {{
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            line-height: 1.6;
-        }}
-        .error-container {{
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #f5c6cb;
-            border-radius: 5px;
-            background-color: #f8d7da;
-            color: #721c24;
-        }}
-        .error-title {{
-            font-size: 1.5em;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }}
-        .error-message {{
-            margin-bottom: 15px;
-            word-wrap: break-word;
-        }}
-        .error-details {{
-            font-size: 0.9em;
-            color: #6c757d;
-            border-top: 1px solid #f5c6cb;
-            padding-top: 10px;
-            margin-top: 10px;
-        }}
-    </style>
-</head>
-<body>
-    <div class='error-container'>
-        <div class='error-title'>Ошибка авторизации</div>
-        {string.Join('\n', errors.Select(e => $"<div class='error-message'>{e}</div>"))}
-    </div>
-</body>
-</html>";
-        return Content(errorHtml, "text/html; charset=utf-8");
-    }
-
+    /// <summary>
+    /// Renders a generic error page for the browser redirect flows (authorize/callback).
+    /// </summary>
+    /// <remarks>
+    /// The page is deliberately static: exception messages, inner exceptions and query
+    /// values (e.g. the provider's <c>error_description</c>) are only written to the log,
+    /// never to the markup. The auth origin also hosts the password form, so reflecting
+    /// attacker-controlled text here would be a same-origin XSS (H-02 in SECURITY-AUDIT.md).
+    /// </remarks>
     private ContentResult ErrorHtml(Exception ex)
     {
-        return ex.InnerException == null ? ErrorHtml(ex.Message) : ErrorHtml(ex.Message, ex.InnerException.Message);
+        var traceId = HttpContext.TraceIdentifier;
+        logger.LogWarning(ex, "Authorization failed: traceId={TraceId}, path={Path}", traceId, Request.Path);
+
+        Response.Headers["Content-Security-Policy"] =
+            "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; " +
+            "form-action 'none'; frame-ancestors 'none'";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        Response.Headers["Referrer-Policy"] = "no-referrer";
+        Response.Headers["Cache-Control"] = "no-store";
+
+        var errorHtml = $$"""
+            <!DOCTYPE html>
+            <html lang="ru">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Ошибка авторизации</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        margin: 40px;
+                        line-height: 1.6;
+                    }
+                    .error-container {
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                        border: 1px solid #f5c6cb;
+                        border-radius: 5px;
+                        background-color: #f8d7da;
+                        color: #721c24;
+                    }
+                    .error-title {
+                        font-size: 1.5em;
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                    }
+                    .error-message {
+                        margin-bottom: 15px;
+                    }
+                    .error-details {
+                        font-size: 0.9em;
+                        color: #6c757d;
+                        border-top: 1px solid #f5c6cb;
+                        padding-top: 10px;
+                        margin-top: 10px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="error-container">
+                    <div class="error-title">Ошибка авторизации</div>
+                    <div class="error-message">
+                        Не удалось завершить авторизацию. Вернитесь на страницу входа и попробуйте снова.
+                    </div>
+                    <div class="error-details">Код ошибки: {{HtmlEncoder.Default.Encode(traceId)}}</div>
+                </div>
+            </body>
+            </html>
+            """;
+
+        return new ContentResult
+        {
+            Content = errorHtml,
+            ContentType = "text/html; charset=utf-8",
+            StatusCode = StatusCodes.Status400BadRequest,
+        };
     }
 }
