@@ -6,6 +6,7 @@ using AvaluxAuth.Providers.Extensions;
 using AvaluxAuth.S3;
 using AvaluxAuth.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -85,6 +86,45 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
         options.RefreshInterval = TimeSpan.FromMinutes(30);
         options.RefreshOnIssuerKeyNotFound = true;
+
+        options.Events = new JwtBearerEvents
+        {
+            // Service account JWTs may live for years, so a signature/expiry check
+            // alone is not enough: a token revoked in the admin panel must stop
+            // working immediately (H-04 in SECURITY-AUDIT.md). Fail closed: if the
+            // revocation status cannot be checked, the token is rejected.
+            OnTokenValidated = async context =>
+            {
+                var tokenIdClaim = context.Principal?.FindFirst("TokenId");
+                if (tokenIdClaim is null)
+                    return; // user access token: no DB-backed record (see M-03)
+
+                if (!Guid.TryParse(tokenIdClaim.Value, out var tokenId))
+                {
+                    context.Fail("Service account token has an invalid TokenId claim");
+                    return;
+                }
+
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("AvaluxAuth.Api.ServiceAccountTokens");
+
+                try
+                {
+                    var tokenService = context.HttpContext.RequestServices.GetRequiredService<ITokenService>();
+                    if (await tokenService.IsRevokedAsync(tokenId, context.HttpContext.RequestAborted))
+                    {
+                        logger.LogWarning("Rejected revoked service account token: tokenId={TokenId}", tokenId);
+                        context.Fail("Service account token has been revoked");
+                    }
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "Service account token revocation check failed: tokenId={TokenId}", tokenId);
+                    context.Fail("Service account token revocation check failed");
+                }
+            }
+        };
     });
 
 builder.Services.AddAuthorizationBuilder()

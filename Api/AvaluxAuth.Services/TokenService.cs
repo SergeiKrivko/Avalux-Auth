@@ -16,7 +16,11 @@ public class TokenService(
     ISecretProtector secretProtector,
     IConnectionMultiplexer redis) : ITokenService
 {
-    private const string RedisKey = "ServiceAccuntTokens";
+    // One Redis key per revoked token, so the marker expires on its own instead
+    // of accumulating in an unbounded set. The cache is only an optimisation:
+    // the DB row is the source of truth and every cache miss re-checks it.
+    private const string RevokedTokenKeyPrefix = "RevokedServiceAccountToken-";
+    private static readonly TimeSpan RevokedTokenCacheTtl = TimeSpan.FromDays(1);
 
     public async Task<(Guid, string)> CreateTokenAsync(Guid applicationId, string? name, string[] permissions,
         DateTime expiresAt,
@@ -32,20 +36,30 @@ public class TokenService(
     public async Task<bool> VerifyPermissionAsync(Guid tokenId, string permission, CancellationToken ct = default)
     {
         var token = await tokenRepository.GetTokenByIdAsync(tokenId, ct);
-        return token?.Permissions.Contains(permission) ?? false;
+        if (token is null || token.DeletedAt is not null || token.ExpiresAt <= DateTime.UtcNow)
+            return false;
+        return token.Permissions.Contains(permission);
     }
 
     public async Task<bool> IsRevokedAsync(Guid tokenId, CancellationToken ct = default)
     {
+        var key = RevokedTokenKeyPrefix + tokenId;
         var redisDb = redis.GetDatabase();
-        if (await redisDb.SetContainsAsync(RedisKey, tokenId.ToString()))
+        if (await redisDb.KeyExistsAsync(key))
             return true;
 
         var token = await tokenRepository.GetTokenByIdAsync(tokenId, ct);
-        if (token == null)
-            return false;
-        await redisDb.SetAddAsync(RedisKey, tokenId.ToString());
-        return true;
+        // Fail closed: a service account JWT is valid only while its active DB
+        // record exists and has not expired. Unknown tokens are treated as revoked.
+        if (token is null)
+            return true;
+        if (token.DeletedAt is not null || token.ExpiresAt <= DateTime.UtcNow)
+        {
+            await redisDb.StringSetAsync(key, "1", RevokedTokenCacheTtl);
+            return true;
+        }
+
+        return false;
     }
 
     public async Task<bool> RevokeTokenAsync(Guid tokenId, CancellationToken ct = default)
@@ -53,8 +67,9 @@ public class TokenService(
         var res = await tokenRepository.RemoveTokenAsync(tokenId, ct);
         if (res)
         {
-            var redisDb = redis.GetDatabase();
-            await redisDb.SetRemoveAsync(RedisKey, tokenId.ToString());
+            // Fail closed immediately, before/without relying on the DB lookup.
+            await redis.GetDatabase()
+                .StringSetAsync(RevokedTokenKeyPrefix + tokenId, "1", RevokedTokenCacheTtl);
         }
 
         return res;

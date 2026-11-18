@@ -7,10 +7,13 @@ namespace AvaluxAuth.DataAccess.Repositories;
 
 public class TokenRepository(AvaluxAuthDbContext dbContext) : ITokenRepository
 {
+    // Returns the record even when it has been soft-deleted (DeletedAt != null):
+    // callers such as TokenService.IsRevokedAsync must be able to tell a revoked
+    // token from an unknown one, and the admin endpoint shows revoked tokens.
     public async Task<Token?> GetTokenByIdAsync(Guid tokenId, CancellationToken ct = default)
     {
         var entity = await dbContext.Tokens
-            .Where(x => x.Id == tokenId && x.DeletedAt != null)
+            .Where(x => x.Id == tokenId)
             .FirstOrDefaultAsync(ct);
         return entity is null ? null : FromEntity(entity);
     }
