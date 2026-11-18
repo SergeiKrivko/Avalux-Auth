@@ -1,10 +1,11 @@
 import {defineConfig} from 'vite'
 import {svelte} from '@sveltejs/vite-plugin-svelte'
 
-// The app is served by the ASP.NET host under /auth/ in production.
+// The forms are served by the ASP.NET host at /login and /profile and are
+// built into the wwwroot root. Assets go to /static so they do not clash with
+// the Angular admin panel, which owns /assets on the same host.
 // During development it runs on its own port and proxies API calls to the backend.
 export default defineConfig({
-  base: '/auth/',
   plugins: [svelte()],
   server: {
     port: 5173,
@@ -18,5 +19,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    assetsDir: 'static',
   },
 })

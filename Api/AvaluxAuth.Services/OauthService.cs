@@ -69,10 +69,10 @@ public class OauthService(
         });
 
         if (existingAccount != null)
-            return $"{configuration["Api:ApiUrl"]}/auth/profile?state={state}";
+            return $"{configuration["Api:ApiUrl"]}/profile?state={state}";
 
         return provider.Id == 0
-            ? $"{configuration["Api:ApiUrl"]}/auth/login?state={state}"
+            ? $"{configuration["Api:ApiUrl"]}/login?state={state}"
             : provider.GetAuthUrl(providerSettings.Parameters, GetCallbackUrl(provider.Key), state);
     }
 

@@ -1,7 +1,7 @@
 export type View = 'login' | 'profile'
 
 /**
- * Returns the relative path inside the application (without the /auth base).
+ * Returns the relative path inside the application (without the base path).
  */
 export function relativePath(): string {
   const base = import.meta.env.BASE_URL.replace(/\/+$/, '')

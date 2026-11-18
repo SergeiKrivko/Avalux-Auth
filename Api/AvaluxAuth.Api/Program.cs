@@ -137,32 +137,21 @@ app.UseAuthorization();
 app.MapControllers();
 if (app.Environment.IsProduction())
 {
-    // The user-facing auth UI is a separate lightweight SPA served under /auth.
-    // Old /login and /profile links are kept as redirects for compatibility.
+    // The user-facing auth UI (Svelte) lives in the wwwroot root and is
+    // served at /login and /profile. Requests are rewritten to index.html,
+    // there are no redirects.
     app.Use(async (context, next) =>
     {
         var path = context.Request.Path;
 
-        if (path == "/login" || path == "/profile")
-        {
-            context.Response.Redirect($"/auth{path}{context.Request.QueryString}");
-            return;
-        }
-
-        if (path == "/auth")
-        {
-            context.Response.Redirect($"/auth/{context.Request.QueryString}");
-            return;
-        }
-
-        if (path.StartsWithSegments("/auth") && !Path.HasExtension(path.Value))
-            context.Request.Path = "/auth/index.html";
+        if ((HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)) &&
+            (path == "/login" || path == "/login/" || path == "/profile" || path == "/profile/"))
+            context.Request.Path = "/index.html";
 
         await next();
     });
 
-    // The admin panel is a separate container; the API only serves the
-    // user-facing auth UI (Svelte) from wwwroot/auth.
+    app.UseDefaultFiles();
     app.UseStaticFiles();
 }
 

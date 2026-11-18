@@ -25,7 +25,7 @@ COPY ["Api/AvaluxAuth.Services/AvaluxAuth.Services.csproj", "Api/AvaluxAuth.Serv
 COPY ["Api/AvaluxAuth.S3/AvaluxAuth.S3.csproj", "Api/AvaluxAuth.S3/"]
 RUN dotnet restore "Api/AvaluxAuth.Api/AvaluxAuth.Api.csproj"
 COPY . .
-COPY --from=auth-ui-build /src/dist ./Api/AvaluxAuth.Api/wwwroot/auth/
+COPY --from=auth-ui-build /src/dist ./Api/AvaluxAuth.Api/wwwroot/
 WORKDIR "/src/Api/AvaluxAuth.Api"
 RUN dotnet build "./AvaluxAuth.Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
