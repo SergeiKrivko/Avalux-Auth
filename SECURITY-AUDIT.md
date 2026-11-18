@@ -243,7 +243,7 @@ Cache-Control: no-store
 **Совместимость клиентов (важно для порядка деплоя).**
 
 - **ReportChecker web** (`angular-oauth2-oidc` 20) уже отправляет `code_challenge_method=S256` и `code_verifier` — изменений не требует (dummy `client_secret` для публичного клиента теперь просто игнорируется).
-- **`Avalux.Auth.UserClient` 1.4.0** (в этом репозитории): добавлены PKCE S256, `state` с проверкой в loopback-сервере, `redirect_uri` при обмене. Версия пакета поднята; пакет успешно собирается в CI. **Публикация на nuget.org 2026-11-18 не прошла:** секрет `NUGET_API_KEY` истёк (nuget.org вернул 403), workflow `user-client.yml` нужно перезапустить после обновления ключа.
+- **`Avalux.Auth.UserClient` 1.4.0** (в этом репозитории): добавлены PKCE S256, `state` с проверкой в loopback-сервере, `redirect_uri` при обмене. Версия пакета поднята; пакет успешно собирается в CI. Workflow `user-client.yml` переведён на NuGet Trusted Publishing (OIDC, долгоживущий `NUGET_API_KEY` больше не используется). **Публикация 1.4.0 пока не завершена:** OIDC-обмен проходит успешно, но nuget.org отклоняет push с 403 «does not have permission to access the specified package» — нужно проверить package scopes/owner политики Trusted Publishing (репозиторий и workflow уже совпадают, иначе обмен токена не прошёл бы).
 - **ReportChecker VS Code / Studio / CLI**: используют собственный `AuthApi` или `Avalux.Auth.UserClient` 1.3.2. После деплоя сервера их нужно перевести на PKCE / `Avalux.Auth.UserClient >= 1.4.0`, иначе `/authorize` вернёт ошибку «PKCE code_challenge is required». Деплой сервера выполнять после обновления клиентов.
 - `AvaluxAuth.TestCli` получает PKCE автоматически через обновлённый UserClient.
 
