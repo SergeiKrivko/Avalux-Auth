@@ -2,6 +2,20 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.1.4.
 
+## Container
+
+The admin panel is deployed as a standalone nginx container and is no longer
+served by the API. Build it from this directory:
+
+```bash
+docker build -t avalux-auth-admin .
+docker run --rm -p 8080:80 avalux-auth-admin
+```
+
+The app calls the API with relative URLs (`/api/...`), so the container is
+published on the same host as the API and requests for `/api` and `/auth` are
+routed to the API service by the reverse proxy.
+
 ## Development server
 
 To start a local development server, run:

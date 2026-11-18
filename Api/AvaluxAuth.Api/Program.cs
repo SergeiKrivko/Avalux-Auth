@@ -161,12 +161,9 @@ if (app.Environment.IsProduction())
         await next();
     });
 
+    // The admin panel is a separate container; the API only serves the
+    // user-facing auth UI (Svelte) from wwwroot/auth.
     app.UseStaticFiles();
-    app.UseSpa(spa =>
-    {
-        spa.Options.SourcePath = "wwwroot";
-        spa.Options.DefaultPage = "/index.html";
-    });
 }
 
 if (app.Environment.IsDevelopment())

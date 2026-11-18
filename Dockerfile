@@ -1,12 +1,3 @@
-FROM node:22.12-alpine AS angular-build
-WORKDIR /src
-
-COPY UI/package*.json ./
-RUN npm ci
-
-COPY UI/ .
-RUN npm run build -- --configuration production
-
 FROM node:22.12-alpine AS auth-ui-build
 WORKDIR /src
 
@@ -34,7 +25,6 @@ COPY ["Api/AvaluxAuth.Services/AvaluxAuth.Services.csproj", "Api/AvaluxAuth.Serv
 COPY ["Api/AvaluxAuth.S3/AvaluxAuth.S3.csproj", "Api/AvaluxAuth.S3/"]
 RUN dotnet restore "Api/AvaluxAuth.Api/AvaluxAuth.Api.csproj"
 COPY . .
-COPY --from=angular-build /src/dist/UI/browser ./Api/AvaluxAuth.Api/wwwroot/
 COPY --from=auth-ui-build /src/dist ./Api/AvaluxAuth.Api/wwwroot/auth/
 WORKDIR "/src/Api/AvaluxAuth.Api"
 RUN dotnet build "./AvaluxAuth.Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
