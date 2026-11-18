@@ -12,9 +12,10 @@ docker build -t avalux-auth-admin .
 docker run --rm -p 8080:80 avalux-auth-admin
 ```
 
-The app calls the API with relative URLs (`/api/...`), so the container is
-published on the same host as the API and requests for `/api` and `/auth` are
-routed to the API service by the reverse proxy.
+The app calls the API with relative URLs (`/api/...`), so it is deployed on its
+own host, `auth-admin.reportchecker.ru`, where the reverse proxy routes `/api` to
+the API service. The host is reachable only from the VPN; the public auth host
+does not serve the panel or `/api/v1/admin` at all.
 
 ## Development server
 

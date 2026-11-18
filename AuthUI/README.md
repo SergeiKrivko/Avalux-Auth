@@ -33,8 +33,7 @@ npm run build
 
 Результат попадает в `dist/` и в Dockerfile копируется в
 `Api/AvaluxAuth.Api/wwwroot/`. ASP.NET отдаёт `index.html` для `/login` и
-`/profile`, а сгенерированные ассеты лежат в `wwwroot/static/` (URL `/static`),
-чтобы не пересекаться с `/assets` Angular-админки на том же хосте.
+`/profile`, а сгенерированные ассеты лежат в `wwwroot/static/` (URL `/static`).
 
 ## Проверки
 
