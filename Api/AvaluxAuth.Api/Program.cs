@@ -137,6 +137,30 @@ app.UseAuthorization();
 app.MapControllers();
 if (app.Environment.IsProduction())
 {
+    // The user-facing auth UI is a separate lightweight SPA served under /auth.
+    // Old /login and /profile links are kept as redirects for compatibility.
+    app.Use(async (context, next) =>
+    {
+        var path = context.Request.Path;
+
+        if (path == "/login" || path == "/profile")
+        {
+            context.Response.Redirect($"/auth{path}{context.Request.QueryString}");
+            return;
+        }
+
+        if (path == "/auth")
+        {
+            context.Response.Redirect($"/auth/{context.Request.QueryString}");
+            return;
+        }
+
+        if (path.StartsWithSegments("/auth") && !Path.HasExtension(path.Value))
+            context.Request.Path = "/auth/index.html";
+
+        await next();
+    });
+
     app.UseStaticFiles();
     app.UseSpa(spa =>
     {
