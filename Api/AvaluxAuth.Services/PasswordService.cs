@@ -12,6 +12,12 @@ public class PasswordService(
     IConfiguration configuration,
     IImageService imageService) : IPasswordService
 {
+    // Verified against for unknown logins, so a failed sign-in always pays the
+    // BCrypt cost and its duration does not reveal whether the account exists
+    // (H-06 in SECURITY-AUDIT.md).
+    private static readonly string DummyPasswordHash =
+        BCrypt.Net.BCrypt.HashPassword("avaluxauth-timing-dummy-password");
+
     public async Task<bool> CheckUserExistsAsync(string login, CancellationToken ct = default)
     {
         var user = await passwordRepository.GetByLoginAsync(login, ct);
@@ -21,6 +27,12 @@ public class PasswordService(
     public async Task<PasswordUser> CreateUserAsync(string login, string password, PasswordUserInfo info,
         CancellationToken ct = default)
     {
+        // Defense in depth: the controller validates first, but no caller may
+        // create an account with a password that violates the policy.
+        var policyError = PasswordPolicy.Validate(password);
+        if (policyError != null)
+            throw new ArgumentException(policyError, nameof(password));
+
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
         var id = await passwordRepository.CreateAsync(login, passwordHash, info, ct);
         return await passwordRepository.GetByIdAsync(id, ct) ?? throw new Exception("Created account not found. What?");
@@ -29,9 +41,8 @@ public class PasswordService(
     public async Task<PasswordUser?> VerifyPasswordAsync(string login, string password, CancellationToken ct = default)
     {
         var user = await passwordRepository.GetByLoginAsync(login, ct);
-        if (user == null)
-            return null;
-        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        var hash = user?.PasswordHash ?? DummyPasswordHash;
+        if (!VerifyHash(password, hash))
             return null;
         return user;
     }
@@ -108,9 +119,27 @@ public class PasswordService(
 
     public async Task<bool> ChangePasswordAsync(PasswordUser user, string oldPassword, string newPassword, CancellationToken ct = default)
     {
-        if (!BCrypt.Net.BCrypt.Verify(oldPassword, user.PasswordHash))
+        var policyError = PasswordPolicy.Validate(newPassword);
+        if (policyError != null)
+            throw new ArgumentException(policyError, nameof(newPassword));
+
+        if (string.IsNullOrEmpty(oldPassword) || !VerifyHash(oldPassword, user.PasswordHash))
             throw new Exception("Wrong old password");
         var hash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         return await passwordRepository.ChangePasswordAsync(user.Id, hash, ct);
+    }
+
+    private static bool VerifyHash(string password, string hash)
+    {
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(password, hash);
+        }
+        catch (BCrypt.Net.SaltParseException)
+        {
+            // A malformed hash in the database must not turn a failed sign-in
+            // into a 500 that is distinguishable from a wrong password.
+            return false;
+        }
     }
 }

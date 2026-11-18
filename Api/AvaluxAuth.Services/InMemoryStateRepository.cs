@@ -6,6 +6,7 @@ namespace AvaluxAuth.Services;
 public class InMemoryStateRepository : IStateRepository
 {
     private readonly Dictionary<string, AuthorizationState> _states = [];
+    private readonly Dictionary<string, long> _failures = [];
 
     public Task SaveStateAsync(AuthorizationState state)
     {
@@ -21,6 +22,7 @@ public class InMemoryStateRepository : IStateRepository
     public Task DeleteStateAsync(string state)
     {
         _states.Remove(state);
+        _failures.Remove(state);
         return Task.CompletedTask;
     }
 
@@ -28,6 +30,14 @@ public class InMemoryStateRepository : IStateRepository
     {
         var result = _states.GetValueOrDefault(state);
         _states.Remove(state);
+        _failures.Remove(state);
         return Task.FromResult(result);
+    }
+
+    public Task<long> RegisterFailureAsync(string state)
+    {
+        var failures = _failures.GetValueOrDefault(state) + 1;
+        _failures[state] = failures;
+        return Task.FromResult(failures);
     }
 }

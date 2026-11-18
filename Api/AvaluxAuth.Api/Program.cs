@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.RateLimiting;
 using AvaluxAuth.Abstractions;
 using AvaluxAuth.Api;
 using AvaluxAuth.DataAccess;
@@ -10,6 +12,7 @@ using AvaluxAuth.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -28,6 +31,7 @@ builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddSingleton<IStateRepository, RedisStateRepository>();
 builder.Services.AddSingleton<IAuthCodeRepository, RedisCodeRepository>();
 builder.Services.AddSingleton<ILinkCodeRepository, RedisLinkCodeRepository>();
+builder.Services.AddSingleton<ILoginThrottle, RedisLoginThrottle>();
 builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<IPasswordRepository, PasswordRepository>();
@@ -180,6 +184,49 @@ builder.Services.AddCors(options =>
     );
 });
 
+// H-06: brute-force protection. The ASP.NET Core limiter is a cheap per-IP
+// first line of defence on the password and admin-login endpoints; the
+// Redis-backed ILoginThrottle adds a per-(IP, login) exponential lockout that
+// also survives restarts and counts failures across the state lifetime.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy(Config.AuthRateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.GetClientIpAddress(),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
+
+    options.AddPolicy(Config.AdminLoginRateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.GetClientIpAddress(),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(5),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
+
+    options.OnRejected = async (context, ct) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter =
+                Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))
+                    .ToString(CultureInfo.InvariantCulture);
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsync(
+            "{\"error\":\"too_many_requests\",\"message\":\"Too many attempts. Try again later.\"}", ct);
+    };
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -195,7 +242,10 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+app.UseRouting();
+
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -140,6 +140,9 @@ export function friendlyError(
       if (context === 'signin') return 'Неверный логин или пароль.'
       return 'Ссылка недействительна или устарела. Вернитесь в приложение и начните вход заново.'
     }
+    if (error.status === 429) {
+      return 'Слишком много попыток. Подождите немного и попробуйте ещё раз.'
+    }
     if (error.status === 409) return 'Аккаунт с таким логином уже существует.'
     if (error.status >= 500) {
       if (/old password/i.test(error.message)) return 'Неверный старый пароль.'
