@@ -1,3 +1,5 @@
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using AvaluxAuth.Abstractions;
 using AvaluxAuth.Api;
 using AvaluxAuth.DataAccess;
@@ -53,8 +55,31 @@ builder.Services.AddDbContext<AvaluxAuthDbContext>(options =>
 });
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 {
-    var redisConnection = builder.Configuration["ConnectionStrings:Redis"];
-    return ConnectionMultiplexer.Connect(redisConnection ?? "localhost:6379");
+    var redisConfiguration = ConfigurationOptions.Parse(
+        builder.Configuration["ConnectionStrings:Redis"] ?? "localhost:6379");
+
+    // H-07 in SECURITY-AUDIT.md: Redis is reached over TLS on the internal
+    // network with a certificate from a private CA, so the system trust store
+    // cannot validate it. When Security:RedisCaCertificatePath is set, verify
+    // the server chain against exactly that CA (plus the TLS hostname check).
+    var caCertificatePath = builder.Configuration["Security:RedisCaCertificatePath"];
+    if (!string.IsNullOrWhiteSpace(caCertificatePath))
+    {
+        var caCertificate = X509CertificateLoader.LoadCertificateFromFile(caCertificatePath);
+        redisConfiguration.CertificateValidation += (_, certificate, _, errors) =>
+        {
+            if (certificate is null || (errors & SslPolicyErrors.RemoteCertificateNameMismatch) != 0)
+                return false;
+
+            using var chain = new X509Chain();
+            chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+            chain.ChainPolicy.CustomTrustStore.Add(caCertificate);
+            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+            return chain.Build(X509CertificateLoader.LoadCertificate(certificate.GetRawCertData()));
+        };
+    }
+
+    return ConnectionMultiplexer.Connect(redisConfiguration);
 });
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
