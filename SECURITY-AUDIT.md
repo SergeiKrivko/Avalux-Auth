@@ -1,9 +1,9 @@
 # Аудит безопасности AvaluxAuth
 
 - **Дата:** 2026-11-18 (Europe/Moscow); исправление H-07 выкачено 2026-11-19.
-- **Ревизия:** `ab6731d` (`master`) — аудит; `9c6575c` — код H-07 (валидация TLS Redis по приватному CA). На живом контуре — образ `c4c9617` (см. H-07, раздел «Порядок деплоя»).
+- **Ревизия:** `ab6731d` (`master`) — аудит; `9c6575c` — код H-07 (валидация TLS Redis по приватному CA); `4a09914` — код H-06 (rate limiting/lockout, сжигание state, политика пароля). На живом контуре — образ `c4c9617` (см. H-07, раздел «Порядок деплоя»).
 - **Область:** `Api/*` (API, сервисы, провайдеры, DataAccess, S3), `AuthUI`, `UI`, Docker/CI, клиентские библиотеки, живой контур в Portainer (стек `auth`).
-- **Статус:** H-01 и H-07 исправлены; H-02, H-04 и H-05 исправлены в коде, но ещё не задеплоены на живой контур; H-03 и H-06 открыты.
+- **Статус:** H-01 и H-07 исправлены; H-02, H-04, H-05 и H-06 исправлены в коде, но ещё не задеплоены на живой контур; H-03 открыт.
 - **Методика:** статический разбор кода и миграций, `dotnet list package --vulnerable --include-transitive`, `npm audit`, сверка с OSV/NuGet, безопасные проверки живого контура (GET/негативные POST без побочных эффектов, один инертный XSS-payload).
 - **Ограничения:** не выполнялись брутфорс, разрушительные действия, массовое сканирование и выгрузка секретов; полноценный пентест бизнес-логики не проводился.
 
@@ -20,7 +20,7 @@
 3. **H-03** — уязвимый ImageSharp 3.1.12 на анонимной загрузке изображений (удалённый крэш/DoS, TIFF decoder).
 4. **H-04** — отзыв service-account токенов не работал: JWT жил до `exp` даже после удаления токена в админке. **Исправлено в коде 2026-11-18 (ждёт деплоя).**
 5. **H-05** — коды авторизации и refresh-токены не привязаны к клиенту, client secret в проде отключён, PKCE только заявлен. **Исправлено в коде 2026-11-18 (ждёт деплоя).**
-6. **H-06** — нет rate limiting/lockout; state переиспользуется при неудачном входе.
+6. **H-06** — не было rate limiting/lockout; state переиспользовался при неудачном входе, логины перечислялись. **Исправлено в коде 2026-11-19 (ждёт деплоя).**
 7. **H-07** — Redis без пароля и Postgres на общей сети `proxy`. **Исправлено 2026-11-19** (internal-сеть, auth+TLS, least-privilege DB-роль).
 
 ### Сводная таблица
@@ -32,7 +32,7 @@
 | H-03 | High | Уязвимый ImageSharp + анонимная загрузка/декодирование изображений | Открыто |
 | H-04 | High | Отзыв service-account токенов не проверяется при аутентификации | **Исправлено в коде** |
 | H-05 | High | OAuth: нет привязки кода/refresh к клиенту, client secret отключён, PKCE фиктивный | **Исправлено в коде** |
-| H-06 | High | Нет rate limiting/lockout, переиспользование state, перечисление логинов | Открыто |
+| H-06 | High | Нет rate limiting/lockout, переиспользование state, перечисление логинов | **Исправлено в коде** |
 | H-07 | High | Redis без auth и Postgres на общей сети `proxy` | **Исправлено** |
 | M-01 | Medium | Анонимная запись в S3 без квот и очистки | Открыто |
 | M-02 | Medium | Будущие подписки выдаются сразу (`StartsAt` не учитывается) | Открыто |
@@ -44,7 +44,7 @@
 | M-08 | Medium | Вербозные 500 и необработанные исключения (state, color) | Открыто |
 | M-09 | Medium | CORS по умолчанию `AllowAnyOrigin` | Открыто |
 | M-10 | Medium | Небезопасные redirect URI в проде (Vercel preview, localhost) | Открыто |
-| M-11 | Medium | Admin login: fail-open на пустом пароле, неконстантное сравнение | Открыто |
+| M-11 | Medium | Admin login: fail-open на пустом пароле, неконстантное сравнение | Частично (H-06) |
 | M-12 | Medium | Нет unique index на `Passwords.Login`; гонка при регистрации | Открыто |
 | L-01 | Low | JWT: `ValidateAudience=false`, `RequireHttpsMetadata=false` | Открыто |
 | L-02 | Low | Доверие `Host`/`X-Forwarded-*`, `AllowedHosts: "*"` | Открыто |
@@ -256,13 +256,42 @@ Cache-Control: no-store
 
 ---
 
-### H-06. Нет rate limiting/lockout, state переиспользуется при неудачном входе, логины перечисляемы
+### H-06. Rate limiting/lockout, переиспользование state, перечисление логинов — ИСПРАВЛЕНО В КОДЕ
 
-**Где:** [Program.cs](Api/AvaluxAuth.Api/Program.cs) — `AddRateLimiter` отсутствует; [PasswordController.cs:46-70](Api/AvaluxAuth.Api/Controllers/PasswordController.cs#L46-L70) — `GetStateAsync` (не `TakeStateAsync`), state удаляется только при успехе ([PasswordController.cs:130](Api/AvaluxAuth.Api/Controllers/PasswordController.cs#L130)); [AdminController.cs:23-24](Api/AvaluxAuth.Api/Controllers/AdminController.cs#L23-L24) — вход без задержек/блокировок; [PasswordService.cs](Api/AvaluxAuth.Services/PasswordService.cs) — серверной политики пароля нет.
+**Где:** [Program.cs](Api/AvaluxAuth.Api/Program.cs) — `AddRateLimiter` отсутствовал; [PasswordController.cs](Api/AvaluxAuth.Api/Controllers/PasswordController.cs) — `GetStateAsync` (не `TakeStateAsync`), state удалялся только при успехе; [AdminController.cs](Api/AvaluxAuth.Api/Controllers/AdminController.cs) — вход без задержек/блокировок; [PasswordService.cs](Api/AvaluxAuth.Services/PasswordService.cs) — серверной политики пароля нет.
 
-Один валидный state даёт час неограниченных попыток входа. Плюс 409 «Account already exists» и тайминг BCrypt (для несуществующего логина проверка не выполняется) позволяют перечислять логины. BCrypt на 2 vCPU — удобный CPU-DoS. Админ-логин был доступен из интернета (H-01).
+**Причина.** Один валидный state давал час неограниченных попыток входа. Плюс 409 «Account already exists» и тайминг BCrypt (для несуществующего логина проверка не выполнялась) позволяли перечислять логины. BCrypt на 2 vCPU — удобный CPU-DoS. Админ-логин был доступен из интернета (H-01).
 
-**Исправление.** Rate limit по IP+логину (`AddRateLimiter`), экспоненциальный backoff/счётчик попыток в Redis, потреблять state на каждой попытке (или хранить счётчик), единые ответы и постоянное время, серверная политика пароля, MFA для админа, аудит-лог неудачных входов.
+**Что сделано (2026-11-19, коммит `4a09914`).**
+
+- **Rate limiting по IP.** `AddRateLimiter` + `[EnableRateLimiting]`:
+  - `AuthEndpoints` — 30 запросов/мин на клиентский IP для `/password/signin` и `/password/signup`;
+  - `AdminLogin` — 10 запросов/5 мин на IP для `/admin/login`.
+  При отказе — `429` с `Retry-After` и JSON-телом. Клиентский IP берётся из правого (последнего) элемента `X-Forwarded-For`, если соединение пришло из приватной сети (API публикуется только через Traefik), иначе — из `RemoteIpAddress` ([Extensions.cs](Api/AvaluxAuth.Api/Extensions.cs)).
+- **Lockout в Redis.** [RedisLoginThrottle.cs](Api/AvaluxAuth.Services/RedisLoginThrottle.cs) (интерфейс `ILoginThrottle`): счётчик неудач по ключу `scope + IP + SHA-256(login)`; после 5 неудач — блокировка 30 с, далее экспоненциально 60/120/… с потолком 15 мин и окном 15 мин; успешный вход сбрасывает счётчик. Скоупы: `password-signin`, `password-signup`, `admin-login`. Логин в ключах Redis и в логах — только в виде хеша.
+- **Ограничение попыток на state.** `IStateRepository.RegisterFailureAsync` инкрементит счётчик `AuthorizationState-{state}-failed-attempts` (TTL 1 ч); после 10 неудач state удаляется вместе со счётчиком. `DeleteStateAsync`/`TakeStateAsync` удаляют и счётчик ([RedisStateRepository.cs](Api/AvaluxAuth.Services/RedisStateRepository.cs)).
+- **Единый ответ и постоянное время.** `PasswordService.VerifyPasswordAsync` теперь всегда выполняет `BCrypt.Verify`: для несуществующего логина — против заранее посчитанного dummy-хеша; битый хеш в БД трактуется как неверный пароль, а не 500. Ответ на неверные данные — всегда `401 Wrong login or password`.
+- **Админ-логин.** Сравнение логина/пароля — SHA-256 + `CryptographicOperations.FixedTimeEquals` (обе проверки выполняются всегда, без короткого замыкания); при незаданном/пустом `Admin:Login`/`Admin:Password` вход запрещён (fail-closed, частично M-11); неудачи считаются в Redis и логируются.
+- **Серверная политика пароля.** [PasswordPolicy.cs](Api/AvaluxAuth.Services/PasswordPolicy.cs): минимум 8 символов, максимум 72 байта UTF-8 (BCrypt молча обрезает более длинные). Проверяется на signup и при смене пароля; дублируется в `PasswordService` как defense in depth.
+- **Аудит-лог.** Неудачные входы пишутся через `ILogger` с IP, скоупом, хешем логина и числом попыток по state (без пароля и без открытого логина).
+- **Побочный баг.** `RedisStateRepository.GetStateAsync` на отсутствующем ключе выбрасывал `JsonException` и давал 500 вместо 401; теперь возвращает `null`. Без этого «сожжённый» state отвечал бы 500.
+- **AuthUI.** На 429 показывается «Слишком много попыток. Подождите немного и попробуйте ещё раз.»
+
+**Проверка (2026-11-19, локально).**
+
+- `dotnet build AvaluxAuth.slnx` — 0 ошибок (только прежние предупреждения).
+- Интеграционный прогон против `redis:7-alpine`: пороги 5→30 с, 6→60 с, 7→120 с, потолок 15 мин; ключ нормализует регистр/пробелы логина и IP; reset удаляет ключи; счётчик state инкрементится, имеет TTL, удаляется вместе со state; `GetStateAsync("missing")` → `null`.
+- Прогон минимального ASP.NET-пайплайна с той же регистрацией лимитера: первые 30 запросов → 200, следующие → 429 + `Retry-After: 60` + JSON; разные `X-Forwarded-For` попадают в разные корзины; админ-политика — 10 запросов, 11-й → 429.
+- На живом контуре не проверялось: фикс ещё не задеплоен (образ закреплён на `c4c9617`).
+
+**Остаточный риск.**
+
+- **MFA для админа не реализована.** Требует TOTP/WebAuthn и изменений в админ-панели; вынести отдельной задачей. Сейчас админ-вход защищён VPN (H-01), rate limit/lockout и константным сравнением.
+- **Signup остаётся оракулом существования логина** (409): полноценное закрытие требует e-mail-подтверждения или асинхронной регистрации. Сейчас перечисление ограничено rate limit, per-(IP,login) lockout и сжиганием state.
+- **Распределённый перебор.** Per-IP лимиты обходятся ботнетом; per-(IP,login) lockout не позволяет заблокировать чужой аккаунт с другого IP, но и не защищает от распределённого перебора одного логина. Для этого нужен глобальный счётчик по логину с CAPTCHA/уведомлениями.
+- **ASP.NET-лимитер — per-process.** При нескольких репликах `auth` лимиты по IP нужно вынести в Redis (сейчас реплика одна, Redis-lockout общий).
+- **Доверие `X-Forwarded-For`** — только для приватного peer'а; при прямом доступе к контейнеру изнутри сети `proxy` заголовок можно подделать и сменить корзину (L-02; defense in depth — `ForwardedHeaders` с `KnownNetworks`).
+- **Аудит-лог** пишется только в stdout с ротацией 1m (L-10), без централизованного хранения.
 
 ---
 
@@ -333,7 +362,7 @@ Cache-Control: no-store
 
 ### M-08. Вербозные 500 и необработанные исключения
 
-[RedisStateRepository.cs:18-23](Api/AvaluxAuth.Services/RedisStateRepository.cs#L18-L23) — `JsonSerializer.Deserialize` от пустого значения → 500 (подтверждено); [PasswordController.cs:42,68](Api/AvaluxAuth.Api/Controllers/PasswordController.cs#L42) возвращает `e.Message`. Возвращать 400/401 и generic-сообщения, детали — в лог. `avatar?color=999` → 500 (валидировать `colorIndex`).
+[RedisStateRepository.cs:18-23](Api/AvaluxAuth.Services/RedisStateRepository.cs#L18-L23) — `JsonSerializer.Deserialize` от пустого значения → 500 (подтверждено; **исправлено в рамках H-06**: отсутствующий ключ → `null`/401); [PasswordController.cs:42,68](Api/AvaluxAuth.Api/Controllers/PasswordController.cs#L42) возвращает `e.Message`. Возвращать 400/401 и generic-сообщения, детали — в лог. `avatar?color=999` → 500 (валидировать `colorIndex`).
 
 ### M-09. CORS по умолчанию `AllowAnyOrigin`
 
@@ -346,6 +375,8 @@ Cache-Control: no-store
 ### M-11. Admin login: fail-open на пустом пароле и неконстантное сравнение
 
 [AdminController.cs:23-24](Api/AvaluxAuth.Api/Controllers/AdminController.cs#L23-L24): если `Admin:Password` не задан/пуст, сравнение с `null`/`""` проходит. Проверять конфиг на старте (non-empty), сравнивать `CryptographicOperations.FixedTimeEquals`, хранить хеш. На момент аудита переменная задана, но паттерн опасный.
+
+**Частично исправлено вместе с H-06 (2026-11-19):** вход fail-closed при незаданном/пустом конфиге, сравнение — SHA-256 + `FixedTimeEquals`. Остаются проверка конфига на старте и хранение хеша пароля вместо открытого значения.
 
 ### M-12. Нет unique index на `Passwords.Login`
 
@@ -364,7 +395,7 @@ Cache-Control: no-store
 - **L-07. DB-суперпользователь.** ~~Приложение работает под `POSTGRES_USER`.~~ **Исправлено вместе с H-07:** рантайм работает под `avaluxauth_app`; суперпользователь остаётся только для initdb/админских задач.
 - **L-08. CI.** `.github/workflows/main.yml` даёт `contents: write`, образы/actions не запинены по digest/SHA, сборка на каждый push; нет Trivy/SBOM/подписи.
 - **L-09. `keys/`.** Не в `.gitignore`/`.dockerignore`. Локальный запуск создаёт key ring; добавить `**/keys/`.
-- **L-10. Наблюдаемость.** Нет аудит-лога админских действий/неудачных входов; у `auth` нет healthcheck/resource limits.
+- **L-10. Наблюдаемость.** Нет аудит-лога админских действий и централизованного хранения логов; у `auth` нет healthcheck/resource limits. Неудачные входы с 2026-11-19 логируются в stdout (H-06), но только с ротацией 1m.
 - **L-11. Avatar GET.** `text` до ~8 КБ и рендер шрифтом 100px — CPU/память DoS; `colorIndex` вне диапазона → 500.
 
 ---
