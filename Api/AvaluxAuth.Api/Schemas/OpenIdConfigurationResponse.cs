@@ -23,4 +23,7 @@ public sealed record OpenIdConfigurationResponse
 
     [JsonPropertyName("code_challenge_methods_supported")]
     public string[] CodeChallengeMethodsSupported => ["S256"];
+
+    [JsonPropertyName("token_endpoint_auth_methods_supported")]
+    public string[] TokenEndpointAuthMethodsSupported => ["client_secret_post", "none"];
 }

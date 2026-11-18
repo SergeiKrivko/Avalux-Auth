@@ -3486,6 +3486,7 @@ export interface IApplication {
 export class ApplicationParameters implements IApplicationParameters {
     name!: string | undefined;
     redirectUrls?: string[] | undefined;
+    requireClientSecret?: boolean | undefined;
 
     constructor(data?: IApplicationParameters) {
         if (data) {
@@ -3504,6 +3505,7 @@ export class ApplicationParameters implements IApplicationParameters {
                 for (let item of _data["redirectUrls"])
                     this.redirectUrls!.push(item);
             }
+            this.requireClientSecret = _data["requireClientSecret"];
         }
     }
 
@@ -3522,6 +3524,7 @@ export class ApplicationParameters implements IApplicationParameters {
             for (let item of this.redirectUrls)
                 data["redirectUrls"].push(item);
         }
+        data["requireClientSecret"] = this.requireClientSecret;
         return data;
     }
 }
@@ -3529,6 +3532,7 @@ export class ApplicationParameters implements IApplicationParameters {
 export interface IApplicationParameters {
     name: string | undefined;
     redirectUrls?: string[] | undefined;
+    requireClientSecret?: boolean | undefined;
 }
 
 export class ClientInfoResponse implements IClientInfoResponse {

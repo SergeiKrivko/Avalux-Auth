@@ -19,7 +19,6 @@ public class AuthController(
     IProviderRepository providerRepository,
     IEnumerable<IAuthProvider> authProviders,
     IAuthorizationService authorizationService,
-    IConfiguration configuration,
     ILogger<AuthController> logger)
     : ControllerBase
 {
@@ -31,12 +30,14 @@ public class AuthController(
         [FromQuery(Name = "state")] string? state = null,
         [FromQuery(Name = "nonce")] string? nonce = null,
         [FromQuery(Name = "link_code")] string? linkCode = null,
+        [FromQuery(Name = "code_challenge")] string? codeChallenge = null,
+        [FromQuery(Name = "code_challenge_method")] string? codeChallengeMethod = null,
         CancellationToken ct = default)
     {
         try
         {
             var url = await oauthService.GetAuthUrlAsync(clientId, providerKey, redirectUri, state, nonce, linkCode,
-                ct);
+                codeChallenge, codeChallengeMethod, ct);
             return Redirect(url);
         }
         catch (Exception e)
@@ -55,8 +56,13 @@ public class AuthController(
             var processed = await oauthService.ProcessCodeAsync(
                 Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString()), state, ct);
 
+            var authState = processed.State;
+            if (string.IsNullOrEmpty(authState.ClientId))
+                throw new Exception("Authorization state has no client binding");
+
             var code = await authorizationService.CreateAuthorizationCodeAsync(processed.UserId,
-                processed.State.UserNonce, ct);
+                authState.ClientId, authState.RedirectUrl, authState.UserNonce, authState.CodeChallenge,
+                authState.CodeChallengeMethod, ct);
 
             var builder = new UrlBuilder(processed.State.RedirectUrl)
                 .AddQuery("code", code);
@@ -72,34 +78,51 @@ public class AuthController(
 
     [HttpPost("token")]
     public async Task<ActionResult<UserCredentials>> GetToken(
-        [FromForm(Name = "client_id")] string clientId,
-        [FromForm(Name = "client_secret")] string clientSecret,
+        [FromForm(Name = "client_id")] string? clientId,
+        [FromForm(Name = "client_secret")] string? clientSecret,
         [FromForm(Name = "code")] string? code = null,
+        [FromForm(Name = "code_verifier")] string? codeVerifier = null,
+        [FromForm(Name = "redirect_uri")] string? redirectUri = null,
         [FromForm(Name = "refresh_token")] string? refreshToken = null,
         [FromForm(Name = "grant_type")] string grantType = "authorization_code",
         CancellationToken ct = default)
     {
-        if (configuration["Security:RequireClientSecret"] != null &&
-            !await oauthService.CheckClientSecretAsync(clientId, clientSecret, ct))
-            return Unauthorized("Client secret is incorrect");
+        if (string.IsNullOrWhiteSpace(clientId))
+            return OAuthError(StatusCodes.Status400BadRequest, "invalid_request", "client_id is required");
 
-        UserCredentials? credentials;
+        // Client authentication is per application: confidential clients must prove the secret,
+        // public clients (SPAs, desktop apps) rely on mandatory PKCE (H-05).
+        if (!await oauthService.AuthenticateClientAsync(clientId, clientSecret, ct))
+            return OAuthError(StatusCodes.Status401Unauthorized, "invalid_client", "Client authentication failed");
+
         switch (grantType)
         {
             case "authorization_code":
-                if (code == null)
-                    return BadRequest("Parameter 'code' not specified");
-                credentials = await authorizationService.GetTokenAsync(code, ct);
-                return Ok(credentials);
-            case "refresh_token":
-                if (refreshToken == null)
-                    return BadRequest("Parameter 'refresh_token' not specified");
-                credentials = await authorizationService.RefreshTokenAsync(refreshToken, ct);
+            {
+                if (string.IsNullOrEmpty(code))
+                    return OAuthError(StatusCodes.Status400BadRequest, "invalid_request", "code is required");
+
+                var credentials = await authorizationService.GetTokenAsync(code, clientId, codeVerifier, redirectUri,
+                    ct);
                 if (credentials == null)
-                    return Unauthorized("Refresh token is incorrect");
+                    return OAuthError(StatusCodes.Status400BadRequest, "invalid_grant",
+                        "Authorization code is invalid");
                 return Ok(credentials);
+            }
+            case "refresh_token":
+            {
+                if (string.IsNullOrEmpty(refreshToken))
+                    return OAuthError(StatusCodes.Status400BadRequest, "invalid_request",
+                        "refresh_token is required");
+
+                var credentials = await authorizationService.RefreshTokenAsync(refreshToken, clientId, ct);
+                if (credentials == null)
+                    return OAuthError(StatusCodes.Status400BadRequest, "invalid_grant", "Refresh token is invalid");
+                return Ok(credentials);
+            }
             default:
-                throw new Exception("invalid grant type");
+                return OAuthError(StatusCodes.Status400BadRequest, "unsupported_grant_type",
+                    "Unsupported grant type");
         }
     }
 
@@ -116,22 +139,37 @@ public class AuthController(
 
     [HttpPost("refresh")]
     public async Task<ActionResult<UserCredentials>> RefreshToken(
+        [FromForm(Name = "client_id")] string? clientId,
+        [FromForm(Name = "client_secret")] string? clientSecret,
         [FromForm(Name = "refresh_token")] string refreshToken,
         CancellationToken ct = default)
     {
-        var credentials = await authorizationService.RefreshTokenAsync(refreshToken, ct);
+        if (string.IsNullOrWhiteSpace(clientId))
+            return OAuthError(StatusCodes.Status400BadRequest, "invalid_request", "client_id is required");
+        if (!await oauthService.AuthenticateClientAsync(clientId, clientSecret, ct))
+            return OAuthError(StatusCodes.Status401Unauthorized, "invalid_client", "Client authentication failed");
+
+        var credentials = await authorizationService.RefreshTokenAsync(refreshToken, clientId, ct);
         if (credentials == null)
-            return Unauthorized("Refresh token is incorrect");
+            return OAuthError(StatusCodes.Status400BadRequest, "invalid_grant", "Refresh token is invalid");
         return Ok(credentials);
     }
 
     [HttpPost("revoke")]
-    public async Task<ActionResult> Revoke([FromForm(Name = "refresh_token")] string refreshToken,
+    public async Task<ActionResult> Revoke(
+        [FromForm(Name = "client_id")] string? clientId,
+        [FromForm(Name = "client_secret")] string? clientSecret,
+        [FromForm(Name = "refresh_token")] string refreshToken,
         CancellationToken ct = default)
     {
-        var res = await authorizationService.RevokeTokenAsync(refreshToken, ct);
+        if (string.IsNullOrWhiteSpace(clientId))
+            return OAuthError(StatusCodes.Status400BadRequest, "invalid_request", "client_id is required");
+        if (!await oauthService.AuthenticateClientAsync(clientId, clientSecret, ct))
+            return OAuthError(StatusCodes.Status401Unauthorized, "invalid_client", "Client authentication failed");
+
+        var res = await authorizationService.RevokeTokenAsync(refreshToken, clientId, ct);
         if (!res)
-            return Unauthorized("Revoke token is incorrect");
+            return OAuthError(StatusCodes.Status400BadRequest, "invalid_grant", "Refresh token is invalid");
         return Ok();
     }
 
@@ -178,6 +216,25 @@ public class AuthController(
             AccessToken = credentials.AccessToken ?? throw new Exception("Access token is null"),
             ExpiresAt = credentials.ExpiresAt,
         });
+    }
+
+    /// <summary>
+    /// OAuth 2.0 error response (RFC 6749 §5.2). Token responses must not be cached.
+    /// </summary>
+    private ContentResult OAuthError(int statusCode, string error, string description)
+    {
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers.Pragma = "no-cache";
+        return new ContentResult
+        {
+            Content = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                error,
+                error_description = description,
+            }),
+            ContentType = "application/json; charset=utf-8",
+            StatusCode = statusCode,
+        };
     }
 
     /// <summary>

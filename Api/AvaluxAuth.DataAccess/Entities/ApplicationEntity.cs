@@ -11,6 +11,12 @@ internal class ApplicationEntity
     [MaxLength(32)] public required string ClientSecret { get; init; }
     public string[] RedirectUrls { get; init; } = [];
 
+    /// <summary>
+    /// True for confidential clients that must present their client secret at the token endpoint.
+    /// Public clients (SPAs, desktop apps) are protected by mandatory PKCE instead (H-05).
+    /// </summary>
+    public bool RequireClientSecret { get; init; } = true;
+
     public required DateTime CreatedAt { get; init; }
     public DateTime? DeletedAt { get; init; }
 

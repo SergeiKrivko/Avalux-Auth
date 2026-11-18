@@ -16,6 +16,11 @@
     </tui-textfield>
     <label tuiLabel class="label">Redirect URLs:</label>
     <app-input-string-array formControlName="redirectUrls"/>
+    <label tuiLabel class="label">Конфиденциальный клиент:</label>
+    <label class="value checkbox-label">
+      <input type="checkbox" formControlName="requireClientSecret"/>
+      Требовать client secret (для SPA и десктоп-приложений выключите — они используют PKCE)
+    </label>
   </form>
   <button tuiButton iconStart="@tui.save" (click)="saveChanges()" [loading]="isSaving | async">Сохранить</button>
 </div>

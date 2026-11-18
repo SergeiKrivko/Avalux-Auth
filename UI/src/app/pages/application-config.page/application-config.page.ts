@@ -45,6 +45,7 @@ export class ApplicationConfigPage implements OnInit {
   protected control = new FormGroup({
     name: new FormControl<string>(""),
     redirectUrls: new FormControl<string[]>([]),
+    requireClientSecret: new FormControl<boolean>(true),
   })
 
   ngOnInit() {
@@ -61,6 +62,7 @@ export class ApplicationConfigPage implements OnInit {
     this.control.setValue({
       name: application.parameters.name,
       redirectUrls: application.parameters.redirectUrls,
+      requireClientSecret: application.parameters.requireClientSecret,
     });
   }
 
@@ -75,6 +77,7 @@ export class ApplicationConfigPage implements OnInit {
           return this.applicationService.updateApplication(app.id, {
             name: this.control.value.name ?? app.parameters.name,
             redirectUrls: this.control.value.redirectUrls ?? [],
+            requireClientSecret: this.control.value.requireClientSecret ?? true,
           });
         return NEVER;
       }),

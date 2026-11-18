@@ -16,6 +16,12 @@ public class AuthClient(
     ICredentialsStore? credentialsStore = null) : IAuthClient
 {
     public UserCredentials? Credentials { get; private set; }
+
+    // PKCE state for the authorization in flight (H-05/C-02). The desktop client is a public
+    // client: the code is bound to the verifier, and `state` protects against a forged redirect.
+    private string? _codeVerifier;
+    private string? _pendingState;
+    private string? _pendingRedirectUrl;
     public bool IsAuthenticated => Credentials != null;
     public string? AccessToken => Credentials?.AccessToken;
 
@@ -32,15 +38,32 @@ public class AuthClient(
 
     public string GetAuthorizationUrl(string provider, string redirectUrl)
     {
-        return $"{httpClient.BaseAddress?.AbsoluteUri}api/v1/auth/authorize?provider={provider}" +
-               $"&client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUrl)}";
+        return BuildAuthorizationUrl(provider, redirectUrl);
     }
 
     public async Task<string> GetLinkUrl(string provider, string redirectUrl, CancellationToken ct = default)
     {
-        return $"{httpClient.BaseAddress?.AbsoluteUri}api/v1/auth/authorize?provider={provider}" +
-               $"&client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUrl)}" +
-               $"&link_code={await GetLinkCodeAsync(ct)}";
+        return BuildAuthorizationUrl(provider, redirectUrl, await GetLinkCodeAsync(ct));
+    }
+
+    private string BuildAuthorizationUrl(string provider, string redirectUrl, string? linkCode = null)
+    {
+        var verifier = Pkce.CreateCodeVerifier();
+        var state = Pkce.CreateState();
+        _codeVerifier = verifier;
+        _pendingState = state;
+        _pendingRedirectUrl = redirectUrl;
+
+        var url = $"{httpClient.BaseAddress?.AbsoluteUri}api/v1/auth/authorize" +
+                  $"?provider={Uri.EscapeDataString(provider)}" +
+                  $"&client_id={Uri.EscapeDataString(clientId)}" +
+                  $"&redirect_uri={Uri.EscapeDataString(redirectUrl)}" +
+                  $"&state={Uri.EscapeDataString(state)}" +
+                  $"&code_challenge={Pkce.CreateCodeChallenge(verifier)}" +
+                  "&code_challenge_method=S256";
+        if (linkCode != null)
+            url += $"&link_code={Uri.EscapeDataString(linkCode)}";
+        return url;
     }
 
     private async Task<string> GetLinkCodeAsync(CancellationToken ct = default)
@@ -57,14 +80,28 @@ public class AuthClient(
 
     public async Task<UserCredentials> GetTokenAsync(string code, CancellationToken ct = default)
     {
-        var resp = await httpClient.PostAsync("api/v1/auth/token", new FormUrlEncodedContent(
-            new Dictionary<string, string>()
-            {
-                { "grant_type", "authorization_code" },
-                { "client_id", clientId },
-                { "client_secret", clientSecret },
-                { "code", code },
-            }), ct);
+        var verifier = _codeVerifier;
+        var redirectUrl = _pendingRedirectUrl;
+        _codeVerifier = null;
+        _pendingState = null;
+        _pendingRedirectUrl = null;
+
+        if (string.IsNullOrEmpty(verifier) || string.IsNullOrEmpty(redirectUrl))
+            throw new InvalidOperationException(
+                "GetAuthorizationUrl must be called before GetTokenAsync: the PKCE verifier is not available");
+
+        var form = new Dictionary<string, string>
+        {
+            { "grant_type", "authorization_code" },
+            { "client_id", clientId },
+            { "code", code },
+            { "redirect_uri", redirectUrl },
+            { "code_verifier", verifier },
+        };
+        if (!string.IsNullOrEmpty(clientSecret))
+            form["client_secret"] = clientSecret;
+
+        var resp = await httpClient.PostAsync("api/v1/auth/token", new FormUrlEncodedContent(form), ct);
         resp.EnsureSuccessStatusCode();
         var data = await resp.Content.ReadFromJsonAsync<UserCredentialsSchema>(JsonOptions, ct) ??
                    throw new Exception("Invalid response");
@@ -76,14 +113,12 @@ public class AuthClient(
 
     public async Task<UserCredentials> RefreshTokenAsync(string refreshToken, CancellationToken ct = default)
     {
-        var resp = await httpClient.PostAsync("api/v1/auth/token", new FormUrlEncodedContent(
-            new Dictionary<string, string>
-            {
-                { "grant_type", "refresh_token" },
-                { "client_id", clientId },
-                { "client_secret", clientSecret },
-                { "refresh_token", refreshToken },
-            }), ct);
+        var resp = await httpClient.PostAsync("api/v1/auth/token", WithClientSecret(new Dictionary<string, string>
+        {
+            { "grant_type", "refresh_token" },
+            { "client_id", clientId },
+            { "refresh_token", refreshToken },
+        }), ct);
         resp.EnsureSuccessStatusCode();
         var data = await resp.Content.ReadFromJsonAsync<UserCredentialsSchema>(JsonOptions, ct) ??
                    throw new Exception("Invalid response");
@@ -127,13 +162,11 @@ public class AuthClient(
 
     public async Task RevokeTokenAsync(string refreshToken, CancellationToken ct = default)
     {
-        var resp = await httpClient.PostAsync("api/v1/auth/revoke", new FormUrlEncodedContent(
-            new Dictionary<string, string>
-            {
-                { "client_id", clientId },
-                { "client_secret", clientSecret },
-                { "refresh_token", refreshToken },
-            }), ct);
+        var resp = await httpClient.PostAsync("api/v1/auth/revoke", WithClientSecret(new Dictionary<string, string>
+        {
+            { "client_id", clientId },
+            { "refresh_token", refreshToken },
+        }), ct);
         resp.EnsureSuccessStatusCode();
     }
 
@@ -184,10 +217,7 @@ public class AuthClient(
         CancellationToken ct = default)
     {
         var url = GetAuthorizationUrl(provider, redirectUrl);
-        OpenUrl(url);
-        var code = await ReceiveAuthCodeAsync(redirectUrl, ct);
-        if (code == null)
-            throw new Exception("Authorization failed");
+        var code = await OpenAndReceiveCodeAsync(url, redirectUrl, ct);
         return await GetTokenAsync(code, ct);
     }
 
@@ -195,10 +225,29 @@ public class AuthClient(
     {
         await RefreshTokenAsync(false, ct);
         var url = await GetLinkUrl(provider, redirectUrl, ct);
+        // The link flow does not exchange the code, but the redirect must still carry our state.
+        await OpenAndReceiveCodeAsync(url, redirectUrl, ct);
+        _codeVerifier = null;
+        _pendingState = null;
+        _pendingRedirectUrl = null;
+    }
+
+    private async Task<string> OpenAndReceiveCodeAsync(string url, string redirectUrl, CancellationToken ct)
+    {
         OpenUrl(url);
-        var code = await ReceiveAuthCodeAsync(redirectUrl, ct);
-        if (code == null)
+        var result = await ReceiveAuthCodeAsync(redirectUrl, _pendingState, ct);
+        if (result.Code == null)
             throw new Exception("Authorization failed");
+        if (!string.Equals(result.State, _pendingState, StringComparison.Ordinal))
+            throw new Exception("Authorization state mismatch");
+        return result.Code;
+    }
+
+    private FormUrlEncodedContent WithClientSecret(Dictionary<string, string> form)
+    {
+        if (!string.IsNullOrEmpty(clientSecret))
+            form["client_secret"] = clientSecret;
+        return new FormUrlEncodedContent(form);
     }
 
     private static void OpenUrl(string url)
@@ -213,7 +262,8 @@ public class AuthClient(
             Process.Start(new ProcessStartInfo { FileName = "open", Arguments = $"\"{url}\"", CreateNoWindow = true });
     }
 
-    private static async Task<string?> ReceiveAuthCodeAsync(string redirectUrl, CancellationToken ct)
+    private static async Task<(string? Code, string? State)> ReceiveAuthCodeAsync(string redirectUrl,
+        string? expectedState, CancellationToken ct)
     {
         // Запускаем локальный HTTP-сервер
         var listener = new HttpListener();
@@ -226,9 +276,20 @@ public class AuthClient(
         // Ждем входящий запрос
         var context = await listener.GetContextAsync();
         var request = context.Request;
+        var code = request.QueryString.Get("code");
+        var state = request.QueryString.Get("state");
+
+        // A redirect with a wrong/missing state is not ours: do not hand the code to the caller.
+        var stateOk = expectedState == null || string.Equals(state, expectedState, StringComparison.Ordinal);
+        if (!stateOk)
+            code = null;
+
         // Отправляем ответ клиенту
         var response = context.Response;
-        var bytes = Encoding.UTF8.GetBytes("Code received. Close this page");
+        var bytes = Encoding.UTF8.GetBytes(stateOk
+            ? "Code received. Close this page"
+            : "Authorization failed. Close this page");
+        response.StatusCode = stateOk ? 200 : 400;
         response.ContentLength64 = bytes.Length;
         response.ContentEncoding = Encoding.UTF8;
         await using (var output = response.OutputStream)
@@ -239,6 +300,6 @@ public class AuthClient(
 
         listener.Stop();
 
-        return request.QueryString.Get("code");
+        return (code, state);
     }
 }

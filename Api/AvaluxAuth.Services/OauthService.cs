@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
 using AvaluxAuth.Utils;
@@ -30,15 +31,21 @@ public class OauthService(
     }
 
     public async Task<string> GetAuthUrlAsync(string clientId, string providerKey, string redirectUri,
-        string? userState, string? userNonce, string? linkCode,
+        string? userState, string? userNonce, string? linkCode, string? codeChallenge, string? codeChallengeMethod,
         CancellationToken ct = default)
     {
         var application = await applicationRepository.GetApplicationByClientIdAsync(clientId, ct);
         if (application == null)
             throw new Exception("Client not found");
 
-        if (!application.Parameters.RedirectUrls.Contains(redirectUri))
+        if (string.IsNullOrEmpty(redirectUri) || !application.Parameters.RedirectUrls.Contains(redirectUri))
             throw new Exception("Invalid redirect url");
+
+        // RFC 6749 §3.1.2: the redirection endpoint URI must not include a fragment.
+        if (redirectUri.Contains('#'))
+            throw new Exception("Invalid redirect url");
+
+        ValidatePkce(application, codeChallenge, codeChallengeMethod);
 
         if (!providerFactory.TryGetProvider(providerKey, out var provider))
             throw new Exception("Provider not found");
@@ -64,8 +71,11 @@ public class OauthService(
             UserNonce = userNonce,
             LinkUserId = link?.UserId,
             ApplicationId = application.Id,
+            ClientId = application.ClientId,
             ProviderId = providerSettings.Id,
             RedirectUrl = redirectUri,
+            CodeChallenge = codeChallenge,
+            CodeChallengeMethod = codeChallengeMethod,
         });
 
         if (existingAccount != null)
@@ -131,12 +141,54 @@ public class OauthService(
         return new ProcessedAuthorizationState(userId, state);
     }
 
-    public async Task<bool> CheckClientSecretAsync(string clientId, string clientSecret, CancellationToken ct = default)
+    /// <summary>
+    /// Public clients (e.g. desktop apps with a loopback redirect URI) cannot keep a secret:
+    /// they authenticate with PKCE instead. Confidential clients must present their exact
+    /// client secret; the comparison is constant-time.
+    /// </summary>
+    public async Task<bool> AuthenticateClientAsync(string clientId, string? clientSecret,
+        CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(clientId))
+            return false;
+
         var application = await applicationRepository.GetApplicationByClientIdAsync(clientId, ct);
         if (application == null)
-            throw new Exception("Client not found");
-        return application.ClientSecret == clientSecret;
+            return false;
+
+        if (!application.Parameters.RequireClientSecret)
+            return true;
+
+        return SecretEquals(application.ClientSecret, clientSecret);
+    }
+
+    private static void ValidatePkce(Application application, string? codeChallenge, string? codeChallengeMethod)
+    {
+        if (string.IsNullOrEmpty(codeChallenge))
+        {
+            if (codeChallengeMethod != null)
+                throw new Exception("code_challenge_method without code_challenge");
+
+            // A public client is protected by PKCE only; a confidential client is also
+            // authenticated with its secret at the token endpoint.
+            if (!application.Parameters.RequireClientSecret)
+                throw new Exception("PKCE code_challenge is required for this client");
+            return;
+        }
+
+        if (!string.Equals(codeChallengeMethod, Pkce.S256, StringComparison.Ordinal))
+            throw new Exception("Only PKCE S256 is supported");
+        if (!Pkce.IsValidChallenge(codeChallenge))
+            throw new Exception("Invalid code_challenge");
+    }
+
+    private static bool SecretEquals(string expected, string? actual)
+    {
+        if (string.IsNullOrEmpty(actual))
+            return false;
+        var expectedBytes = Encoding.UTF8.GetBytes(expected);
+        var actualBytes = Encoding.UTF8.GetBytes(actual);
+        return CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
     }
 
     private AccountCredentials ProtectCredentials(AccountCredentials unprotected)

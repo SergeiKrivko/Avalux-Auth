@@ -76,6 +76,7 @@ export class ApplicationService {
     return this.apiClient.appsPUT(applicationId, ApplicationParameters.fromJS({
       name: parameters.name,
       redirectUrls: parameters.redirectUrls,
+      requireClientSecret: parameters.requireClientSecret,
     })).pipe(
       switchMap(() => this.loadApplications())
     );
@@ -92,6 +93,7 @@ const applicationToEntity = (app: Application): ApplicationEntity => {
     parameters: {
       name: app.parameters.name ?? "",
       redirectUrls: app.parameters.redirectUrls ?? [],
+      requireClientSecret: app.parameters.requireClientSecret ?? true,
     },
     createdAt: app.createdAt ?? moment(),
     deletedAt: app.deletedAt ?? null,

@@ -112,6 +112,11 @@ namespace AvaluxAuth.DataAccess.Migrations
                         .IsRequired()
                         .HasColumnType("text[]");
 
+                    b.Property<bool>("RequireClientSecret")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.HasKey("Id");
 
                     b.ToTable("Applications");
@@ -210,6 +215,17 @@ namespace AvaluxAuth.DataAccess.Migrations
                     b.Property<string>("RefreshToken")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");

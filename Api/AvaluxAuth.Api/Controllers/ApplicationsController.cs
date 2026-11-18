@@ -24,6 +24,7 @@ public class ApplicationsController(
         {
             Name = schema.Name,
             RedirectUrls = [],
+            RequireClientSecret = schema.RequireClientSecret,
         }, ct);
         return Ok(res);
     }

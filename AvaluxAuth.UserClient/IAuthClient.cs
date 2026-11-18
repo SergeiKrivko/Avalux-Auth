@@ -29,7 +29,8 @@ public interface IAuthClient
     /// </summary>
     /// <param name="provider">Строковый идентификатор провайдера. Например: <c>google</c>, <c>yandex</c>, <c>github</c></param>
     /// <param name="redirectUrl">Url, на который будет перенаправлен пользователь после авторизации в провайдере</param>
-    /// <returns></returns>
+    /// <returns>URL для открытия в браузере. Метод генерирует PKCE S256 verifier и <c>state</c>; обмен кода
+    /// (<c>GetTokenAsync</c>) должен выполняться на том же экземпляре клиента.</returns>
     public string GetAuthorizationUrl(string provider, string redirectUrl);
 
     /// <summary>
@@ -52,6 +53,7 @@ public interface IAuthClient
     /// <param name="code">Код авторизации (query-параметр <c>code</c>)</param>
     /// <param name="ct">CancellationToken</param>
     /// <returns>Пара токенов (доступа + обновления) и время, до которого действителен токен доступа</returns>
+    /// <exception cref="InvalidOperationException">Метод вызван без предварительного <c>GetAuthorizationUrl</c>.</exception>
     [MemberNotNull(nameof(Credentials))]
     public Task<UserCredentials> GetTokenAsync(string code, CancellationToken ct = default);
 

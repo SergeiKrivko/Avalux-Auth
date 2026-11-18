@@ -42,6 +42,7 @@ public class ApplicationRepository(AvaluxAuthDbContext dbContext) : IApplication
             ClientSecret = clientSecret,
             Name = parameters.Name,
             RedirectUrls = parameters.RedirectUrls,
+            RequireClientSecret = parameters.RequireClientSecret,
             CreatedAt = DateTime.UtcNow,
             DeletedAt = null,
         };
@@ -59,6 +60,7 @@ public class ApplicationRepository(AvaluxAuthDbContext dbContext) : IApplication
             {
                 a.SetProperty(x => x.Name, parameters.Name);
                 a.SetProperty(x => x.RedirectUrls, parameters.RedirectUrls);
+                a.SetProperty(x => x.RequireClientSecret, parameters.RequireClientSecret);
             }, ct);
         await dbContext.SaveChangesAsync(ct);
         return count > 0;
@@ -99,6 +101,7 @@ public class ApplicationRepository(AvaluxAuthDbContext dbContext) : IApplication
             {
                 Name = entity.Name,
                 RedirectUrls = entity.RedirectUrls,
+                RequireClientSecret = entity.RequireClientSecret,
             },
             CreatedAt = entity.CreatedAt,
             DeletedAt = entity.DeletedAt,

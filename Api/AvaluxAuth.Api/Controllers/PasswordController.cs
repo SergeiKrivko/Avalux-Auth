@@ -25,7 +25,7 @@ public class PasswordController(
         try
         {
             var stateData = await stateRepository.GetStateAsync(state);
-            if (stateData == null)
+            if (stateData == null || stateData.ClientId == null)
                 return Unauthorized();
 
             if (await passwordService.CheckUserExistsAsync(schema.Login, ct))
@@ -51,7 +51,7 @@ public class PasswordController(
         try
         {
             var stateData = await stateRepository.GetStateAsync(state);
-            if (stateData == null)
+            if (stateData == null || stateData.ClientId == null)
                 return Unauthorized();
 
             var password = await passwordService.VerifyPasswordAsync(schema.Login, schema.Password, ct);
@@ -136,6 +136,10 @@ public class PasswordController(
             AuthTime = DateTimeOffset.UtcNow,
             UserId = userId,
             UserNonce = stateData.UserNonce,
+            ClientId = stateData.ClientId,
+            RedirectUri = stateData.RedirectUrl,
+            CodeChallenge = stateData.CodeChallenge,
+            CodeChallengeMethod = stateData.CodeChallengeMethod,
         });
 
         var builder = new UrlBuilder(stateData.RedirectUrl)

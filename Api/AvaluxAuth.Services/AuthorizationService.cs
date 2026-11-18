@@ -20,7 +20,10 @@ public class AuthorizationService(
     ISecretProtector secretProtector,
     ILogger<OauthService> logger) : IAuthorizationService
 {
-    public async Task<string> CreateAuthorizationCodeAsync(Guid userId, string? nonce, CancellationToken ct = default)
+    private const int DefaultRefreshTokenLifetimeDays = 30;
+
+    public async Task<string> CreateAuthorizationCodeAsync(Guid userId, string clientId, string redirectUri,
+        string? nonce, string? codeChallenge, string? codeChallengeMethod, CancellationToken ct = default)
     {
         var code = RandomNumberGenerator.GetRandomString();
         await authCodeRepository.SaveCodeAsync(new AuthCode
@@ -29,16 +32,22 @@ public class AuthorizationService(
             UserId = userId,
             UserNonce = nonce,
             AuthTime = DateTimeOffset.UtcNow,
+            // Binding the code to the client, redirect URI and PKCE challenge means an
+            // intercepted code is useless without the matching verifier (H-05).
+            ClientId = clientId,
+            RedirectUri = redirectUri,
+            CodeChallenge = codeChallenge,
+            CodeChallengeMethod = codeChallengeMethod,
         });
         return code;
     }
 
-    public async Task<bool> RevokeTokenAsync(string refreshToken, CancellationToken ct = default)
+    public async Task<bool> RevokeTokenAsync(string refreshToken, string clientId, CancellationToken ct = default)
     {
-        return await refreshTokenRepository.DeleteRefreshTokenAsync(refreshToken, ct);
+        return await refreshTokenRepository.DeleteRefreshTokenAsync(refreshToken, clientId, ct);
     }
 
-    private async Task<UserCredentials> GetTokenAsync(Guid userId, AuthCode codeData, CancellationToken ct = default)
+    private async Task<UserCredentials?> GetTokenAsync(Guid userId, AuthCode codeData, CancellationToken ct = default)
     {
         var user = await userRepository.GetUserWithSubscriptionsAsync(userId, ct);
         if (user == null)
@@ -46,13 +55,19 @@ public class AuthorizationService(
         var application = await applicationRepository.GetApplicationByIdAsync(user.ApplicationId, ct);
         if (application == null)
             throw new Exception("Application not found");
+        if (!string.Equals(application.ClientId, codeData.ClientId, StringComparison.Ordinal))
+        {
+            logger.LogWarning("Authorization code client does not match the user application");
+            return null;
+        }
 
         var expiresAt = DateTime.UtcNow.AddHours(1);
         var accessToken = await CreateAccessToken(user, application, expiresAt, ct);
         var idToken = await CreateIdToken(user, application, expiresAt, codeData.UserNonce, codeData.AuthTime, ct);
 
         var refreshToken = RandomNumberGenerator.GetRandomString(128);
-        await refreshTokenRepository.AddRefreshTokenAsync(refreshToken, user.Id, ct);
+        await refreshTokenRepository.AddRefreshTokenAsync(refreshToken, user.Id, application.ClientId,
+            GetRefreshTokenExpiresAt(), ct);
 
         return new UserCredentials
         {
@@ -63,11 +78,50 @@ public class AuthorizationService(
         };
     }
 
-    public async Task<UserCredentials> GetTokenAsync(string code, CancellationToken ct = default)
+    public async Task<UserCredentials?> GetTokenAsync(string code, string clientId, string? codeVerifier,
+        string? redirectUri, CancellationToken ct = default)
     {
+        // The code is consumed on every attempt: a failed PKCE check must not allow retries.
         var codeData = await authCodeRepository.TakeCodeAsync(code);
         if (codeData == null)
-            throw new Exception("Invalid auth code");
+        {
+            logger.LogWarning("Authorization code not found");
+            return null;
+        }
+
+        if (string.IsNullOrEmpty(codeData.ClientId) ||
+            !string.Equals(codeData.ClientId, clientId, StringComparison.Ordinal))
+        {
+            logger.LogWarning("Authorization code was issued to another client");
+            return null;
+        }
+
+        if (!string.Equals(codeData.RedirectUri, redirectUri, StringComparison.Ordinal))
+        {
+            logger.LogWarning("redirect_uri does not match the authorization request");
+            return null;
+        }
+
+        if (!string.IsNullOrEmpty(codeData.CodeChallenge))
+        {
+            if (!Pkce.Verify(codeVerifier, codeData.CodeChallenge, codeData.CodeChallengeMethod))
+            {
+                logger.LogWarning("PKCE verification failed");
+                return null;
+            }
+        }
+        else
+        {
+            // Public clients always get a challenge at /authorize. A code without one is
+            // only acceptable for an authenticated confidential client.
+            var client = await applicationRepository.GetApplicationByClientIdAsync(codeData.ClientId, ct);
+            if (client == null || !client.Parameters.RequireClientSecret)
+            {
+                logger.LogWarning("Authorization code without PKCE challenge for a public client");
+                return null;
+            }
+        }
+
         return await GetTokenAsync(codeData.UserId, codeData, ct);
     }
 
@@ -128,13 +182,14 @@ public class AuthorizationService(
         return new JwtSecurityTokenHandler().WriteToken(jwt);
     }
 
-    public async Task<UserCredentials?> RefreshTokenAsync(string refreshToken, CancellationToken ct = default)
+    public async Task<UserCredentials?> RefreshTokenAsync(string refreshToken, string clientId,
+        CancellationToken ct = default)
     {
         var newToken = RandomNumberGenerator.GetRandomString(128);
-        var userId = await refreshTokenRepository.ReplaceRefreshTokenAsync(refreshToken, newToken, ct);
+        var userId = await refreshTokenRepository.ReplaceRefreshTokenAsync(refreshToken, newToken, clientId, ct);
         if (userId is null)
         {
-            logger.LogWarning("Refresh token not found");
+            logger.LogWarning("Refresh token not found, expired or issued to another client");
             return null;
         }
 
@@ -154,5 +209,13 @@ public class AuthorizationService(
             RefreshToken = newToken,
             ExpiresAt = expiresAt,
         };
+    }
+
+    private DateTime GetRefreshTokenExpiresAt()
+    {
+        var days = int.TryParse(configuration["Security:RefreshTokenLifetimeDays"], out var configured) && configured > 0
+            ? configured
+            : DefaultRefreshTokenLifetimeDays;
+        return DateTime.UtcNow.AddDays(days);
     }
 }

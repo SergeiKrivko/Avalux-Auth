@@ -12,4 +12,6 @@ export interface ApplicationEntity {
 export interface ApplicationParametersEntity {
   name: string;
   redirectUrls: string[];
+  /** Confidential client: must present the client secret at the token endpoint. */
+  requireClientSecret: boolean;
 }

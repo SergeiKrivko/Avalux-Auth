@@ -15,6 +15,7 @@ internal class ApplicationConfiguration : IEntityTypeConfiguration<ApplicationEn
         builder.Property(x => x.ClientSecret).IsRequired();
         builder.Property(x => x.Name).IsRequired();
         builder.Property(x => x.RedirectUrls).IsRequired();
+        builder.Property(x => x.RequireClientSecret).IsRequired().HasDefaultValue(true);
         builder.Property(x => x.CreatedAt).IsRequired();
         builder.Property(x => x.DeletedAt);
 

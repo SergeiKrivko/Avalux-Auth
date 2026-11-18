@@ -12,7 +12,8 @@ public class RedisCodeRepository(IConnectionMultiplexer redis) : IAuthCodeReposi
     public async Task SaveCodeAsync(AuthCode code)
     {
         var db = redis.GetDatabase();
-        await db.StringSetAsync(RedisKeyPrefix + code.Code, JsonSerializer.Serialize(code), TimeSpan.FromHours(1));
+        // RFC 6749 §4.1.2 recommends a short code lifetime; the code is also single-use.
+        await db.StringSetAsync(RedisKeyPrefix + code.Code, JsonSerializer.Serialize(code), TimeSpan.FromMinutes(10));
     }
 
     public async Task<AuthCode?> GetCodeAsync(string code)
