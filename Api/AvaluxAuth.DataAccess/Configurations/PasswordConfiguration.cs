@@ -15,6 +15,7 @@ public class PasswordConfiguration : IEntityTypeConfiguration<PasswordEntity>
         builder.Property(x => x.PasswordHash).IsRequired();
         builder.Property(x => x.Name);
         builder.Property(x => x.Email);
+        builder.Property(x => x.EmailConfirmedAt);
         builder.Property(x => x.AvatarId);
         builder.Property(x => x.CreatedAt).IsRequired();
         builder.Property(x => x.DeletedAt);

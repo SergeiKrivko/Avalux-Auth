@@ -55,6 +55,11 @@ builder.Services.AddScoped<IPasswordService, PasswordService>();
 // letters are queued and delivered by EmailDispatcher.
 builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 builder.Services.AddSingleton<IPasswordResetTokenRepository, RedisPasswordResetTokenRepository>();
+// R-02: optional e-mail confirmation. Tickets live in Redis (hashed, TTL,
+// single use); at sign-up they also carry the interrupted authorization so the
+// link completes sign-in instead of asking for the password again.
+builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
+builder.Services.AddSingleton<IEmailConfirmationRepository, RedisEmailConfirmationRepository>();
 builder.Services.AddSingleton<IEmailQueue, EmailQueue>();
 builder.Services.AddHostedService<EmailDispatcher>();
 builder.Services.AddAuthProviders();
@@ -299,6 +304,19 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true,
             }));
 
+    // R-02: the confirmation endpoint is anonymous and redeems a bearer link, so
+    // it is capped per client IP like the recovery endpoints.
+    options.AddPolicy(Config.EmailConfirmRateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.GetClientIpAddress(),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
+
     // M-01: the avatar upload is reachable before sign-in, so it is capped per
     // IP as well. The per-state quota counts successful states, this limits how
     // many states one client can burn through.
@@ -370,12 +388,16 @@ else
 }
 
 if (emailMode.Equals("Log", StringComparison.OrdinalIgnoreCase))
-    startupLogger.LogWarning("Email:Mode=Log writes password reset links to the log; use it only on a disposable stand");
+    startupLogger.LogWarning("Email:Mode=Log writes one-time e-mail links to the log; use it only on a disposable stand");
 
 await using (var startupScope = app.Services.CreateAsyncScope())
 {
     var recovery = startupScope.ServiceProvider.GetRequiredService<IPasswordRecoveryService>();
     startupLogger.LogInformation("Password recovery enabled: {Enabled}", recovery.IsEnabled);
+
+    // R-02: confirmation is optional, so a disabled sender only hides the page.
+    var confirmation = startupScope.ServiceProvider.GetRequiredService<IEmailConfirmationService>();
+    startupLogger.LogInformation("E-mail confirmation enabled: {Enabled}", confirmation.IsEnabled);
 }
 
 app.UseRouting();
@@ -389,15 +411,15 @@ app.MapControllers();
 if (app.Environment.IsProduction())
 {
     // The user-facing auth UI (Svelte) lives in the wwwroot root and is
-    // served at /login and /profile. Requests are rewritten to index.html,
-    // there are no redirects.
+    // served at /login, /profile, /recover and /confirm. Requests are rewritten
+    // to index.html, there are no redirects.
     app.Use(async (context, next) =>
     {
         var path = context.Request.Path;
 
         if ((HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)) &&
             (path == "/login" || path == "/login/" || path == "/profile" || path == "/profile/" ||
-             path == "/recover" || path == "/recover/"))
+             path == "/recover" || path == "/recover/" || path == "/confirm" || path == "/confirm/"))
         {
             context.Request.Path = "/index.html";
             // The page can carry a one-time token in the fragment; never let a

@@ -36,6 +36,11 @@ public static class Config
     // Redis is queried.
     public const int ResetTokenLength = 64;
 
+    // R-02: optional e-mail confirmation. The link is anonymous and redeems a
+    // single-use ticket, so it gets its own per-IP window.
+    public const string EmailConfirmRateLimitPolicy = "EmailConfirm";
+    public const int ConfirmationTokenLength = 64;
+
     // Scopes of the failed-login counters in Redis.
     public const string PasswordSignInScope = "password-signin";
     public const string PasswordSignUpScope = "password-signup";

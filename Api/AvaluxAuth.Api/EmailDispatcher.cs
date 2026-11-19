@@ -25,7 +25,7 @@ public class EmailDispatcher(IEmailQueue queue, IEmailSender sender, ILogger<Ema
     {
         if (!sender.IsEnabled)
         {
-            logger.LogWarning("E-mail delivery is disabled; password recovery letters will not be sent");
+            logger.LogWarning("E-mail delivery is disabled; recovery and confirmation letters will not be sent");
             return;
         }
 

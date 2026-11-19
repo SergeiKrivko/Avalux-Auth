@@ -7,9 +7,10 @@ using Microsoft.Extensions.Logging;
 namespace AvaluxAuth.Services;
 
 /// <summary>
-/// Development-only sender: writes the letter, including the one-time recovery
-/// link, to the log so the flow can be tested on a disposable stand without an
-/// SMTP relay (R-01 in SECURITY-AUDIT.md). Never enable it on a live deployment.
+/// Development-only sender: writes the letter, including one-time recovery and
+/// confirmation links, to the log so the flows can be tested on a disposable
+/// stand without an SMTP relay (R-01/R-02 in SECURITY-AUDIT.md). Never enable it
+/// on a live deployment.
 /// </summary>
 public class LogEmailSender(ILogger<LogEmailSender> logger) : IEmailSender
 {
@@ -18,7 +19,7 @@ public class LogEmailSender(ILogger<LogEmailSender> logger) : IEmailSender
     public Task SendAsync(EmailMessage message, CancellationToken ct = default)
     {
         logger.LogWarning(
-            "Email (Log mode, reset links are written to the log): toHash={ToHash}, subject={Subject}, body={Body}",
+            "Email (Log mode, one-time links are written to the log): toHash={ToHash}, subject={Subject}, body={Body}",
             HashAddress(message.To), message.Subject, message.TextBody);
         return Task.CompletedTask;
     }

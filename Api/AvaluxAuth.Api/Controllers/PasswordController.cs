@@ -22,6 +22,7 @@ public class PasswordController(
     IUserRepository userRepository,
     IPasswordService passwordService,
     IPasswordRecoveryService passwordRecoveryService,
+    IEmailConfirmationService emailConfirmationService,
     ILoginThrottle loginThrottle,
     ILogger<PasswordController> logger) : ControllerBase
 {
@@ -79,7 +80,14 @@ public class PasswordController(
                     ct);
             await loginThrottle.ResetAsync(Config.PasswordSignUpScope, clientIp, schema.Login, ct);
 
-            return Ok(await CreateResponseSchemaAsync(stateData, userId, ct));
+            // R-02: confirmation is optional, but when a letter is queued the
+            // auth UI shows the "check your e-mail" page with the redirect below
+            // as the skip action. The interrupted authorization travels inside
+            // the ticket, so following the link signs the user in.
+            var confirmation = await emailConfirmationService.StartAsync(password.Id, password.Login,
+                password.Info.Email, userId, EmailConfirmationReason.SignUp, stateData, ct);
+
+            return Ok(await CreateResponseSchemaAsync(stateData, userId, confirmation, ct));
         }
         catch (Exception e)
         {
@@ -124,7 +132,7 @@ public class PasswordController(
                 await passwordService.GetOrCreateAccountAsync(stateData.ApplicationId, stateData.LinkUserId, password,
                     ct);
 
-            return Ok(await CreateResponseSchemaAsync(stateData, userId, ct));
+            return Ok(await CreateResponseSchemaAsync(stateData, userId, null, ct));
         }
         catch (Exception e)
         {
@@ -148,13 +156,23 @@ public class PasswordController(
     }
 
     [HttpGet("profile")]
-    public async Task<ActionResult<PasswordUserInfo>> GetUserInfo([FromQuery] string state, CancellationToken ct)
+    public async Task<ActionResult<PasswordProfileSchema?>> GetUserInfo([FromQuery] string state,
+        CancellationToken ct)
     {
         var stateData = await stateRepository.GetStateAsync(state);
         if (stateData == null || stateData.LinkUserId == null)
             return Unauthorized();
         var user = await passwordService.GetByUserId(stateData.LinkUserId.Value, ct);
-        return Ok(user?.Info);
+        if (user == null)
+            return Ok(null);
+        return Ok(new PasswordProfileSchema
+        {
+            Name = user.Info.Name,
+            Email = user.Info.Email,
+            AvatarId = user.Info.AvatarId,
+            // R-02: the flag belongs to the stored address, not to the account.
+            EmailConfirmed = user.EmailConfirmedAt != null,
+        });
     }
 
     [HttpPut("profile")]
@@ -192,7 +210,17 @@ public class PasswordController(
             if (!res)
                 return NotFound("Profile not found");
 
-            return Ok(await CreateResponseSchemaAsync(stateData, stateData.LinkUserId.Value, ct));
+            // R-02: a replaced address is unconfirmed again. The user is already
+            // signed in here, so the letter only confirms the new mailbox and
+            // carries no authorization to finish. The address comes from the
+            // request: the scoped DbContext still tracks the pre-update row.
+            var emailChanged = !string.Equals(user.Info.Email?.Trim(), schema.UserInfo.Email?.Trim(),
+                StringComparison.OrdinalIgnoreCase);
+            if (emailChanged && !string.IsNullOrWhiteSpace(schema.UserInfo.Email))
+                await emailConfirmationService.StartAsync(user.Id, user.Login, schema.UserInfo.Email,
+                    stateData.LinkUserId.Value, EmailConfirmationReason.EmailChanged, null, ct);
+
+            return Ok(await CreateResponseSchemaAsync(stateData, stateData.LinkUserId.Value, null, ct));
         }
         catch (Exception e)
         {
@@ -260,6 +288,42 @@ public class PasswordController(
     }
 
     /// <summary>
+    /// R-02: redeems a single-use confirmation link. The address is marked as
+    /// confirmed and, when the ticket carries the authorization request that
+    /// registration interrupted, a fresh code is issued and returned as the
+    /// redirect URL, so the user is not asked for credentials again. The page
+    /// GET never redeems the token: it arrives in the URL fragment and is sent
+    /// here only in the body.
+    /// </summary>
+    [HttpPost("confirm")]
+    [EnableRateLimiting(Config.EmailConfirmRateLimitPolicy)]
+    public async Task<ActionResult<EmailConfirmationResponseSchema>> ConfirmEmail(
+        [FromBody] EmailConfirmationCompleteSchema schema,
+        CancellationToken ct = default)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        if (!IsValidConfirmationToken(schema.Token))
+            return BadRequest("Invalid or expired confirmation link");
+
+        try
+        {
+            var outcome = await emailConfirmationService.ConfirmAsync(schema.Token,
+                HttpContext.GetClientIpAddress(), ct);
+            if (outcome.Result != EmailConfirmationResult.Success)
+                return BadRequest("Invalid or expired confirmation link");
+
+            return Ok(new EmailConfirmationResponseSchema { RedirectUrl = outcome.RedirectUrl });
+        }
+        catch (Exception e)
+        {
+            // Storage failure (Redis/Postgres). No internals in the response.
+            logger.LogError(e, "E-mail confirmation failed: ip={ClientIp}", HttpContext.GetClientIpAddress());
+            return StatusCode(StatusCodes.Status500InternalServerError, "E-mail confirmation failed");
+        }
+    }
+
+    /// <summary>
     /// H-06: a failure is counted both per (IP, login) and per authorization
     /// state. After <see cref="Config.MaxFailedAttemptsPerState"/> failures the
     /// state is burned, so one valid state cannot be used for unlimited guesses.
@@ -305,6 +369,12 @@ public class PasswordController(
         return token is { Length: Config.ResetTokenLength } && token.All(char.IsAsciiHexDigitLower);
     }
 
+    // R-02: the confirmation token has the same shape as a reset token.
+    private static bool IsValidConfirmationToken(string? token)
+    {
+        return token is { Length: Config.ConfirmationTokenLength } && token.All(char.IsAsciiHexDigitLower);
+    }
+
     private static string HashLogin(string login)
     {
         var normalized = login.Trim().ToLowerInvariant();
@@ -312,7 +382,7 @@ public class PasswordController(
     }
 
     private async Task<PasswordAuthResponseSchema> CreateResponseSchemaAsync(AuthorizationState stateData, Guid userId,
-        CancellationToken ct)
+        EmailConfirmationStarted? confirmation, CancellationToken ct)
     {
         await stateRepository.DeleteStateAsync(stateData.State);
 
@@ -339,7 +409,14 @@ public class PasswordController(
             builder.AddQuery("state", stateData.UserState);
         return new PasswordAuthResponseSchema
         {
-            RedirectUrl = builder.ToString()
+            RedirectUrl = builder.ToString(),
+            EmailConfirmation = confirmation == null
+                ? null
+                : new EmailConfirmationSchema
+                {
+                    Email = confirmation.Email,
+                    ExpiresAt = confirmation.ExpiresAt,
+                },
         };
     }
 }

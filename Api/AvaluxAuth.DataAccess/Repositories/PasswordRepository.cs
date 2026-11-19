@@ -67,8 +67,26 @@ public class PasswordRepository(AvaluxAuthDbContext dbContext) : IPasswordReposi
             .ExecuteUpdateAsync(x =>
             {
                 x.SetProperty(p => p.Name, info.Name);
+                // R-02: a confirmed flag belongs to one address. Changing it
+                // drops the flag, so "confirmed" can never describe a different
+                // mailbox. The new row value is compared inside the UPDATE, so
+                // the expression still sees the old address.
+                x.SetProperty(p => p.EmailConfirmedAt,
+                    p => p.Email == info.Email ? p.EmailConfirmedAt : null);
                 x.SetProperty(p => p.Email, info.Email);
                 x.SetProperty(p => p.AvatarId, info.AvatarId);
+            }, ct);
+        await dbContext.SaveChangesAsync(ct);
+        return count > 0;
+    }
+
+    public async Task<bool> MarkEmailConfirmedAsync(Guid id, DateTime confirmedAt, CancellationToken ct = default)
+    {
+        var count = await dbContext.Passwords
+            .Where(p => p.Id == id && p.DeletedAt == null && p.Email != null)
+            .ExecuteUpdateAsync(x =>
+            {
+                x.SetProperty(p => p.EmailConfirmedAt, confirmedAt);
             }, ct);
         await dbContext.SaveChangesAsync(ct);
         return count > 0;
@@ -135,6 +153,7 @@ public class PasswordRepository(AvaluxAuthDbContext dbContext) : IPasswordReposi
             },
             CreatedAt = entity.CreatedAt,
             DeletedAt = entity.DeletedAt,
+            EmailConfirmedAt = entity.EmailConfirmedAt,
         };
     }
 }

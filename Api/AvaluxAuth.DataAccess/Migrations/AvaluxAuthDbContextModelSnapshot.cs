@@ -145,6 +145,9 @@ namespace AvaluxAuth.DataAccess.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<DateTime?>("EmailConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Login")
                         .IsRequired()
                         .HasMaxLength(64)

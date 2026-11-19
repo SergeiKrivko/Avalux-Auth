@@ -22,6 +22,13 @@ public interface IPasswordRepository
     public Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>
+    /// Records that the stored address was confirmed through the e-mail link
+    /// (R-02 in SECURITY-AUDIT.md). Returns <c>false</c> when the account no
+    /// longer exists.
+    /// </summary>
+    public Task<bool> MarkEmailConfirmedAsync(Guid id, DateTime confirmedAt, CancellationToken ct = default);
+
+    /// <summary>
     /// Every avatar id referenced by a password account, including soft-deleted
     /// ones. Used by the avatar cleanup (M-01 in SECURITY-AUDIT.md) to tell
     /// claimed uploads from orphans.
