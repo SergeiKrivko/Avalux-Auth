@@ -114,7 +114,10 @@ public class EmailConfirmationService(
             return new EmailConfirmationOutcome(EmailConfirmationResult.InvalidToken);
         }
 
-        if (!await passwordRepository.MarkEmailConfirmedAsync(ticket.PasswordId, DateTime.UtcNow, ct))
+        // The repository re-checks the address inside the UPDATE, so a profile
+        // edit that races with this request cannot confirm the new address.
+        if (!await passwordRepository.MarkEmailConfirmedAsync(ticket.PasswordId, ticket.Email, DateTime.UtcNow,
+                ct))
             return new EmailConfirmationOutcome(EmailConfirmationResult.InvalidToken);
 
         var redirectUrl = ticket.Authorization == null

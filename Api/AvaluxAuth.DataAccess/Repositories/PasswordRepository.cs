@@ -80,10 +80,12 @@ public class PasswordRepository(AvaluxAuthDbContext dbContext) : IPasswordReposi
         return count > 0;
     }
 
-    public async Task<bool> MarkEmailConfirmedAsync(Guid id, DateTime confirmedAt, CancellationToken ct = default)
+    public async Task<bool> MarkEmailConfirmedAsync(Guid id, string email, DateTime confirmedAt,
+        CancellationToken ct = default)
     {
+        var normalized = email.Trim().ToLowerInvariant();
         var count = await dbContext.Passwords
-            .Where(p => p.Id == id && p.DeletedAt == null && p.Email != null)
+            .Where(p => p.Id == id && p.DeletedAt == null && p.Email != null && p.Email.ToLower() == normalized)
             .ExecuteUpdateAsync(x =>
             {
                 x.SetProperty(p => p.EmailConfirmedAt, confirmedAt);

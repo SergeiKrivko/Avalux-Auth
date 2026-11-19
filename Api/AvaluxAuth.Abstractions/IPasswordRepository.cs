@@ -22,11 +22,14 @@ public interface IPasswordRepository
     public Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>
-    /// Records that the stored address was confirmed through the e-mail link
-    /// (R-02 in SECURITY-AUDIT.md). Returns <c>false</c> when the account no
-    /// longer exists.
+    /// Records that the address was confirmed through the e-mail link (R-02 in
+    /// SECURITY-AUDIT.md). The update applies only while the stored address still
+    /// matches <paramref name="email"/>, so a concurrent profile edit cannot
+    /// confirm an address that was never delivered to. Returns <c>false</c> when
+    /// the account is gone or the address changed.
     /// </summary>
-    public Task<bool> MarkEmailConfirmedAsync(Guid id, DateTime confirmedAt, CancellationToken ct = default);
+    public Task<bool> MarkEmailConfirmedAsync(Guid id, string email, DateTime confirmedAt,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Every avatar id referenced by a password account, including soft-deleted
