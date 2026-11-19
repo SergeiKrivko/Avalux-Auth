@@ -12,6 +12,12 @@ internal class ApplicationEntity
     public string[] RedirectUrls { get; init; } = [];
 
     /// <summary>
+    /// Public URL of the icon in S3. Null when no icon was uploaded. The object
+    /// key is the application id, so an icon can never be orphaned by a replace.
+    /// </summary>
+    [MaxLength(300)] public string? IconUrl { get; init; }
+
+    /// <summary>
     /// True for confidential clients that must present their client secret at the token endpoint.
     /// Public clients (SPAs, desktop apps) are protected by mandatory PKCE instead (H-05).
     /// </summary>

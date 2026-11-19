@@ -375,6 +375,8 @@ Cache-Control: no-store
 - Удаляются только объекты; `Accounts.AvatarUrl`/`Passwords.AvatarId`, указывающие на уже удалённый объект, не чинятся (скачивание отвечает 500 — это M-08/L-11).
 - Декодерные лимиты ImageSharp (пиксели/TIFF-бомбы) не добавлены — остаток H-03.
 
+**Смежное (2026-11-19, иконки приложений).** Загрузка иконки приложения (`POST /api/v1/admin/apps/{applicationId}/icon`) доступна только администратору, ограничена `Config.MaxIconUploadBytes` (5 МБ) и политикой `IconUpload` (20 запросов / 10 мин на IP). Объект лежит в бакете `S3:Buckets:Icons` под ключом `{applicationId}/icon.png`, поэтому замена иконки перезаписывает объект, а не плодит сирот, а при удалении приложения объект удаляется (`ApplicationService`). Публичный `GET /api/v1/apps/{applicationId}/icon` отдаёт только PNG и требует знания случайного GUID приложения.
+
 ### M-02. Будущие подписки выдаются сразу — ИСПРАВЛЕНО В КОДЕ
 
 **Где:** проекции подписок [UserRepository.cs:171](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L171) (`UserWithAccounts`) и [:194](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L194) (`UserWithSubscriptions`); потребитель claim — [AuthorizationService.cs:150](Api/AvaluxAuth.Services/AuthorizationService.cs#L150).

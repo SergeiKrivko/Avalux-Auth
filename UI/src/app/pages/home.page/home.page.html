@@ -11,6 +11,7 @@
         class="container"
         [routerLink]="'app/' + application.id + '/config'"
       >
+        <tui-avatar [src]="application.iconUrl" size="l">{{ application.parameters.name }}</tui-avatar>
         <h3>{{ application.parameters.name }}</h3>
       </a>
     }

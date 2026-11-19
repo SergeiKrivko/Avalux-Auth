@@ -4,6 +4,39 @@
     <tui-textfield class="value">
       <input tuiTextfield formControlName="name"/>
     </tui-textfield>
+    <label tuiLabel class="label">Иконка:</label>
+    <div class="value icon-value">
+      <div class="icon-preview">
+        @if (selectedApplication?.iconUrl) {
+          <img class="icon-image" [src]="selectedApplication?.iconUrl" alt="Иконка приложения"/>
+        } @else {
+          <tui-icon class="icon-placeholder" icon="@tui.image"/>
+        }
+      </div>
+      <div class="icon-actions">
+        <button tuiButton appearance="secondary" [disabled]="isIconUploading()" (click)="iconInput.click()">
+          {{ selectedApplication?.iconUrl ? 'Заменить' : 'Загрузить' }}
+        </button>
+        @if (selectedApplication?.iconUrl) {
+          <button tuiButton appearance="secondary-destructive" [disabled]="isIconUploading()" (click)="removeIcon()">
+            Удалить
+          </button>
+        }
+        <input
+          #iconInput
+          class="icon-input"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          (change)="onIconSelected($event)"
+        />
+      </div>
+      @if (isIconUploading()) {
+        <span class="icon-hint">Загрузка…</span>
+      }
+      @if (iconError()) {
+        <span class="icon-error">{{ iconError() }}</span>
+      }
+    </div>
     <label tuiLabel class="label">Client ID:</label>
     <tui-textfield>
       <input tuiTextfield [value]="selectedApplication?.clientId" [readOnly]="true"/>

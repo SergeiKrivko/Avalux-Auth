@@ -1,5 +1,6 @@
 export interface ClientInfoResponse {
   name?: string | null
+  iconUrl?: string | null
 }
 
 export interface PasswordUserInfo {

@@ -1,6 +1,12 @@
+@let selectedApplication = selectedApplication$ | async;
 <div class="container">
   <div class="header-container">
-    <h2>{{ (selectedApplication$ | async)?.parameters?.name }}</h2>
+    <div class="app-title">
+      <tui-avatar [src]="selectedApplication?.iconUrl" size="l">
+        {{ selectedApplication?.parameters?.name }}
+      </tui-avatar>
+      <h2>{{ selectedApplication?.parameters?.name }}</h2>
+    </div>
     <tui-segmented size="l">
       <a routerLinkActive [routerLinkActiveOptions]="options" routerLink="./config">
         Конфигурация

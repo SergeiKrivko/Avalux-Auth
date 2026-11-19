@@ -12,6 +12,7 @@
 
   let mode = $state<Mode>('signin')
   let clientName = $state<string | null>(null)
+  let clientIconUrl = $state<string | null>(null)
   let loadingClient = $state(true)
   let clientError = $state<string | null>(null)
 
@@ -48,6 +49,7 @@
     try {
       const info = await getClientInfo(stateParam)
       clientName = info?.name?.trim() || null
+      clientIconUrl = info?.iconUrl?.trim() || null
     } catch (error) {
       clientError = friendlyError(error, 'state')
     } finally {
@@ -124,7 +126,13 @@
 <main class="page">
   <section class="card" aria-labelledby="auth-title">
     <header class="brand">
-      <span class="brand-mark" aria-hidden="true">A</span>
+      {#if clientIconUrl}
+        <span class="brand-mark brand-mark--icon" aria-hidden="true">
+          <img src={clientIconUrl} alt="" onerror={() => (clientIconUrl = null)}/>
+        </span>
+      {:else}
+        <span class="brand-mark" aria-hidden="true">A</span>
+      {/if}
       <span class="brand-text">
         <span class="brand-name">Avalux Auth</span>
         <span class="brand-client">{clientName ?? 'Безопасная авторизация'}</span>

@@ -32,7 +32,7 @@ services:
       # left /api/v1/ADMIN/... reachable on the public host (VPN bypass).
       # Admin API is served only on auth-admin.reportchecker.ru (VPN-only,
       # see auth-admin-api below).
-      - "traefik.http.routers.auth.rule=Host(`auth.reportchecker.ru`) && !PathRegexp(`(?i)^/api/v1/admin`) && (PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/password`) || PathPrefix(`/api/v1/avatar`) || PathPrefix(`/api/v1/service`) || PathPrefix(`/api/v1/.well-known`) || PathPrefix(`/static`) || PathPrefix(`/login`) || PathPrefix(`/profile`) || PathPrefix(`/recover`) || PathPrefix(`/auth`))"
+      - "traefik.http.routers.auth.rule=Host(`auth.reportchecker.ru`) && !PathRegexp(`(?i)^/api/v1/admin`) && (PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/password`) || PathPrefix(`/api/v1/avatar`) || PathPrefix(`/api/v1/apps`) || PathPrefix(`/api/v1/service`) || PathPrefix(`/api/v1/.well-known`) || PathPrefix(`/static`) || PathPrefix(`/login`) || PathPrefix(`/profile`) || PathPrefix(`/recover`) || PathPrefix(`/auth`))"
       - traefik.http.routers.auth.priority=100
       - traefik.http.routers.auth.service=auth
       - traefik.http.routers.auth.tls.certresolver=le
@@ -58,6 +58,7 @@ services:
       S3__ServiceUrl: "${S3__ServiceUrl}"
       S3__AuthorizationRegion: "${S3__AuthorizationRegion}"
       S3__Buckets__Avatars: "${S3__Buckets__Avatars}"
+      S3__Buckets__Icons: "${S3__Buckets__Icons}"
       Security__Issuer: "${Security__Issuer}"
       Security__AuthApiUrl: "${Security__AuthApiUrl}"
       # R-01: password recovery is disabled unless Email__Mode is explicitly

@@ -20,6 +20,12 @@ public static class Config
     public const string AvatarUploadRateLimitPolicy = "AvatarUpload";
     public const int MaxAvatarUploadsPerState = 5;
 
+    // Application icons. Uploads are admin-only and replace the single object
+    // keyed by the application id; the size cap and the per-IP window bound an
+    // accidental or malicious upload loop from the admin panel.
+    public const string IconUploadRateLimitPolicy = "IconUpload";
+    public const long MaxIconUploadBytes = 5 * 1024 * 1024;
+
     // R-01: password recovery. Both endpoints are anonymous, so they get their
     // own per-IP windows on top of the per-account delivery cooldown in Redis.
     public const string PasswordRecoverRateLimitPolicy = "PasswordRecover";

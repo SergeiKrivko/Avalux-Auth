@@ -5,6 +5,8 @@ export interface ApplicationEntity {
   clientId: string;
   clientSecret: string;
   parameters: ApplicationParametersEntity;
+  /** Public URL of the icon in S3, or null when no icon was uploaded. */
+  iconUrl: string | null;
   createdAt: Moment;
   deletedAt: Moment | null;
 }

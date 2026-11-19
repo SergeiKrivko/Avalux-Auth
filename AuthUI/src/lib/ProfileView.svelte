@@ -11,6 +11,7 @@
   let loading = $state(true)
   let fatal = $state<string | null>(null)
   let clientName = $state<string | null>(null)
+  let clientIconUrl = $state<string | null>(null)
 
   let username = $state('')
   let email = $state('')
@@ -47,6 +48,7 @@
       }
 
       clientName = info?.name?.trim() || null
+      clientIconUrl = info?.iconUrl?.trim() || null
       username = profile.name ?? ''
       email = profile.email ?? ''
       avatarId = profile.avatarId ?? null
@@ -121,7 +123,13 @@
 <main class="page">
   <section class="card card--wide" aria-labelledby="profile-title">
     <header class="brand">
-      <span class="brand-mark" aria-hidden="true">A</span>
+      {#if clientIconUrl}
+        <span class="brand-mark brand-mark--icon" aria-hidden="true">
+          <img src={clientIconUrl} alt="" onerror={() => (clientIconUrl = null)}/>
+        </span>
+      {:else}
+        <span class="brand-mark" aria-hidden="true">A</span>
+      {/if}
       <span class="brand-text">
         <span class="brand-name">Avalux Auth</span>
         <span class="brand-client">{clientName ?? 'Безопасная авторизация'}</span>

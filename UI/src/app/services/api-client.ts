@@ -566,6 +566,123 @@ export class ApiClient {
     }
 
     /**
+     * Uploads or replaces the application icon (multipart/form-data).
+     * @param file (optional)
+     * @return OK — the public URL of the stored icon
+     */
+    appIconPOST(applicationId: string, file: FileParameter | undefined): Observable<string> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/icon";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (file === null || file === undefined)
+            throw new Error("The parameter 'file' cannot be null.");
+        else
+            content_.append("file", file.data, file.fileName ? file.fileName : "file");
+
+        let options_ : any = {
+            body: content_,
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+                "Accept": "text/plain"
+            })
+        };
+
+        return this.http.request("post", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processAppIconPOST(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processAppIconPOST(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<string>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<string>;
+        }));
+    }
+
+    protected processAppIconPOST(response: HttpResponseBase): Observable<string> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+                result200 = resultData200 !== undefined ? resultData200 : <any>null;
+
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
+     * Removes the application icon from S3.
+     * @return OK
+     */
+    appIconDELETE(applicationId: string): Observable<void> {
+        let url_ = this.baseUrl + "/api/v1/admin/apps/{applicationId}/icon";
+        if (applicationId === undefined || applicationId === null)
+            throw new Error("The parameter 'applicationId' must be defined.");
+        url_ = url_.replace("{applicationId}", encodeURIComponent("" + applicationId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            withCredentials: true,
+            headers: new HttpHeaders({
+            })
+        };
+
+        return this.http.request("delete", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processAppIconDELETE(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processAppIconDELETE(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<void>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<void>;
+        }));
+    }
+
+    protected processAppIconDELETE(response: HttpResponseBase): Observable<void> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return _observableOf(null as any);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    /**
      * @return OK
      */
     clientSecret(applicationId: string): Observable<string> {
@@ -3429,6 +3546,7 @@ export class Application implements IApplication {
     clientId!: string | undefined;
     clientSecret!: string | undefined;
     parameters!: ApplicationParameters;
+    iconUrl?: string | undefined;
     createdAt!: moment.Moment;
     deletedAt?: moment.Moment | undefined;
 
@@ -3450,6 +3568,7 @@ export class Application implements IApplication {
             this.clientId = _data["clientId"];
             this.clientSecret = _data["clientSecret"];
             this.parameters = _data["parameters"] ? ApplicationParameters.fromJS(_data["parameters"]) : new ApplicationParameters();
+            this.iconUrl = _data["iconUrl"];
             this.createdAt = _data["createdAt"] ? moment(_data["createdAt"].toString()) : <any>undefined;
             this.deletedAt = _data["deletedAt"] ? moment(_data["deletedAt"].toString()) : <any>undefined;
         }
@@ -3468,6 +3587,7 @@ export class Application implements IApplication {
         data["clientId"] = this.clientId;
         data["clientSecret"] = this.clientSecret;
         data["parameters"] = this.parameters ? this.parameters.toJSON() : <any>undefined;
+        data["iconUrl"] = this.iconUrl;
         data["createdAt"] = this.createdAt ? this.createdAt.toISOString() : <any>undefined;
         data["deletedAt"] = this.deletedAt ? this.deletedAt.toISOString() : <any>undefined;
         return data;
@@ -3479,6 +3599,7 @@ export interface IApplication {
     clientId: string | undefined;
     clientSecret: string | undefined;
     parameters: ApplicationParameters;
+    iconUrl?: string | undefined;
     createdAt: moment.Moment;
     deletedAt?: moment.Moment | undefined;
 }

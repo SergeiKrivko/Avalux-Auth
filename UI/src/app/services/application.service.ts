@@ -81,6 +81,33 @@ export class ApplicationService {
       switchMap(() => this.loadApplications())
     );
   }
+
+  /**
+   * Uploads (or replaces) the application icon. The API normalises it to a
+   * 256px PNG and stores it in S3, so the panel only has to send the file.
+   * The returned URL is patched into the store: a full reload would reset the
+   * configuration form and drop unsaved edits.
+   */
+  uploadIcon(applicationId: string, file: File) {
+    return this.apiClient.appIconPOST(applicationId, {data: file, fileName: file.name}).pipe(
+      tap(iconUrl => this.patchIcon(applicationId, iconUrl ?? null)),
+    );
+  }
+
+  deleteIcon(applicationId: string) {
+    return this.apiClient.appIconDELETE(applicationId).pipe(
+      tap(() => this.patchIcon(applicationId, null)),
+    );
+  }
+
+  private patchIcon(applicationId: string, iconUrl: string | null) {
+    const selected = this.store$$.selectedApplication();
+    patchState(this.store$$, {
+      applications: this.store$$.applications()
+        .map(app => app.id === applicationId ? {...app, iconUrl} : app),
+      selectedApplication: selected?.id === applicationId ? {...selected, iconUrl} : selected,
+    });
+  }
 }
 
 const applicationToEntity = (app: Application): ApplicationEntity => {
@@ -95,6 +122,7 @@ const applicationToEntity = (app: Application): ApplicationEntity => {
       redirectUrls: app.parameters.redirectUrls ?? [],
       requireClientSecret: app.parameters.requireClientSecret ?? true,
     },
+    iconUrl: app.iconUrl ?? null,
     createdAt: app.createdAt ?? moment(),
     deletedAt: app.deletedAt ?? null,
   }

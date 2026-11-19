@@ -313,6 +313,19 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true,
             }));
 
+    // Application icons: admin-only, but one IP cannot hammer S3 through the
+    // panel with uploads either.
+    options.AddPolicy(Config.IconUploadRateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.GetClientIpAddress(),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
+
     options.OnRejected = async (context, ct) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;

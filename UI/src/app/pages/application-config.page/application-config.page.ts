@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal} from '@angular/core';
 import {ApplicationService} from '../../services/application.service';
 import {Router} from '@angular/router';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
@@ -58,15 +58,100 @@ export class ApplicationConfigPage implements OnInit {
     ).subscribe();
   }
 
+  /**
+   * Signature of what is currently in the form. The selected application is
+   * re-emitted when the icon changes (the header and the list must update), and
+   * reloading the form then would drop the edits the user has not saved yet.
+   */
+  private loadedSignature: string | null = null;
+
   private loadApplication(application: ApplicationEntity) {
-    this.control.setValue({
+    const value = {
       name: application.parameters.name,
       redirectUrls: application.parameters.redirectUrls,
       requireClientSecret: application.parameters.requireClientSecret,
-    });
+    };
+
+    const signature = JSON.stringify([application.id, value]);
+    if (signature === this.loadedSignature)
+      return;
+
+    this.loadedSignature = signature;
+    this.control.setValue(value);
   }
 
   protected isSaving = new Subject<boolean>();
+
+  /** Icon upload state; the icon is stored in S3 the moment it is chosen. */
+  protected readonly isIconUploading = signal(false);
+  protected readonly iconError = signal<string | null>(null);
+  private readonly maxIconBytes = 5 * 1024 * 1024;
+
+  protected onIconSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    // Reset the input so picking the same file again still fires a change event.
+    input.value = '';
+    if (file)
+      this.uploadIcon(file);
+  }
+
+  private uploadIcon(file: File) {
+    this.iconError.set(null);
+
+    if (!file.type.startsWith('image/')) {
+      this.iconError.set('Можно загрузить только изображение');
+      return;
+    }
+    if (file.size > this.maxIconBytes) {
+      this.iconError.set('Файл больше 5 МБ');
+      return;
+    }
+
+    this.isIconUploading.set(true);
+    this.selectedApplication$.pipe(
+      first(),
+      switchMap(app => app ? this.applicationService.uploadIcon(app.id, file) : NEVER),
+      tap(() => this.isIconUploading.set(false)),
+      catchError(() => {
+        this.isIconUploading.set(false);
+        this.iconError.set('Не удалось загрузить иконку');
+        return NEVER;
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe();
+  }
+
+  protected removeIcon(): void {
+    const data: TuiConfirmData = {
+      content: 'Удалить иконку приложения?',
+      yes: 'Удалить',
+      no: 'Отмена',
+    };
+
+    this.dialogs
+      .open<boolean>(TUI_CONFIRM, {
+        label: 'Удаление иконки',
+        size: 's',
+        data,
+      })
+      .pipe(
+        switchMap(result => {
+          if (!result)
+            return NEVER;
+          return this.selectedApplication$.pipe(
+            first(),
+            switchMap(app => app ? this.applicationService.deleteIcon(app.id) : NEVER),
+          );
+        }),
+        catchError(() => {
+          this.iconError.set('Не удалось удалить иконку');
+          return NEVER;
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+  }
 
   protected saveChanges() {
     this.isSaving.next(true);

@@ -14,6 +14,13 @@ public interface IApplicationRepository
     public Task<bool> UpdateApplicationAsync(Guid applicationId, ApplicationParameters parameters,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Sets the application icon URL, or clears it when <paramref name="iconUrl"/>
+    /// is <c>null</c>.
+    /// </summary>
+    public Task<bool> UpdateApplicationIconAsync(Guid applicationId, string? iconUrl,
+        CancellationToken ct = default);
+
     public Task<bool> UpdateClientSecretAsync(Guid applicationId, string clientSecret, CancellationToken ct = default);
 
     public Task<bool> DeleteApplicationAsync(Guid applicationId, CancellationToken ct = default);

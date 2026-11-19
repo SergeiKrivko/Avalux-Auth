@@ -41,5 +41,11 @@ public interface IFileRepository
 
 public enum FileRepositoryBucket
 {
-    Avatars
+    Avatars,
+
+    /// <summary>
+    /// Application icons shown on the login page and in the admin panel. Objects
+    /// are keyed by application id, so replacing an icon overwrites it.
+    /// </summary>
+    Icons
 }

@@ -4,7 +4,7 @@ import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {NEVER, switchMap, tap} from 'rxjs';
 import {ApplicationService} from '../../services/application.service';
 import {TuiScrollbar} from '@taiga-ui/core';
-import {TuiSegmented} from '@taiga-ui/kit';
+import {TuiAvatar, TuiSegmented} from '@taiga-ui/kit';
 import {AsyncPipe} from '@angular/common';
 import {SubscriptionService} from '../../services/subscription.service';
 
@@ -17,6 +17,7 @@ import {SubscriptionService} from '../../services/subscription.service';
     RouterLink,
     RouterLinkActive,
     TuiSegmented,
+    TuiAvatar,
     AsyncPipe
   ],
   templateUrl: './application.page.html',

@@ -2,6 +2,7 @@ import {ChangeDetectionStrategy, Component, inject} from '@angular/core';
 import {TuiButton, tuiDialog, TuiSurface} from '@taiga-ui/core';
 import {AsyncPipe} from '@angular/common';
 import {TuiCardLarge, TuiHeader} from '@taiga-ui/layout';
+import {TuiAvatar} from '@taiga-ui/kit';
 import {RouterLink} from '@angular/router';
 import {ApplicationService} from '../../services/application.service';
 import {NewApplicationDialog} from '../../components/new-application-dialog/new-application-dialog';
@@ -14,6 +15,7 @@ import {NewApplicationDialog} from '../../components/new-application-dialog/new-
     TuiCardLarge,
     TuiHeader,
     TuiSurface,
+    TuiAvatar,
     RouterLink
   ],
   templateUrl: './home.page.html',

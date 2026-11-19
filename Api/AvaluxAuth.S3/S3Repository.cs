@@ -241,11 +241,14 @@ public class S3Repository(ILogger<S3Repository> logger, IConfiguration configura
 
     private string AvatarsBucket { get; } = configuration["S3:Buckets:Avatars"] ?? "avatars";
 
+    private string IconsBucket { get; } = configuration["S3:Buckets:Icons"] ?? "icons";
+
     private string GetBucket(FileRepositoryBucket bucket)
     {
         return bucket switch
         {
             FileRepositoryBucket.Avatars => AvatarsBucket,
+            FileRepositoryBucket.Icons => IconsBucket,
             _ => throw new ArgumentOutOfRangeException(nameof(bucket), bucket, null)
         };
     }

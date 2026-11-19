@@ -66,6 +66,24 @@ public class ApplicationRepository(AvaluxAuthDbContext dbContext) : IApplication
         return count > 0;
     }
 
+    /// <summary>
+    /// Stores the icon URL (or clears it with <c>null</c>) without touching the
+    /// rest of the application parameters. The icon upload/removal is a separate
+    /// action from the configuration form.
+    /// </summary>
+    public async Task<bool> UpdateApplicationIconAsync(Guid applicationId, string? iconUrl,
+        CancellationToken ct = default)
+    {
+        var count = await dbContext.Applications
+            .Where(a => a.Id == applicationId && a.DeletedAt == null)
+            .ExecuteUpdateAsync(a =>
+            {
+                a.SetProperty(x => x.IconUrl, iconUrl);
+            }, ct);
+        await dbContext.SaveChangesAsync(ct);
+        return count > 0;
+    }
+
     public async Task<bool> UpdateClientSecretAsync(Guid applicationId, string clientSecret, CancellationToken ct = default)
     {
         var count = await dbContext.Applications
@@ -103,6 +121,7 @@ public class ApplicationRepository(AvaluxAuthDbContext dbContext) : IApplication
                 RedirectUrls = entity.RedirectUrls,
                 RequireClientSecret = entity.RequireClientSecret,
             },
+            IconUrl = entity.IconUrl,
             CreatedAt = entity.CreatedAt,
             DeletedAt = entity.DeletedAt,
         };

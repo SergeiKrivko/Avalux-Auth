@@ -142,7 +142,8 @@ public class PasswordController(
         var application = await applicationRepository.GetApplicationByIdAsync(stateData.ApplicationId, ct);
         return Ok(new ClientInfoResponse
         {
-            Name = application?.Parameters.Name
+            Name = application?.Parameters.Name,
+            IconUrl = application?.IconUrl
         });
     }
 

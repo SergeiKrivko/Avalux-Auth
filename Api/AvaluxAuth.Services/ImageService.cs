@@ -157,4 +157,30 @@ public class ImageService(IConfiguration configuration, ILogger<ImageService> lo
         memoryStream.Seek(0, SeekOrigin.Begin);
         return memoryStream;
     }
+
+    private const int MaxIconSize = 256;
+
+    /// <summary>
+    /// Fits an application icon into a transparent <see cref="MaxIconSize"/>px
+    /// square, keeping the aspect ratio and the alpha channel. Icons are shown on
+    /// the login page and in the admin panel, where both themes have to work.
+    /// </summary>
+    public async Task<Stream> ConvertIconToPng(Stream input, CancellationToken ct = default)
+    {
+        using var image = await Image.LoadAsync(input, ct);
+
+        var scale = Math.Min(1f, (float)MaxIconSize / Math.Max(image.Width, image.Height));
+        var newWidth = Math.Max(1, (int)Math.Round(image.Width * scale));
+        var newHeight = Math.Max(1, (int)Math.Round(image.Height * scale));
+        image.Mutate(x => x.Resize(newWidth, newHeight));
+
+        using var icon = new Image<Rgba32>(MaxIconSize, MaxIconSize);
+        icon.Mutate(ctx => ctx.DrawImage(image, new Point((MaxIconSize - newWidth) / 2, (MaxIconSize - newHeight) / 2),
+            1f));
+
+        var memoryStream = new MemoryStream();
+        await icon.SaveAsPngAsync(memoryStream, ct);
+        memoryStream.Seek(0, SeekOrigin.Begin);
+        return memoryStream;
+    }
 }
