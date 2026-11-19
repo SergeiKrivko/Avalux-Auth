@@ -1,4 +1,4 @@
-﻿using AvaluxAuth.Abstractions;
+using AvaluxAuth.Abstractions;
 using AvaluxAuth.DataAccess.Entities;
 using AvaluxAuth.Models;
 using Microsoft.EntityFrameworkCore;
@@ -146,6 +146,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
 
     private static UserWithAccounts FromEntityWithAccounts(UserEntity entity)
     {
+        var now = DateTime.UtcNow;
         return new UserWithAccounts
         {
             Id = entity.Id,
@@ -167,7 +168,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
                     }
                 }).ToArray(),
             Subscriptions = entity.Subscriptions
-                .Where(e => e.ExpiresAt > DateTime.UtcNow)
+                .Where(e => IsActiveAt(e, now))
                 .Select(e => new UserSubscription
                 {
                     Id = e.Id,
@@ -182,6 +183,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
 
     private static UserWithSubscriptions FromEntityWithSubscriptions(UserEntity entity)
     {
+        var now = DateTime.UtcNow;
         return new UserWithSubscriptions
         {
             Id = entity.Id,
@@ -189,12 +191,25 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
             CreatedAt = entity.CreatedAt,
             DeletedAt = entity.DeletedAt,
             Subscriptions = entity.Subscriptions
-                .Where(e => e.ExpiresAt > DateTime.UtcNow)
+                .Where(e => IsActiveAt(e, now))
                 .Select(e => new SubscriptionInfo
                 {
                     Plan = e.Plan.Key,
                     ExpiresAt = e.ExpiresAt,
                 }).ToArray(),
         };
+    }
+
+    /// <summary>
+    /// A subscription grants its plan only inside [StartsAt, ExpiresAt). A future
+    /// subscription must not appear in the access token's Subscriptions claim (M-02 in
+    /// SECURITY-AUDIT.md) nor in the admin user view, otherwise the plan is handed out
+    /// before it is paid for. Rows created before the StartsAt column existed have it
+    /// null and start at CreatedAt, matching the value projected as StartsAt.
+    /// </summary>
+    private static bool IsActiveAt(UserSubscriptionEntity subscription, DateTime now)
+    {
+        var startsAt = subscription.StartsAt ?? subscription.CreatedAt;
+        return startsAt <= now && subscription.ExpiresAt > now;
     }
 }
