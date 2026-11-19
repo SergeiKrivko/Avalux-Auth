@@ -23,13 +23,20 @@ public class GoogleAuthProvider(IHttpClientFactory httpClientFactory, ILogger<Go
         ArgumentNullException.ThrowIfNull(config.ClientId);
         ArgumentNullException.ThrowIfNull(config.ClientSecret);
 
-        var authUrl = new UrlBuilder("https://accounts.google.com/o/oauth2/v2/auth")
+        var authUrlBuilder = new UrlBuilder("https://accounts.google.com/o/oauth2/v2/auth")
             .AddQuery("response_type", "code")
             .AddQuery("client_id", config.ClientId)
             .AddQuery("redirect_uri", redirectUrl)
             .AddQuery("scope", string.Join(' ', config.DefaultScope))
-            .AddQuery("state", state)
-            .ToString();
+            .AddQuery("state", state);
+
+        // L-05: Google issues a refresh token only for an offline grant, and only when
+        // it is requested. Without this the consent flow returns access tokens alone,
+        // so there is nothing for RefreshTokenAsync to use later.
+        if (config.SaveTokens)
+            authUrlBuilder.AddQuery("access_type", "offline");
+
+        var authUrl = authUrlBuilder.ToString();
 
         // M-05: the URL carries the one-time state (and client_id), so only the
         // redirect URI — public configuration — is logged.
@@ -75,7 +82,10 @@ public class GoogleAuthProvider(IHttpClientFactory httpClientFactory, ILogger<Go
         {
             { "client_id", config.ClientId },
             { "client_secret", config.ClientSecret },
-            { "grant_type", "authorization_code" },
+            // L-05: a refresh must be sent as grant_type=refresh_token. With
+            // authorization_code Google rejected every refresh, so provider tokens
+            // expired and could not be renewed.
+            { "grant_type", "refresh_token" },
             { "refresh_token", refreshToken },
         });
 
@@ -86,7 +96,10 @@ public class GoogleAuthProvider(IHttpClientFactory httpClientFactory, ILogger<Go
         return new AccountCredentials
         {
             AccessToken = data.AccessToken,
-            RefreshToken = data.RefreshToken,
+            // Google does not echo the refresh token on a refresh. Falling back to the
+            // one just used keeps the stored credentials usable: UserService persists
+            // this object, and a null here would erase the refresh token for good.
+            RefreshToken = string.IsNullOrEmpty(data.RefreshToken) ? refreshToken : data.RefreshToken,
             ExpiresAt = DateTime.UtcNow.AddSeconds(data.ExpiresIn)
         };
     }
