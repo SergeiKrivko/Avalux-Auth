@@ -4,10 +4,12 @@ using System.Text.Json.Serialization;
 using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
 using AvaluxAuth.Utils;
+using Microsoft.Extensions.Logging;
 
 namespace AvaluxAuth.Providers;
 
-public class GoogleAuthProvider(IHttpClientFactory httpClientFactory) : IAuthProvider
+public class GoogleAuthProvider(IHttpClientFactory httpClientFactory, ILogger<GoogleAuthProvider> logger)
+    : IAuthProvider
 {
     private readonly HttpClient _httpClient = httpClientFactory.CreateClient("google");
 
@@ -21,16 +23,19 @@ public class GoogleAuthProvider(IHttpClientFactory httpClientFactory) : IAuthPro
         ArgumentNullException.ThrowIfNull(config.ClientId);
         ArgumentNullException.ThrowIfNull(config.ClientSecret);
 
-        Console.WriteLine(redirectUrl);
-        var builder = new UrlBuilder("https://accounts.google.com/o/oauth2/v2/auth")
+        var authUrl = new UrlBuilder("https://accounts.google.com/o/oauth2/v2/auth")
             .AddQuery("response_type", "code")
             .AddQuery("client_id", config.ClientId)
             .AddQuery("redirect_uri", redirectUrl)
             .AddQuery("scope", string.Join(' ', config.DefaultScope))
-            .AddQuery("state", state);
+            .AddQuery("state", state)
+            .ToString();
 
-        Console.WriteLine(builder.ToString());
-        return builder.ToString();
+        // M-05: the URL carries the one-time state (and client_id), so only the
+        // redirect URI — public configuration — is logged.
+        logger.LogDebug("Google authorization URL built: redirectUri={RedirectUri}", redirectUrl);
+
+        return authUrl;
     }
 
     public async Task<AccountCredentials> GetTokenAsync(ProviderParameters config,

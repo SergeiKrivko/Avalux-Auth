@@ -56,12 +56,15 @@ public class OauthService(
             throw new Exception("Provider is not added to this application");
 
         var link = linkCode == null ? null : await linkCodeRepository.TakeCodeAsync(linkCode);
-        Console.WriteLine(link == null);
         var existingAccount = link == null
             ? null
             : (await accountRepository.GetAccountsOfUserAsync(link.UserId, ct)).FirstOrDefault(e =>
                 e.ProviderId == providerSettings.Id);
-        Console.WriteLine(existingAccount == null);
+
+        // M-05: diagnostics only — no link code, user id or account identity in the log.
+        logger.LogDebug(
+            "Authorization request resolved: linkCodePresent={LinkCodePresent}, accountAlreadyLinked={AccountAlreadyLinked}",
+            link != null, existingAccount != null);
         if (existingAccount != null && provider.Id != 0)
             throw new Exception("Account of this provider is linked already");
 

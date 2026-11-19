@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Web;
 using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
+using AvaluxAuth.Utils;
 
 namespace AvaluxAuth.Providers;
 
@@ -57,8 +58,11 @@ public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvide
             // Проверяем наличие ошибки
             if (queryParameters.TryGetValue("error", out var error))
             {
+                // M-05: both values come from the query string; sanitize before the
+                // message can reach a log (no CR/LF forging, bounded length).
                 var errorDescription = queryParameters.GetValueOrDefault("error_description", "Unknown error");
-                throw new InvalidOperationException($"GitLab OAuth error: {error} - {errorDescription}");
+                throw new InvalidOperationException(
+                    $"GitLab OAuth error: {LogSanitizer.Sanitize(error, 64)} - {LogSanitizer.Sanitize(errorDescription)}");
             }
 
             throw new InvalidOperationException("Authorization code not found in query parameters");
@@ -85,7 +89,7 @@ public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvide
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException(
-                    $"GitLab token request failed: {response.StatusCode} - {responseContent}");
+                    $"GitLab token request failed: {response.StatusCode} - {LogSanitizer.Sanitize(responseContent)}");
             }
 
             var tokenResponse = await response.Content.ReadFromJsonAsync<GitLabTokenResponse>(cancellationToken: ct);
@@ -141,7 +145,7 @@ public class GitLabAuthProvider(IHttpClientFactory clientFactory) : IAuthProvide
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"GitLab token refresh failed: {response.StatusCode} - {responseContent}");
+                $"GitLab token refresh failed: {response.StatusCode} - {LogSanitizer.Sanitize(responseContent)}");
         }
 
         var tokenResponse = await response.Content.ReadFromJsonAsync<GitLabTokenResponse>(cancellationToken: ct);

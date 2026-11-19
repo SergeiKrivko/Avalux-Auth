@@ -2,6 +2,7 @@
 using AvaluxAuth.Abstractions;
 using AvaluxAuth.Utils;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;
@@ -10,7 +11,7 @@ using SixLabors.ImageSharp.Processing;
 
 namespace AvaluxAuth.Services;
 
-public class ImageService(IConfiguration configuration) : IImageService
+public class ImageService(IConfiguration configuration, ILogger<ImageService> logger) : IImageService
 {
     private static readonly Color[] Colors =
     [
@@ -58,16 +59,21 @@ public class ImageService(IConfiguration configuration) : IImageService
         return memoryStream;
     }
 
-    private static Font GetFont()
+    private Font GetFont()
     {
         const float fontSize = 100;
 
         var assembly = Assembly.GetExecutingAssembly();
-        Console.WriteLine(string.Join(';', assembly.GetManifestResourceNames()));
         var resourceStream = assembly.GetManifestResourceStream("AvaluxAuth.Services.Resources.OpenSans-Regular.ttf");
 
         if (resourceStream == null)
+        {
+            // M-05: the resource list is diagnostic, not a secret; log it only on the
+            // failure path instead of writing to stdout on every avatar render.
+            logger.LogError("Avatar font resource is missing: availableResources={Resources}",
+                string.Join(';', assembly.GetManifestResourceNames()));
             throw new Exception("Font not found");
+        }
 
         var fontCollection = new FontCollection();
         var fontFamily = fontCollection.Add(resourceStream);

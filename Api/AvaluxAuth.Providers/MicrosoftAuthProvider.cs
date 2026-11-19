@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Web;
 using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
+using AvaluxAuth.Utils;
 
 namespace AvaluxAuth.Providers;
 
@@ -58,8 +59,11 @@ public class MicrosoftAuthProvider(IHttpClientFactory httpClientFactory) : IAuth
             // Проверяем наличие ошибки
             if (queryParameters.TryGetValue("error", out var error))
             {
+                // M-05: both values come from the query string; sanitize before the
+                // message can reach a log (no CR/LF forging, bounded length).
                 var errorDescription = queryParameters.GetValueOrDefault("error_description", "Unknown error");
-                throw new InvalidOperationException($"Microsoft OAuth error: {error} - {errorDescription}");
+                throw new InvalidOperationException(
+                    $"Microsoft OAuth error: {LogSanitizer.Sanitize(error, 64)} - {LogSanitizer.Sanitize(errorDescription)}");
             }
 
             throw new InvalidOperationException("Authorization code not found in query parameters");
@@ -87,7 +91,7 @@ public class MicrosoftAuthProvider(IHttpClientFactory httpClientFactory) : IAuth
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException(
-                    $"Microsoft token request failed: {response.StatusCode} - {responseContent}");
+                    $"Microsoft token request failed: {response.StatusCode} - {LogSanitizer.Sanitize(responseContent)}");
             }
 
             var tokenResponse = await response.Content.ReadFromJsonAsync<MicrosoftTokenResponse>(cancellationToken: ct);
@@ -145,7 +149,7 @@ public class MicrosoftAuthProvider(IHttpClientFactory httpClientFactory) : IAuth
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"Microsoft token refresh failed: {response.StatusCode} - {responseContent}");
+                $"Microsoft token refresh failed: {response.StatusCode} - {LogSanitizer.Sanitize(responseContent)}");
         }
 
         var tokenResponse = await response.Content.ReadFromJsonAsync<MicrosoftTokenResponse>(cancellationToken: ct);
@@ -200,8 +204,6 @@ public class MicrosoftAuthProvider(IHttpClientFactory httpClientFactory) : IAuth
     {
         if (string.IsNullOrEmpty(credentials.AccessToken))
             throw new ArgumentException("Access token is required", nameof(credentials));
-
-        Console.WriteLine(await GetUserPhotoAsync(credentials.AccessToken, ct));
 
         try
         {
