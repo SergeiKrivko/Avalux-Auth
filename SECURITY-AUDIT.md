@@ -1,9 +1,9 @@
 # Аудит безопасности AvaluxAuth
 
-- **Дата:** 2026-11-18 (Europe/Moscow); исправления H-07 и M-01 — 2026-11-19; M-02, M-03 и M-05 — 2026-11-19.
-- **Ревизия:** `ab6731d` (`master`) — аудит; `9c6575c` — код H-07 (валидация TLS Redis по приватному CA); `4a09914` — код H-06 (rate limiting/lockout, сжигание state, политика пароля); `f6651e7` — код M-01 (state/квоты/rate limit для загрузки аватаров, очистка сирот); `6dfe8c0` — код M-02 (учёт `StartsAt` в claim `Subscriptions` и в админ-проекции); `5090e0b` — код M-03 (поколение сессии `Users.SessionVersion`, отзыв всех сессий при смене пароля/линковке, привязка кода авторизации к поколению); `90a23db` — код M-05 (логирование через `ILogger` без секретов и PII, `LogSanitizer` для недоверенного текста). На живом контуре — образ `c4c9617` (см. H-07, раздел «Порядок деплоя»).
+- **Дата:** 2026-11-18 (Europe/Moscow); исправления H-07 и M-01 — 2026-11-19; M-02, M-03 и M-05 — 2026-11-19; L-04, L-05 и L-09 — 2026-11-19.
+- **Ревизия:** `ab6731d` (`master`) — аудит; `9c6575c` — код H-07 (валидация TLS Redis по приватному CA); `4a09914` — код H-06 (rate limiting/lockout, сжигание state, политика пароля); `f6651e7` — код M-01 (state/квоты/rate limit для загрузки аватаров, очистка сирот); `6dfe8c0` — код M-02 (учёт `StartsAt` в claim `Subscriptions` и в админ-проекции); `5090e0b` — код M-03 (поколение сессии `Users.SessionVersion`, отзыв всех сессий при смене пароля/линковке, привязка кода авторизации к поколению); `90a23db` — код M-05 (логирование через `ILogger` без секретов и PII, `LogSanitizer` для недоверенного текста); `30c2b78` — код L-04 (границы `page`/`limit`, порядок `Skip`/`Take`, постраничная выдача пользователей); `1425071` — код L-05 (`grant_type=refresh_token`, сохранение refresh-токена, `access_type=offline`); `aa34d17` — код L-09 (`**/keys/` в `.gitignore`, `**/keys` в `.dockerignore`). На живом контуре — образ `c4c9617` (см. H-07, раздел «Порядок деплоя»).
 - **Область:** `Api/*` (API, сервисы, провайдеры, DataAccess, S3), `AuthUI`, `UI`, Docker/CI, клиентские библиотеки, живой контур в Portainer (стек `auth`).
-- **Статус:** H-01 и H-07 исправлены; H-02, H-04, H-05, H-06, M-01, M-02, M-03 и M-05 исправлены в коде, но ещё не задеплоены на живой контур; H-03 открыт (пакеты и загрузка закрыты, остаётся ограничение декодирования).
+- **Статус:** H-01 и H-07 исправлены; H-02, H-04, H-05, H-06, M-01, M-02, M-03, M-05, L-04 и L-05 исправлены в коде, но ещё не задеплоены на живой контур; L-09 исправлен (только ignore-файлы, деплой не требуется); H-03 открыт (пакеты и загрузка закрыты, остаётся ограничение декодирования).
 - **Методика:** статический разбор кода и миграций, `dotnet list package --vulnerable --include-transitive`, `npm audit`, сверка с OSV/NuGet, безопасные проверки живого контура (GET/негативные POST без побочных эффектов, один инертный XSS-payload).
 - **Ограничения:** не выполнялись брутфорс, разрушительные действия, массовое сканирование и выгрузка секретов; полноценный пентест бизнес-логики не проводился.
 
@@ -49,12 +49,12 @@
 | L-01 | Low | JWT: `ValidateAudience=false`, `RequireHttpsMetadata=false` | Открыто |
 | L-02 | Low | Доверие `Host`/`X-Forwarded-*`, `AllowedHosts: "*"` | Открыто |
 | L-03 | Low | `TokenRepository.GetTokenByIdAsync` возвращает только удалённые токены | **Исправлено (H-04)** |
-| L-04 | Low | Пагинация: неверный порядок `Take/Skip`, нет верхней границы `limit` | Открыто |
-| L-05 | Low | Google refresh отправляет `grant_type=authorization_code` | Открыто |
+| L-04 | Low | Пагинация: неверный порядок `Take/Skip`, нет верхней границы `limit` | **Исправлено в коде** |
+| L-05 | Low | Google refresh отправляет `grant_type=authorization_code` | **Исправлено в коде** |
 | L-06 | Low | `ApiClient.GetAccessTokenAsync` игнорирует provider | Открыто |
 | L-07 | Low | Приложение работает под суперпользователем Postgres | **Исправлено (H-07)** |
 | L-08 | Low | CI: лишние права, теги вместо SHA/digest, нет scan/SBOM | Открыто |
-| L-09 | Low | `keys/` не в `.gitignore`/`.dockerignore` | Открыто |
+| L-09 | Low | `keys/` не в `.gitignore`/`.dockerignore` | **Исправлено** |
 | L-10 | Low | Нет аудит-лога, healthcheck и resource limits у `auth` | Открыто |
 | L-11 | Low | Avatar GET: неограниченный `text` и `colorIndex` → CPU/500 | Открыто |
 | C-01 | Medium | UserClient: command injection на Windows, `provider` без экранирования | Открыто |
@@ -540,14 +540,127 @@ Cache-Control: no-store
 - **L-01. JWT.** [Program.cs:75](Api/AvaluxAuth.Api/Program.cs#L75) `RequireHttpsMetadata=false` (metadata — loopback HTTP, приемлемо) и [Program.cs:81](Api/AvaluxAuth.Api/Program.cs#L81) `ValidateAudience=false`. Валидировать audience хотя бы для service-account (`AvaluxAuthServiceAccount`).
 - **L-02. Host-заголовки.** [Extensions.cs](Api/AvaluxAuth.Api/Extensions.cs): `GetBaseUrl` берёт `X-Forwarded-Host`/`X-Forwarded-Proto`. В текущем деплое Traefik перезаписывает заголовок (проверено), но при прямом доступе к Kestrel возможна подмена URL в openid-configuration. `AllowedHosts: "*"`.
 - **L-03. TokenRepository.** [TokenRepository.cs:13](Api/AvaluxAuth.DataAccess/Repositories/TokenRepository.cs#L13) возвращал только удалённые токены (`DeletedAt != null`) — латентный баг. **Исправлено вместе с H-04:** метод отдаёт любую запись, а активность проверяют вызывающие.
-- **L-04. Пагинация.** [UserRepository.cs:105-106](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L105-L106): `Take(limit).Skip(page*limit)` — неверный порядок; `limit` без верхней границы; отрицательный `page` → 500.
-- **L-05. Google refresh.** [GoogleAuthProvider.cs](Api/AvaluxAuth.Providers/GoogleAuthProvider.cs) отправляет `grant_type=authorization_code` вместо `refresh_token` — refresh Google не работает.
+- **L-04. Пагинация.** [UserRepository.cs:96](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L96): `Take(limit).Skip(page*limit)` — неверный порядок; `limit` без верхней границы; отрицательный `page` → 500. **Исправлено в коде 2026-11-19** — см. «L-04. Пагинация — ИСПРАВЛЕНО В КОДЕ» ниже.
+- **L-05. Google refresh.** [GoogleAuthProvider.cs:75](Api/AvaluxAuth.Providers/GoogleAuthProvider.cs#L75) отправлял `grant_type=authorization_code` вместо `refresh_token` — refresh Google не работал. **Исправлено в коде 2026-11-19** — см. ниже.
 - **L-06. ApiClient.** `GetAccessTokenAsync` игнорирует `provider` — запрос без `providerKey` вернёт 400.
 - **L-07. DB-суперпользователь.** ~~Приложение работает под `POSTGRES_USER`.~~ **Исправлено вместе с H-07:** рантайм работает под `avaluxauth_app`; суперпользователь остаётся только для initdb/админских задач.
 - **L-08. CI.** `.github/workflows/main.yml` даёт `contents: write`, образы/actions не запинены по digest/SHA, сборка на каждый push; нет Trivy/SBOM/подписи.
-- **L-09. `keys/`.** Не в `.gitignore`/`.dockerignore`. Локальный запуск создаёт key ring; добавить `**/keys/`.
+- **L-09. `keys/`.** Не в `.gitignore`/`.dockerignore`. Локальный запуск создаёт key ring; добавить `**/keys/`. **Исправлено 2026-11-19** (`**/keys/` в `.gitignore`, `**/keys` в `.dockerignore`) — см. ниже.
 - **L-10. Наблюдаемость.** Нет аудит-лога админских действий и централизованного хранения логов; у `auth` нет healthcheck/resource limits. Неудачные входы с 2026-11-19 логируются в stdout (H-06), но только с ротацией 1m.
 - **L-11. Avatar GET.** `text` до ~8 КБ и рендер шрифтом 100px — CPU/память DoS; `colorIndex` вне диапазона → 500.
+
+### L-04. Пагинация — ИСПРАВЛЕНО В КОДЕ
+
+**Где:** [UserRepository.cs:70](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L70) `GetUsersAsync(page, limit)` и [UserRepository.cs:96](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L96) `SearchUsersAsync`; точка входа — [UsersController.cs:22-23](Api/AvaluxAuth.Api/Controllers/UsersController.cs#L22-L23) (админка) и [ServiceAccountController.cs:28-29](Api/AvaluxAuth.Api/Controllers/ServiceAccountController.cs#L28-L29) (service-account API).
+
+**Влияние.** Пагинация была сломана сразу в пяти местах:
+
+1. **Перевёрнутый порядок.** В `SearchUsersAsync` стояло `Take(limit).Skip(page * limit)`: сначала брались `limit` строк, затем те же `limit` пропускались. Начиная со страницы 1 выборка всегда пуста — service-account поиск отдавал только первую страницу, хотя `total` считался по всей таблице. В `GetUsersAsync` порядок был верный, но страницы всё равно «плавали» из-за отсутствия `ORDER BY` (см. п. 5).
+2. **Страница считалась по аккаунтам, а не по пользователям.** `SearchUsersAsync` пагинировал `Accounts`, и только потом группировал по `UserId`. У пользователя с несколькими аккаунтами они могли попасть на разные страницы, а число пользователей на странице было непредсказуемым (0…limit), поэтому листать выдачу было нельзя.
+3. **`limit` без верхней границы.** `?limit=1000000` заставлял материализовать всех пользователей приложения вместе с аккаунтами и подписками — CPU/память DoS на админском и service-account API.
+4. **Отрицательный `page` → 500.** `Skip(-N)` бросает `ArgumentOutOfRangeException`, исключение не обрабатывалось.
+5. **Не было `ORDER BY`.** Даже с правильным `Skip/Take` без стабильного порядка страницы «плавают»: одна запись может попасть на две страницы или ни на одну. `page` к тому же игнорировался, когда `limit` не передан.
+
+**Что сделано (2026-11-19, коммит `30c2b78`).**
+
+- **Новый [Pagination.cs](Api/AvaluxAuth.Models/Pagination.cs)** — общие границы для репозиториев и контроллеров: `MaxLimit = 100`, `NormalizePage` (clamp `>= 0`), `NormalizeLimit` (clamp `1..100`; отсутствующий `limit` — это `MaxLimit`, а не «всё»), `Skip` (произведение `page * limit` в 64 битах с насыщением: `int.MaxValue * 100` больше не превращается в отрицательный OFFSET).
+- **`GetUsersAsync(page, limit)`:** `OrderBy(CreatedAt).ThenBy(Id)` → `Skip(...)` → `Take(...)`; размер страницы нормализуется. Порядок `CreatedAt` сохраняет привычную админке «порядок добавления».
+- **`SearchUsersAsync`:** пагинация по пользователям. Сначала одна страница `Distinct` пар `(UserId, User.CreatedAt)` с `ORDER BY`, затем одним запросом (`WHERE UserId = ANY(...)`) подгружаются аккаунты только этих пользователей; группировка выполняется в памяти с сохранением порядка страницы. Все аккаунты одного пользователя теперь всегда на одной странице.
+- **Границы в контроллерах:** `[Range(0, int.MaxValue)] page` и `[Range(1, Pagination.MaxLimit)] limit`. С `[ApiController]` невалидные значения дают 400 `ValidationProblemDetails` вместо 500 или неограниченной выдачи; репозиторий применяет те же границы повторно (defense in depth для вызовов, идущих мимо контроллера).
+- **Контракт:** `limit` — от 1 до 100; `page` — `>= 0`; отсутствующий `limit` в service-account API означает максимум 100 пользователей на страницу (раньше — все). Встроенный `AvaluxAuth.ApiClient` по умолчанию передаёт `limit=100`, админка — `20`, поэтому штатные клиенты изменения не заметят.
+
+**Проверка после фикса.** Стенд: PostgreSQL 17 из dev-стека `reportchecker-dev`, все EF-миграции, 12 пользователей (у первого — 3 аккаунта, всего 14 аккаунтов), локальный запуск API на `127.0.0.1:5099`; админский вход по cookie, service-account токен создан через админский API. База после прогона удалена.
+
+| Проверка | Результат |
+|---|---|
+| `GET /api/v1/admin/apps/{id}/users?page=0&limit=5` | 200, 5 пользователей, `total=12` |
+| `...?page=1&limit=5` | 200, 5 пользователей — продолжение списка без пересечений и пропусков |
+| `...?page=2&limit=5` | 200, 2 пользователя |
+| `...?page=-1&limit=5` | 400 (`page`), не 500 |
+| `...?limit=1000`, `...?limit=0` | 400 (`limit`) |
+| `...` без `limit` | 200, 12 пользователей (админский путь без пагинации сохранён) |
+| `GET /api/v1/service/users?page=0&limit=3` | 200, 3 пользователя, 5 аккаунтов (у первого — все 3) |
+| `...?page=1&limit=3` / `page=2&limit=4` / `page=3&limit=3` | 200, страницы 4…6 / 9…12 / 10…12 — сдвиг ровно на `page*limit`; в старом коде `Take→Skip` страницы 1+ были бы пустыми |
+| `...?page=-1&limit=3`, `...?limit=1000` | 400 (`page` / `limit`) |
+| `...?email=u01` | 200, 1 пользователь с 3 аккаунтами: фильтр и группировка не разрезают пользователя |
+| `...?limit=100` (граница) | 200, 12 пользователей |
+| `...` без `limit` | 200, 12 пользователей — выдача ограничена `MaxLimit` |
+| `GetUsersAsync(page: int.MaxValue, limit: 100)` (репозиторий) | пустая страница, без переполнения и без исключения |
+| `dotnet build AvaluxAuth.slnx -c Release` | 0 ошибок (прежние предупреждения CS8774/CS9113) |
+
+**Деплой.** Только код API, миграций нет. Изменение контракта описано выше; для админки и `ApiClient` оно прозрачно. Уедет на живой контур вместе с H-02/H-04/H-05/H-06/M-01/M-02/M-03/M-05 при переводе стека `auth` на `:master`.
+
+**Остаточный риск.**
+
+- **OFFSET-пагинация.** Глубокие страницы по-прежнему стоят `OFFSET N` (линейный скан); для больших таблиц нужен keyset-подход, но это уже изменение дизайна API.
+- **Поиск не фильтрует `Users.DeletedAt`.** `SearchUsersAsync` отбирает `Accounts.DeletedAt == null`, но не `User.DeletedAt == null` (в отличие от `GetUsersAsync`), поэтому удалённые пользователи находятся поиском. Это не входило в L-04 и поведение не менялось; при следующем проходе стоит выровнять и это.
+- **Админский путь без `limit`.** `GetUsers` с `limit == null` отдаёт всех пользователей приложения — путь остаётся неограниченным, но доступен только админу за VPN и сохранён для обратной совместимости.
+
+### L-05. Google refresh — ИСПРАВЛЕНО В КОДЕ
+
+**Где:** [GoogleAuthProvider.cs:75](Api/AvaluxAuth.Providers/GoogleAuthProvider.cs#L75) `RefreshTokenAsync` и [GoogleAuthProvider.cs:21](Api/AvaluxAuth.Providers/GoogleAuthProvider.cs#L21) `GetAuthUrl`.
+
+**Влияние.** Обновление провайдерского Google-токена не работало, причём по трём независимым причинам:
+
+1. **Неверный `grant_type`.** В refresh-запрос уходил `grant_type=authorization_code` вместе с `refresh_token`, но без `code`. Google отвечает на такое `400 invalid_request`, `EnsureSuccessStatusCode()` бросает исключение, и `UserService.GetAccessTokenAsync` для истёкшего Google-токена падал (500) вместо обновления.
+2. **Не запрашивался offline-доступ.** Consent flow не отправлял `access_type=offline`, а Google выдаёт refresh-токен только для offline-гранта. То есть даже с исправленным `grant_type` обновлять было бы нечего: в БД не сохранялся refresh-токен.
+3. **Затирание refresh-токена.** Google не возвращает `refresh_token` в ответе на refresh, а `UserService` сохраняет полученный объект целиком ([UserService.cs:52](Api/AvaluxAuth.Services/UserService.cs#L52), [UserService.cs:86](Api/AvaluxAuth.Services/UserService.cs#L86)). То есть как только `grant_type` был бы исправлен, первое же успешное обновление записало бы `RefreshToken = data.RefreshToken` (null) и стёрло сохранённый токен — следующее обновление стало бы невозможным.
+
+**Что сделано (2026-11-19, коммит `1425071`).**
+
+- `grant_type` в `RefreshTokenAsync` — `refresh_token`; `refresh_token`, `client_id` и `client_secret` передаются как раньше.
+- В `GetAuthUrl` добавлен `access_type=offline`, но только когда `ProviderParameters.SaveTokens` включён, то есть приложение действительно собирается хранить токены. Для остальных конфигураций consent-экран не меняется.
+- `RefreshToken = string.IsNullOrEmpty(data.RefreshToken) ? refreshToken : data.RefreshToken` — при отсутствии нового токена в ответе сохраняется использованный, при ротации (если Google её вернёт) берётся новый.
+- Логирование не менялось: по-прежнему пишется только redirect URI (M-05), ни токены, ни `client_secret` в лог не попадают.
+
+**Проверка после фикса** (провайдер с подменённым `HttpMessageHandler`, реальных запросов к Google нет):
+
+| Проверка | Результат |
+|---|---|
+| Тело refresh-запроса | `client_id=…&client_secret=…&grant_type=refresh_token&refresh_token=old-refresh`; строки `grant_type=authorization_code` нет |
+| Ответ `{"access_token":"new-access","expires_in":3600}` (без refresh-токена) | `AccessToken=new-access`, `RefreshToken=old-refresh` — сохранённый токен не потерян |
+| Ответ с `"refresh_token":"rotated-refresh"` | `RefreshToken=rotated-refresh` — ротация учитывается |
+| `GetAuthUrl` при `SaveTokens=true` | URL содержит `access_type=offline`, `state` и `response_type=code` |
+| `GetAuthUrl` при `SaveTokens=false` | `access_type` отсутствует |
+| `dotnet build AvaluxAuth.slnx -c Release` | 0 ошибок |
+
+**Деплой.** Изменение только в провайдере `google`, миграций нет. Уже сохранённые Google-аккаунты без refresh-токена начнут получать его только после повторной авторизации через Google; до этого `GetAccessTokenAsync` для них возвращает `null`, как и раньше (то есть хуже не становится). Уедет на живой контур вместе с остальными исправлениями при переводе стека `auth` на `:master`.
+
+**Остаточный риск.**
+
+- **`prompt=consent` не запрашивается.** Если пользователь повторно проходит consent, а Google не выдаёт новый refresh-токен (например, доступ был отозван), токен появится только после явного пересогласия; для этого потребуется либо `prompt=consent`, либо повторный отзыв/выдача доступа на стороне Google.
+- **Ошибки Google не разбираются.** Ответ с ошибкой обрабатывается через `EnsureSuccessStatusCode()`; текст ошибки в исключение не попадает, поэтому диагностика в логе ограничена статусом. Для Google это приемлемо (тело не содержит секретов), но при следующем проходе стоит добавить санитайзинг `error`/`error_description`, как в Microsoft/GitLab (M-05).
+- **`access_type=offline` виден пользователю.** Consent-экран Google показывает «offline access»; это ожидаемая плата за сохранение токенов и включается только при `SaveTokens`.
+
+### L-09. `keys/` в ignore-файлах — ИСПРАВЛЕНО
+
+**Где:** [.gitignore](.gitignore), [.dockerignore](.dockerignore). Каталог создаётся при локальном запуске ([Program.cs:43](Api/AvaluxAuth.Api/Program.cs#L43), `PersistKeysToFileSystem(... ?? "./keys")`) и в образе ([Dockerfile:38](Dockerfile#L38)).
+
+**Влияние.** Первый же локальный запуск API создаёт DataProtection key ring — например, `Api/AvaluxAuth.Api/keys/key-<guid>.xml`. Этими ключами зашифрованы приватные signing keys и провайдерские токены в БД, поэтому утечка каталога равносильна утечке ключей подписи и refresh-токенов провайдеров. Без правил игнорирования:
+
+- `git add -A` / `git add .` закоммитил бы key ring в репозиторий (а он публичный);
+- `docker build` отправил бы его в build context, а `COPY . .` в [Dockerfile:27](Dockerfile#L27) — внутрь образа, откуда ключи уехали бы в registry.
+
+**Что сделано (2026-11-19, коммит `aa34d17`).**
+
+- `.gitignore`: `**/keys/` — каталог `keys` любого уровня вложенности (`Api/AvaluxAuth.Api/keys`, корневой `keys/`), рядом с `.env`.
+- `.dockerignore`: `**/keys` — в общем списке служебных каталогов (`**/bin`, `**/obj`, `**/node_modules`).
+- Ключи живого контура и так лежат в отдельном volume `auth_keys` (`deploy/auth-stack.yml`), каталог в образе создаётся пустым; ignore-правила лишь закрывают побочные пути.
+
+**Проверка после фикса.**
+
+| Проверка | Результат |
+|---|---|
+| Локальный запуск API (проверка L-04) | создан `Api/AvaluxAuth.Api/keys/key-<guid>.xml` |
+| `git status --porcelain` после запуска | каталог не появляется, видны только изменения задачи |
+| `git check-ignore -v Api/AvaluxAuth.Api/keys/key-*.xml` | `.gitignore:11:**/keys/` |
+| `git check-ignore -v keys/xml/key.xml` | `.gitignore:11:**/keys/` |
+| `git ls-files` с фильтром `keys/` | пусто — key ring в истории отсутствует |
+| `.dockerignore` | `**/keys` в списке; проверено чтением файла (docker CLI в среде аудита недоступен, сборка образа не выполнялась) |
+
+**Деплой.** Только ignore-файлы; на работу приложения и существующие образы не влияет.
+
+**Остаточный риск.** Права `777` на `/app/keys` и отсутствие шифрования ключей at rest остаются открытыми — это M-07, L-09 закрывает только утечку через git и build context.
 
 ---
 
@@ -615,7 +728,7 @@ Cache-Control: no-store
 
 **P1 (неделя):** ~~фильтр `StartsAt`~~ **сделано (M-02, `6dfe8c0`)**; ~~revoke сессий при смене пароля/absolute expiry~~ **сделано (H-05 + M-03, `5090e0b`)**; ротация ключей с окном; security-заголовки; убрать PII/секреты из логов; 401 вместо 500 на state; `700` на keys; ~~убрать PII/секреты из логов~~ **сделано (M-05, `90a23db`)**; почистить redirect URI; constant-time/fail-closed admin login; unique index на `Passwords.Login`.
 
-**P2:** Angular 21.2.17+, Microsoft.OpenApi 2.7.5+, AWSSDK 4.0.3.3+; пагинация; CI/digest/scanning; `keys/` в ignore; аудит-лог; клиентские библиотеки; defense-in-depth для админки на уровне приложения.
+**P2:** Angular 21.2.17+, Microsoft.OpenApi 2.7.5+, AWSSDK 4.0.3.3+; ~~пагинация~~ **сделано (L-04, `30c2b78`)**; CI/digest/scanning; ~~`keys/` в ignore~~ **сделано (L-09, `aa34d17`)**; аудит-лог; клиентские библиотеки; defense-in-depth для админки на уровне приложения.
 
 ---
 
@@ -624,6 +737,7 @@ Cache-Control: no-store
 - Полный статический разбор C#-проектов, EF-миграций, обоих фронтендов, Docker/CI, конфигурации стека и файловой системы контейнера.
 - `dotnet list package --vulnerable --include-transitive`, `npm audit`, сверка с OSV/NuGet.
 - Безопасные live-проверки: OIDC discovery, невалидный state, `color` вне диапазона, POST без файла, варианты регистра админ-пути, один неверный admin-логин; XSS подтверждён инертным payload'ом.
+- Исправления 2026-11-19 проверялись отдельно: M-05 — статическим `grep` и прогоном санитайзера, L-04/L-05 — одноразовым стендом (чистая БД в dev-стеке `reportchecker-dev` с миграциями + локальный запуск API для HTTP-проверок пагинации, провайдер с подменённым `HttpMessageHandler` для Google); стирал ли L-09 key ring, проверено `git check-ignore`/`git status` после реального запуска. Живой контур `auth` не затрагивался, тестовая БД удалена, временные сборки — в `/tmp`.
 - **Не выполнялись:** брутфорс, разрушительные действия, массовое сканирование, выгрузка секретов. Полноценный пентест бизнес-логики не проводился.
 - Значения секретов, `client_id`, state и токены в отчёт не включались.
 
