@@ -1,4 +1,5 @@
-﻿using AvaluxAuth.Abstractions;
+﻿using System.ComponentModel.DataAnnotations;
+using AvaluxAuth.Abstractions;
 using AvaluxAuth.Api.Schemas;
 using AvaluxAuth.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -24,8 +25,8 @@ public class ServiceAccountController(
         [FromQuery] string? login = null,
         [FromQuery] string? email = null,
         [FromQuery] string? provider = null,
-        [FromQuery] int page = 0,
-        [FromQuery] int? limit = null,
+        [FromQuery, Range(0, int.MaxValue)] int page = 0,
+        [FromQuery, Range(1, Pagination.MaxLimit)] int? limit = null,
         CancellationToken ct = default)
     {
         if (!User.HasPermission(TokenPermission.SearchUsers))

@@ -1,4 +1,5 @@
-﻿using AvaluxAuth.Abstractions;
+﻿using System.ComponentModel.DataAnnotations;
+using AvaluxAuth.Abstractions;
 using AvaluxAuth.Api.Schemas;
 using AvaluxAuth.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -18,8 +19,8 @@ public class UsersController(
 {
     [HttpGet]
     public async Task<ActionResult<UsersResponseSchema>> GetUsers(Guid applicationId,
-        [FromQuery] int page = 0,
-        [FromQuery] int? limit = null,
+        [FromQuery, Range(0, int.MaxValue)] int page = 0,
+        [FromQuery, Range(1, Pagination.MaxLimit)] int? limit = null,
         CancellationToken ct = default)
     {
         var users = limit == null

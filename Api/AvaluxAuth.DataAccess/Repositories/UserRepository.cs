@@ -70,10 +70,16 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
     public async Task<IEnumerable<UserWithAccounts>> GetUsersAsync(Guid applicationId, int page, int limit,
         CancellationToken ct = default)
     {
+        // A page without a stable order is not a page: the same request could return
+        // different users on every call (L-04). CreatedAt+Id is deterministic and
+        // keeps the insertion order the admin UI used to show.
+        var pageSize = Pagination.NormalizeLimit(limit);
         var users = await dbContext.Users
             .Where(x => x.ApplicationId == applicationId && x.DeletedAt == null)
-            .Skip(page * limit)
-            .Take(limit)
+            .OrderBy(x => x.CreatedAt)
+            .ThenBy(x => x.Id)
+            .Skip(Pagination.Skip(page, pageSize))
+            .Take(pageSize)
             .Include(e => e.Accounts)
             .Include(e => e.Subscriptions)
             .ToListAsync(ct);
@@ -102,35 +108,57 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
             query = query.Where(e => e.Email != null && e.Email.StartsWith(email));
         if (providerId != null)
             query = query.Where(e => e.ProviderId == providerId.Value);
-        if (limit != null)
-            query = query.Take(limit.Value).Skip(page * limit.Value);
-        var result = await query
-            .GroupBy(e => e.UserId)
+
+        // L-04: paging the accounts and only then grouping them by user returned a
+        // variable number of users per page and could push a user's accounts onto
+        // different pages. Page the users instead: pick the matching user ids for
+        // this page (stable order, bounded size), then load just their accounts.
+        var pageSize = Pagination.NormalizeLimit(limit);
+        var userIds = await query
+            .Select(e => new { e.UserId, e.User.CreatedAt })
+            .Distinct()
+            .OrderBy(x => x.CreatedAt)
+            .ThenBy(x => x.UserId)
+            .Skip(Pagination.Skip(page, pageSize))
+            .Take(pageSize)
+            .Select(x => x.UserId)
             .ToListAsync(ct);
-        return result.Select(r =>
-        {
-            var accounts = r.ToList();
-            var user = accounts[0].User;
-            return new UserWithAccounts
+        if (userIds.Count == 0)
+            return [];
+
+        var accounts = await query
+            .Where(e => userIds.Contains(e.UserId))
+            .ToListAsync(ct);
+        var position = userIds
+            .Select((userId, index) => (userId, index))
+            .ToDictionary(x => x.userId, x => x.index);
+        return accounts
+            .GroupBy(e => e.UserId)
+            .OrderBy(g => position[g.Key])
+            .Select(r =>
             {
-                Id = user.Id,
-                ApplicationId = user.ApplicationId,
-                CreatedAt = user.CreatedAt,
-                DeletedAt = user.DeletedAt,
-                Accounts = accounts.Select(e => new AccountInfo
+                var userAccounts = r.ToList();
+                var user = userAccounts[0].User;
+                return new UserWithAccounts
                 {
-                    ProviderId = e.ProviderId,
-                    UserInfo = new UserInfo
+                    Id = user.Id,
+                    ApplicationId = user.ApplicationId,
+                    CreatedAt = user.CreatedAt,
+                    DeletedAt = user.DeletedAt,
+                    Accounts = userAccounts.Select(e => new AccountInfo
                     {
-                        Id = e.ProviderUserId,
-                        Name = e.Name,
-                        Login = e.Login,
-                        Email = e.Email,
-                        AvatarUrl = e.AvatarUrl,
-                    }
-                }).ToArray(),
-            };
-        });
+                        ProviderId = e.ProviderId,
+                        UserInfo = new UserInfo
+                        {
+                            Id = e.ProviderUserId,
+                            Name = e.Name,
+                            Login = e.Login,
+                            Email = e.Email,
+                            AvatarUrl = e.AvatarUrl,
+                        }
+                    }).ToArray(),
+                };
+            });
     }
 
     public async Task<int?> GetSessionVersionAsync(Guid userId, CancellationToken ct = default)
