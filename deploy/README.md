@@ -16,6 +16,12 @@
 | `Api__ApiUrl`, `Security__Issuer`, `Security__AuthApiUrl` | внешние URL |
 | `S3__*` | доступ к S3 |
 | `Security__RedisCaCertificatePath` | CA для явной проверки TLS Redis (используется сборкой `:master`) |
+| `Email__Mode` | `Disabled` (по умолчанию), `Smtp` — боевой, `Log` — только стенд: письма и ссылки сброса пишутся в лог |
+| `Email__Host`, `Email__Port`, `Email__Security` | SMTP-сервер, порт (587) и режим TLS: `StartTls`, `SslOnConnect`, `Auto`; из контейнера нужен egress |
+| `Email__User`, `Email__Password` | SMTP-аутентификация (для relay может быть пустой); пароль — только переменная стека |
+| `Email__FromAddress`, `Email__FromName` | отправитель писем о восстановлении пароля |
+| `PasswordRecovery__LinkBaseUrl` | база ссылки из письма; по умолчанию `Api__ApiUrl` |
+| `PasswordRecovery__TokenLifetimeMinutes` | срок жизни ссылки, по умолчанию 30 (5–120) |
 
 ## Сеть
 
@@ -96,11 +102,42 @@ database system» — скрипт переводит только прикла�
    DEFAULT'ы добавлены при откате на старую ревизию: она не знает про эти
    NOT NULL-колонки, появившиеся в миграции `OAuthClientBinding`.
 
+## Восстановление пароля (R-01)
+
+Самостоятельный сброс пароля включается только явно: `Email__Mode=Disabled`
+(по умолчанию) отдаёт на `/api/v1/password/recover` ответ 503, поэтому
+обновление стека без SMTP-переменных не ломает вход и не создаёт видимость
+работающей почты.
+
+Боевой режим:
+
+1. Заведите ящик/relay и добавьте в переменные стека `Email__Mode=Smtp`,
+   `Email__Host`, `Email__Port`, `Email__Security`, `Email__FromAddress`,
+   `Email__FromName`, при необходимости `Email__User`/`Email__Password`.
+   Контейнеру нужен egress к SMTP-хосту (587/STARTTLS или 465/SSL).
+2. `PasswordRecovery__LinkBaseUrl` можно не задавать — используется
+   `Api__ApiUrl` (`https://auth.reportchecker.ru`). Заголовки `X-Forwarded-Host`
+   для ссылки намеренно не используются.
+3. В Traefik-правиле публичного роутера уже есть `PathPrefix(/recover)`;
+   без него страница из письма недоступна снаружи.
+4. Ссылка ведёт на `/recover#token=...`: токен лежит во фрагменте, не попадает
+   в логи прокси и стирается из адресной строки после загрузки страницы.
+   Живёт 30 минут (настраивается) и срабатывает один раз.
+
+Стенд без SMTP: `Email__Mode=Log` — письмо целиком (включая ссылку) пишется в
+лог приложения. Этот режим нельзя включать на боевом контуре: он кладёт
+одноразовые ссылки в логи.
+
+Ограничения: email в аккаунте необязателен (`Passwords.Email`, не более 50
+символов); аккаунты без email и аккаунты, созданные только через внешний
+провайдер, восстановить нельзя — им доступен вход прежним способом.
+
 ## Проверка
 
 ```bash
 # снаружи: формы и OIDC
 curl -s -o /dev/null -w '%{http_code}\n' https://auth.reportchecker.ru/login
+curl -s -o /dev/null -w '%{http_code}\n' https://auth.reportchecker.ru/recover
 curl -s -o /dev/null -w '%{http_code}\n' https://auth.reportchecker.ru/api/v1/.well-known/jwks.json
 
 # Redis: plaintext закрыт, TLS+AUTH работает

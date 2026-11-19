@@ -32,7 +32,7 @@ services:
       # left /api/v1/ADMIN/... reachable on the public host (VPN bypass).
       # Admin API is served only on auth-admin.reportchecker.ru (VPN-only,
       # see auth-admin-api below).
-      - "traefik.http.routers.auth.rule=Host(`auth.reportchecker.ru`) && !PathRegexp(`(?i)^/api/v1/admin`) && (PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/password`) || PathPrefix(`/api/v1/avatar`) || PathPrefix(`/api/v1/service`) || PathPrefix(`/api/v1/.well-known`) || PathPrefix(`/static`) || PathPrefix(`/login`) || PathPrefix(`/profile`) || PathPrefix(`/auth`))"
+      - "traefik.http.routers.auth.rule=Host(`auth.reportchecker.ru`) && !PathRegexp(`(?i)^/api/v1/admin`) && (PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/password`) || PathPrefix(`/api/v1/avatar`) || PathPrefix(`/api/v1/service`) || PathPrefix(`/api/v1/.well-known`) || PathPrefix(`/static`) || PathPrefix(`/login`) || PathPrefix(`/profile`) || PathPrefix(`/recover`) || PathPrefix(`/auth`))"
       - traefik.http.routers.auth.priority=100
       - traefik.http.routers.auth.service=auth
       - traefik.http.routers.auth.tls.certresolver=le
@@ -60,6 +60,19 @@ services:
       S3__Buckets__Avatars: "${S3__Buckets__Avatars}"
       Security__Issuer: "${Security__Issuer}"
       Security__AuthApiUrl: "${Security__AuthApiUrl}"
+      # R-01: password recovery is disabled unless Email__Mode is explicitly
+      # Smtp (production) or Log (disposable stand: reset links go to the log).
+      # The SMTP password is a stack variable in Portainer, never a file in git.
+      Email__Mode: "${Email__Mode:-Disabled}"
+      Email__Host: "${Email__Host:-}"
+      Email__Port: "${Email__Port:-587}"
+      Email__Security: "${Email__Security:-StartTls}"
+      Email__User: "${Email__User:-}"
+      Email__Password: "${Email__Password:-}"
+      Email__FromAddress: "${Email__FromAddress:-}"
+      Email__FromName: "${Email__FromName:-Avalux Auth}"
+      PasswordRecovery__LinkBaseUrl: "${PasswordRecovery__LinkBaseUrl:-}"
+      PasswordRecovery__TokenLifetimeMinutes: "${PasswordRecovery__TokenLifetimeMinutes:-30}"
       # The pinned build predates the explicit CA support, so it trusts the
       # bundle through SSL_CERT_FILE. Security__RedisCaCertificatePath is what
       # a :master build (with H-07 code) uses instead.
