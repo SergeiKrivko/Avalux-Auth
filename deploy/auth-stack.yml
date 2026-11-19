@@ -1,5 +1,5 @@
 # Mirror of the live Portainer stack `auth` (endpoint `local`, stack id 10),
-# updated 2026-11-19 with the H-07 fix and the R-02 e-mail confirmation routes.
+# updated 2026-11-20 with the H-07 fix and the R-02 e-mail confirmation routes.
 # Secrets are not kept here: the ${...} values live in the Portainer stack
 # environment. See deploy/README.md.
 
@@ -13,11 +13,12 @@ x-logging:
 
 services:
   auth:
-    # Pinned to the c4c9617 build until the desktop clients (ReportChecker
-    # Studio/CLI/VS Code) move from Avalux.Auth.UserClient 1.3.2 to PKCE
-    # (>= 1.4.0). Re-target :master only after that - master also contains
-    # H-02/H-04/H-05, and H-05 rejects authorize requests without PKCE.
-    image: ghcr.io/sergeikrivko/avalux-auth@sha256:179c87144d90019908a3d01d0d6aaa0d79690b56836672c71a937a3340d699ed
+    # The live contour runs the :master tag: the digest pin to c4c9617 was
+    # lifted after the desktop clients (ReportChecker Studio/CLI/VS Code)
+    # moved to Avalux.Auth.UserClient >= 1.4.0 with PKCE; H-05 rejects
+    # authorize requests without PKCE. Keep this line in sync with the live
+    # stack so an Update cannot silently redeploy the old build.
+    image: ghcr.io/sergeikrivko/avalux-auth:master
     container_name: auth
     restart: always
     networks:
