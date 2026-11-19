@@ -20,6 +20,16 @@ public static class Config
     public const string AvatarUploadRateLimitPolicy = "AvatarUpload";
     public const int MaxAvatarUploadsPerState = 5;
 
+    // R-01: password recovery. Both endpoints are anonymous, so they get their
+    // own per-IP windows on top of the per-account delivery cooldown in Redis.
+    public const string PasswordRecoverRateLimitPolicy = "PasswordRecover";
+    public const string PasswordResetCompleteRateLimitPolicy = "PasswordResetComplete";
+    public const int MaxRecoveryIdentifierLength = 254;
+
+    // 32 random bytes, hex encoded. The controller rejects anything else before
+    // Redis is queried.
+    public const int ResetTokenLength = 64;
+
     // Scopes of the failed-login counters in Redis.
     public const string PasswordSignInScope = "password-signin";
     public const string PasswordSignUpScope = "password-signup";

@@ -51,7 +51,23 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
+// R-01: password recovery. Tokens live in Redis (hashed, TTL, single use);
+// letters are queued and delivered by EmailDispatcher.
+builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
+builder.Services.AddSingleton<IPasswordResetTokenRepository, RedisPasswordResetTokenRepository>();
+builder.Services.AddSingleton<IEmailQueue, EmailQueue>();
+builder.Services.AddHostedService<EmailDispatcher>();
 builder.Services.AddAuthProviders();
+
+// R-01: fail closed. Recovery is enabled only by an explicit mail backend; the
+// `Log` sender exists for disposable stands and writes reset links to the log.
+var emailMode = (builder.Configuration["Email:Mode"] ?? "Disabled").Trim();
+if (emailMode.Equals("Smtp", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+else if (emailMode.Equals("Log", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddSingleton<IEmailSender, LogEmailSender>();
+else
+    builder.Services.AddSingleton<IEmailSender, DisabledEmailSender>();
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -259,6 +275,30 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true,
             }));
 
+    // R-01: recovery is anonymous and sends e-mail, so both endpoints are capped
+    // per client IP. The per-account cooldown in Redis complements this.
+    options.AddPolicy(Config.PasswordRecoverRateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.GetClientIpAddress(),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
+
+    options.AddPolicy(Config.PasswordResetCompleteRateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.GetClientIpAddress(),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
+
     // M-01: the avatar upload is reachable before sign-in, so it is capped per
     // IP as well. The per-state quota counts successful states, this limits how
     // many states one client can burn through.
@@ -301,6 +341,30 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// R-01: say out loud whether recovery is active, so a missing SMTP variable is
+// visible in the container log instead of surfacing as a silent 503.
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>()
+    .CreateLogger("AvaluxAuth.Api.Startup");
+if (emailMode.Equals("Smtp", StringComparison.OrdinalIgnoreCase) ||
+    emailMode.Equals("Log", StringComparison.OrdinalIgnoreCase) ||
+    emailMode.Equals("Disabled", StringComparison.OrdinalIgnoreCase))
+{
+    startupLogger.LogInformation("Email delivery mode: {Mode}", emailMode);
+}
+else
+{
+    startupLogger.LogError("Unknown Email:Mode value: {Mode}; e-mail delivery is disabled", emailMode);
+}
+
+if (emailMode.Equals("Log", StringComparison.OrdinalIgnoreCase))
+    startupLogger.LogWarning("Email:Mode=Log writes password reset links to the log; use it only on a disposable stand");
+
+await using (var startupScope = app.Services.CreateAsyncScope())
+{
+    var recovery = startupScope.ServiceProvider.GetRequiredService<IPasswordRecoveryService>();
+    startupLogger.LogInformation("Password recovery enabled: {Enabled}", recovery.IsEnabled);
+}
+
 app.UseRouting();
 
 app.UseCors();
@@ -319,8 +383,14 @@ if (app.Environment.IsProduction())
         var path = context.Request.Path;
 
         if ((HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)) &&
-            (path == "/login" || path == "/login/" || path == "/profile" || path == "/profile/"))
+            (path == "/login" || path == "/login/" || path == "/profile" || path == "/profile/" ||
+             path == "/recover" || path == "/recover/"))
+        {
             context.Request.Path = "/index.html";
+            // The page can carry a one-time token in the fragment; never let a
+            // proxy or browser reuse a cached copy of it.
+            context.Response.Headers.CacheControl = "no-store";
+        }
 
         await next();
     });

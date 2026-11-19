@@ -21,6 +21,7 @@ public class PasswordController(
     IApplicationRepository applicationRepository,
     IUserRepository userRepository,
     IPasswordService passwordService,
+    IPasswordRecoveryService passwordRecoveryService,
     ILoginThrottle loginThrottle,
     ILogger<PasswordController> logger) : ControllerBase
 {
@@ -38,6 +39,11 @@ public class PasswordController(
         {
             if (!IsValidLogin(schema.Login))
                 return BadRequest("Invalid login");
+
+            // R-01: the address is the recovery channel and must fit the columns.
+            var emailError = EmailPolicy.Validate(schema.UserInfo.Email);
+            if (emailError != null)
+                return BadRequest(emailError);
 
             // Server-side policy (H-06): the auth UI checks the same rules, but
             // direct API calls must not bypass them.
@@ -161,6 +167,10 @@ public class PasswordController(
             if (stateData == null || stateData.LinkUserId == null)
                 return Unauthorized();
 
+            var emailError = EmailPolicy.Validate(schema.UserInfo.Email);
+            if (emailError != null)
+                return BadRequest(emailError);
+
             var user = await passwordService.GetByUserId(stateData.LinkUserId.Value, ct);
             if (user == null)
                 return NotFound("Profile not found");
@@ -186,6 +196,65 @@ public class PasswordController(
         catch (Exception e)
         {
             return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
+        }
+    }
+
+    /// <summary>
+    /// R-01: starts a self-service password reset. The response is deliberately
+    /// identical for every account state (existing, missing, deleted, without an
+    /// e-mail, rate-limited), so the endpoint cannot be used as an existence
+    /// oracle. Delivery is queued and happens after the response.
+    /// </summary>
+    [HttpPost("recover")]
+    [EnableRateLimiting(Config.PasswordRecoverRateLimitPolicy)]
+    public async Task<IActionResult> Recover([FromBody] PasswordRecoverSchema schema,
+        CancellationToken ct = default)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var identifier = schema.LoginOrEmail.Trim();
+        if (identifier.Length == 0 || identifier.Length > Config.MaxRecoveryIdentifierLength)
+            return BadRequest("Invalid login or email");
+
+        var result = await passwordRecoveryService.RequestAsync(identifier, HttpContext.GetClientIpAddress(), ct);
+        if (result == RecoveryRequestResult.Disabled)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, "Password recovery is not available");
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// R-01: redeems a single-use reset token, replaces the password and revokes
+    /// every session linked to the credential. The token is validated before it
+    /// is consumed, so a rejected password does not burn the link.
+    /// </summary>
+    [HttpPost("recover/complete")]
+    [EnableRateLimiting(Config.PasswordResetCompleteRateLimitPolicy)]
+    public async Task<IActionResult> CompleteRecovery([FromBody] PasswordResetCompleteSchema schema,
+        CancellationToken ct = default)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        if (!IsValidResetToken(schema.Token))
+            return BadRequest("Invalid or expired reset link");
+
+        try
+        {
+            var outcome = await passwordRecoveryService.CompleteAsync(schema.Token, schema.Password,
+                HttpContext.GetClientIpAddress(), ct);
+            return outcome.Result switch
+            {
+                RecoveryCompleteResult.Success => NoContent(),
+                RecoveryCompleteResult.PolicyViolation => UnprocessableEntity(
+                    outcome.Error ?? "Password does not meet the requirements"),
+                _ => BadRequest("Invalid or expired reset link"),
+            };
+        }
+        catch (Exception e)
+        {
+            // Storage failure (Redis/Postgres). No internals in the response.
+            logger.LogError(e, "Password reset failed: ip={ClientIp}", HttpContext.GetClientIpAddress());
+            return StatusCode(StatusCodes.Status500InternalServerError, "Password reset failed");
         }
     }
 
@@ -226,6 +295,13 @@ public class PasswordController(
     private static bool IsValidLogin(string? login)
     {
         return !string.IsNullOrWhiteSpace(login) && login.Length <= MaxLoginLength;
+    }
+
+    // R-01: tokens are 32 random bytes encoded as lowercase hex. Anything else
+    // is rejected before Redis is queried.
+    private static bool IsValidResetToken(string? token)
+    {
+        return token is { Length: Config.ResetTokenLength } && token.All(char.IsAsciiHexDigitLower);
     }
 
     private static string HashLogin(string login)

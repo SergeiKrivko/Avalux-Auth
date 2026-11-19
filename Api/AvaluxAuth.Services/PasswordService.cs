@@ -35,6 +35,14 @@ public class PasswordService(
         if (policyError != null)
             throw new ArgumentException(policyError, nameof(password));
 
+        // The address is the recovery channel, so it must be deliverable and fit
+        // the columns (R-01 in SECURITY-AUDIT.md). The controller checks the same
+        // rule first; no caller may create an account that recovery cannot reach
+        // or that fails on insert with a 500.
+        var emailError = EmailPolicy.Validate(info.Email);
+        if (emailError != null)
+            throw new ArgumentException(emailError, nameof(info));
+
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
         var id = await passwordRepository.CreateAsync(login, passwordHash, info, ct);
         return await passwordRepository.GetByIdAsync(id, ct) ?? throw new Exception("Created account not found. What?");
@@ -107,6 +115,10 @@ public class PasswordService(
     public async Task<bool> UpdateInfoAsync(Guid id, Guid userId, Guid applicationId, PasswordUserInfo info,
         CancellationToken ct = default)
     {
+        var emailError = EmailPolicy.Validate(info.Email);
+        if (emailError != null)
+            throw new ArgumentException(emailError, nameof(info));
+
         var result = await passwordRepository.UpdateInfoAsync(id, info, ct);
         if (!result)
             return result;

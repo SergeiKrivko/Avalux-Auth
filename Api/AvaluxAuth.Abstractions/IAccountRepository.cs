@@ -15,6 +15,15 @@ public interface IAccountRepository
         AccountCredentials? accountCredentials,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Every live user linked to the password account <paramref name="passwordId"/>
+    /// in any application. The same global <c>Passwords</c> row may back accounts
+    /// in several applications, and a reset must revoke all of their sessions
+    /// (R-01 in SECURITY-AUDIT.md).
+    /// </summary>
+    public Task<IReadOnlyList<Guid>> GetUserIdsByPasswordAccountAsync(Guid passwordId,
+        CancellationToken ct = default);
+
     public Task<bool> UpdateAccountTokensAsync(Guid accountId, AccountCredentials accountCredentials,
         CancellationToken ct = default);
 

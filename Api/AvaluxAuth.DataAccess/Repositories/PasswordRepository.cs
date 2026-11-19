@@ -23,6 +23,23 @@ public class PasswordRepository(AvaluxAuthDbContext dbContext) : IPasswordReposi
         return entity == null ? null : FromEntity(entity);
     }
 
+    public async Task<IReadOnlyList<PasswordUser>> GetByEmailAsync(string email,
+        CancellationToken ct = default)
+    {
+        // The value is user input: a raw ILIKE pattern would let '%' and '_' act
+        // as wildcards, so they are escaped and the escape character is passed
+        // explicitly.
+        var pattern = EscapeLikePattern(email.Trim());
+        var entities = await dbContext.Passwords
+            .Where(p => p.DeletedAt == null && p.Email != null)
+            .Where(p => EF.Functions.ILike(p.Email!, pattern, "\\"))
+            .OrderBy(p => p.CreatedAt)
+            .ThenBy(p => p.Id)
+            .Take(MaxAccountsPerEmail)
+            .ToListAsync(ct);
+        return entities.Select(FromEntity).ToArray();
+    }
+
     public async Task<Guid> CreateAsync(string login, string passwordHash, PasswordUserInfo info,
         CancellationToken ct = default)
     {
@@ -89,6 +106,18 @@ public class PasswordRepository(AvaluxAuthDbContext dbContext) : IPasswordReposi
             .Where(p => p.AvatarId != null)
             .Select(p => p.AvatarId!.Value)
             .ToListAsync(ct);
+    }
+
+    // Bounds the fan-out of a recovery request to one address; an e-mail is not
+    // unique in this table, so several accounts may share it.
+    private const int MaxAccountsPerEmail = 5;
+
+    private static string EscapeLikePattern(string value)
+    {
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
     }
 
     private static PasswordUser FromEntity(PasswordEntity entity)

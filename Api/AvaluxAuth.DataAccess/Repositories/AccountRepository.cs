@@ -68,6 +68,22 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
         return id;
     }
 
+    public async Task<IReadOnlyList<Guid>> GetUserIdsByPasswordAccountAsync(Guid passwordId,
+        CancellationToken ct = default)
+    {
+        // Password accounts carry ProviderId == 0 and store the Passwords.Id as
+        // their ProviderUserId. Provider.DeletedAt is not filtered on purpose:
+        // revocation must also cover users whose password provider row was
+        // removed, otherwise their sessions would outlive the reset.
+        var id = passwordId.ToString();
+        return await dbContext.Accounts
+            .Where(a => a.DeletedAt == null && a.ProviderUserId == id)
+            .Where(a => a.Provider.ProviderId == 0)
+            .Select(a => a.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
     public async Task<bool> UpdateAccountTokensAsync(Guid accountId, AccountCredentials accountCredentials,
         CancellationToken ct = default)
     {
