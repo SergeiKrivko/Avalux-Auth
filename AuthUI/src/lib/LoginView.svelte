@@ -199,6 +199,12 @@
           disabled={submitting}
         />
 
+        {#if mode === 'signin'}
+          <div class="recover-link">
+            <a class="link-button" href="/recover">Забыли пароль?</a>
+          </div>
+        {/if}
+
         {#if mode === 'signup'}
           <Field
             label="Пароль ещё раз"
@@ -228,6 +234,7 @@
             inputmode="email"
             placeholder="Необязательно"
             error={errors.email}
+            hint="Необязательно, но нужен для восстановления пароля."
             disabled={submitting}
           />
 

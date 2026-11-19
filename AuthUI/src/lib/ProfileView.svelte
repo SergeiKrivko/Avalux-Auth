@@ -208,6 +208,7 @@
               inputmode="email"
               placeholder="you@example.com"
               error={errors.email}
+              hint="Нужен для восстановления пароля."
               disabled={submitting}
             />
 

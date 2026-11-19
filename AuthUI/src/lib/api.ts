@@ -130,22 +130,49 @@ export async function uploadAvatar(file: File, state: string): Promise<string> {
   return request<string>(`/avatar${withState(state)}`, {method: 'POST', body})
 }
 
-export function friendlyError(
-  error: unknown,
-  context: 'signin' | 'signup' | 'profile' | 'state',
-): string {
+export type ErrorContext = 'signin' | 'signup' | 'profile' | 'state' | 'recover' | 'reset'
+
+// R-01: the recovery endpoints never say whether an account exists, so the
+// request form always reports the same neutral outcome.
+export function requestPasswordReset(loginOrEmail: string) {
+  return request<void>(`/password/recover`, {
+    method: 'POST',
+    body: JSON.stringify({loginOrEmail}),
+  })
+}
+
+export function completePasswordReset(token: string, password: string) {
+  return request<void>(`/password/recover/complete`, {
+    method: 'POST',
+    body: JSON.stringify({token, password}),
+  })
+}
+
+export function friendlyError(error: unknown, context: ErrorContext): string {
   if (error instanceof ApiError) {
     if (error.status === 0) {
       return 'Нет связи с сервером. Проверьте подключение и попробуйте ещё раз.'
+    }
+    if (error.status === 400) {
+      if (context === 'reset') {
+        return 'Ссылка недействительна или устарела. Запросите восстановление заново.'
+      }
+      if (context === 'recover') return 'Проверьте логин или email.'
     }
     if (error.status === 401) {
       if (context === 'signin') return 'Неверный логин или пароль.'
       return 'Ссылка недействительна или устарела. Вернитесь в приложение и начните вход заново.'
     }
+    if (error.status === 409) return 'Аккаунт с таким логином уже существует.'
+    if (error.status === 422) {
+      return 'Пароль не соответствует требованиям: минимум 8 символов и не более 72 байт.'
+    }
     if (error.status === 429) {
       return 'Слишком много попыток. Подождите немного и попробуйте ещё раз.'
     }
-    if (error.status === 409) return 'Аккаунт с таким логином уже существует.'
+    if (error.status === 503) {
+      return 'Восстановление пароля временно недоступно. Попробуйте позже или обратитесь к администратору.'
+    }
     if (error.status >= 500) {
       if (/old password/i.test(error.message)) return 'Неверный старый пароль.'
       return 'Сервер не смог обработать запрос. Попробуйте ещё раз.'
