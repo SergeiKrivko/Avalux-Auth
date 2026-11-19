@@ -19,6 +19,6 @@ public interface IPasswordService
     public Task<bool> UpdateInfoAsync(Guid id, Guid userId, Guid applicationId, PasswordUserInfo info,
         CancellationToken ct = default);
 
-    public Task<bool> ChangePasswordAsync(PasswordUser user, string oldPassword, string newPassword,
+    public Task<bool> ChangePasswordAsync(Guid userId, PasswordUser user, string oldPassword, string newPassword,
         CancellationToken ct = default);
 }

@@ -19,6 +19,7 @@ public class PasswordController(
     IStateRepository stateRepository,
     IAuthCodeRepository codeRepository,
     IApplicationRepository applicationRepository,
+    IUserRepository userRepository,
     IPasswordService passwordService,
     ILoginThrottle loginThrottle,
     ILogger<PasswordController> logger) : ControllerBase
@@ -72,7 +73,7 @@ public class PasswordController(
                     ct);
             await loginThrottle.ResetAsync(Config.PasswordSignUpScope, clientIp, schema.Login, ct);
 
-            return Ok(await CreateResponseSchemaAsync(stateData, userId));
+            return Ok(await CreateResponseSchemaAsync(stateData, userId, ct));
         }
         catch (Exception e)
         {
@@ -117,7 +118,7 @@ public class PasswordController(
                 await passwordService.GetOrCreateAccountAsync(stateData.ApplicationId, stateData.LinkUserId, password,
                     ct);
 
-            return Ok(await CreateResponseSchemaAsync(stateData, userId));
+            return Ok(await CreateResponseSchemaAsync(stateData, userId, ct));
         }
         catch (Exception e)
         {
@@ -170,7 +171,8 @@ public class PasswordController(
                 if (policyError != null)
                     return BadRequest(policyError);
 
-                await passwordService.ChangePasswordAsync(user, schema.OldPassword, schema.NewPassword, ct);
+                await passwordService.ChangePasswordAsync(stateData.LinkUserId.Value, user, schema.OldPassword,
+                    schema.NewPassword, ct);
             }
 
             var res = await passwordService.UpdateInfoAsync(user.Id, stateData.LinkUserId.Value,
@@ -179,7 +181,7 @@ public class PasswordController(
             if (!res)
                 return NotFound("Profile not found");
 
-            return Ok(await CreateResponseSchemaAsync(stateData, stateData.LinkUserId.Value));
+            return Ok(await CreateResponseSchemaAsync(stateData, stateData.LinkUserId.Value, ct));
         }
         catch (Exception e)
         {
@@ -232,11 +234,15 @@ public class PasswordController(
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)))[..16];
     }
 
-    private async Task<PasswordAuthResponseSchema> CreateResponseSchemaAsync(AuthorizationState stateData, Guid userId)
+    private async Task<PasswordAuthResponseSchema> CreateResponseSchemaAsync(AuthorizationState stateData, Guid userId,
+        CancellationToken ct)
     {
         await stateRepository.DeleteStateAsync(stateData.State);
 
         var code = RandomNumberGenerator.GetRandomString();
+        // M-03: read the generation after any revocation this flow performed, so the
+        // code (and the tokens it yields) belongs to the re-issued session.
+        var sessionVersion = await userRepository.GetSessionVersionAsync(userId, ct) ?? 0;
         await codeRepository.SaveCodeAsync(new AuthCode
         {
             Code = code,
@@ -247,6 +253,7 @@ public class PasswordController(
             RedirectUri = stateData.RedirectUrl,
             CodeChallenge = stateData.CodeChallenge,
             CodeChallengeMethod = stateData.CodeChallengeMethod,
+            SessionVersion = sessionVersion,
         });
 
         var builder = new UrlBuilder(stateData.RedirectUrl)

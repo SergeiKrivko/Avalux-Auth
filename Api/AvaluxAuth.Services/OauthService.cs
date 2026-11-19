@@ -4,6 +4,7 @@ using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
 using AvaluxAuth.Utils;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace AvaluxAuth.Services;
 
@@ -17,7 +18,8 @@ public class OauthService(
     IUserRepository userRepository,
     ISecretProtector secretProtector,
     IConfiguration configuration,
-    IImageService imageService) : IOauthService
+    IImageService imageService,
+    ILogger<OauthService> logger) : IOauthService
 {
     public async Task<string> CreateLinkCode(Guid userId, CancellationToken ct = default)
     {
@@ -120,6 +122,16 @@ public class OauthService(
             await accountRepository.CreateAccountAsync(userId, providerSettings.Id, info,
                 providerSettings.Parameters.SaveTokens ? ProtectCredentials(credentials) : null,
                 ct);
+
+            // M-03: a newly linked credential revokes the user's existing sessions.
+            // The link flow mints new tokens for the user right afterwards.
+            if (state.LinkUserId.HasValue)
+            {
+                var revoked = await userRepository.RevokeSessionsAsync(userId, ct);
+                logger.LogWarning(
+                    "All sessions revoked after linking an account: userId={UserId}, provider={Provider}, revoked={Revoked}",
+                    userId, providerSettings.ProviderId, revoked);
+            }
         }
         else
         {

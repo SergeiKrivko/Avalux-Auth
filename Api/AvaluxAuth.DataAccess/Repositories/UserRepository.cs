@@ -133,6 +133,41 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
         });
     }
 
+    public async Task<int?> GetSessionVersionAsync(Guid userId, CancellationToken ct = default)
+    {
+        // A deleted user is reported as having no session at all, so their access
+        // tokens are rejected on the next request instead of living out the hour.
+        return await dbContext.Users
+            .Where(x => x.Id == userId && x.DeletedAt == null)
+            .Select(x => (int?)x.SessionVersion)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<bool> RevokeSessionsAsync(Guid userId, CancellationToken ct = default)
+    {
+        // Access tokens are stateless: the version bump is what invalidates them.
+        // Refresh tokens are rows, so they are deleted. Both statements run in one
+        // transaction: a crash between them must not leave a refresh token that can
+        // mint a token with the new version (M-03).
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(ct);
+
+        var bumped = await dbContext.Users
+            .Where(x => x.Id == userId && x.DeletedAt == null)
+            .ExecuteUpdateAsync(x => x.SetProperty(e => e.SessionVersion, e => e.SessionVersion + 1), ct);
+        if (bumped == 0)
+        {
+            await transaction.RollbackAsync(ct);
+            return false;
+        }
+
+        await dbContext.RefreshTokens
+            .Where(e => e.UserId == userId)
+            .ExecuteDeleteAsync(ct);
+
+        await transaction.CommitAsync(ct);
+        return true;
+    }
+
     private static User FromEntity(UserEntity entity)
     {
         return new User
@@ -197,6 +232,7 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
                     Plan = e.Plan.Key,
                     ExpiresAt = e.ExpiresAt,
                 }).ToArray(),
+            SessionVersion = entity.SessionVersion,
         };
     }
 

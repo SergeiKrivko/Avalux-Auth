@@ -18,4 +18,18 @@ public interface IUserRepository
     public Task<IEnumerable<UserWithAccounts>> SearchUsersAsync(Guid applicationId, string? username, string? login,
         string? email, Guid? providerId, int page, int? limit,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Session generation of a live user, or <c>null</c> when the user does not
+    /// exist or was deleted (M-03).
+    /// </summary>
+    public Task<int?> GetSessionVersionAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Revokes every session of the user: bumps the session version (so already
+    /// issued access tokens stop validating) and deletes all refresh tokens.
+    /// Both changes are applied atomically. Returns <c>false</c> when the user
+    /// does not exist or was deleted.
+    /// </summary>
+    public Task<bool> RevokeSessionsAsync(Guid userId, CancellationToken ct = default);
 }

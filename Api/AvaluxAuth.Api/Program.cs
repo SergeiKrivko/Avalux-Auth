@@ -124,21 +124,64 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             // alone is not enough: a token revoked in the admin panel must stop
             // working immediately (H-04 in SECURITY-AUDIT.md). Fail closed: if the
             // revocation status cannot be checked, the token is rejected.
+            //
+            // User access tokens are stateless, but they carry the user's session
+            // version; a password change or a newly linked credential bumps it and
+            // every token issued before stops validating (M-03 in SECURITY-AUDIT.md).
             OnTokenValidated = async context =>
             {
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("AvaluxAuth.Api.TokenValidation");
+
                 var tokenIdClaim = context.Principal?.FindFirst("TokenId");
                 if (tokenIdClaim is null)
-                    return; // user access token: no DB-backed record (see M-03)
+                {
+                    var userIdClaim = context.Principal?.FindFirst("UserId");
+                    if (userIdClaim is null)
+                        return; // id_token or a token without a user binding
+
+                    if (!Guid.TryParse(userIdClaim.Value, out var userId))
+                    {
+                        context.Fail("User access token has an invalid UserId claim");
+                        return;
+                    }
+
+                    // Tokens issued before the claim existed are generation 0, which
+                    // is also the initial column default: the migration logs nobody out.
+                    var sessionVersion = int.TryParse(context.Principal?.FindFirst("SessionVersion")?.Value,
+                        NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedVersion)
+                        ? parsedVersion
+                        : 0;
+
+                    try
+                    {
+                        var userRepository = context.HttpContext.RequestServices
+                            .GetRequiredService<IUserRepository>();
+                        var currentVersion = await userRepository.GetSessionVersionAsync(userId,
+                            context.HttpContext.RequestAborted);
+                        if (currentVersion != sessionVersion)
+                        {
+                            logger.LogWarning(
+                                "Rejected access token with a stale session version: userId={UserId}, tokenVersion={TokenVersion}",
+                                userId, sessionVersion);
+                            context.Fail("Session has been revoked");
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        logger.LogError(e, "Session version check failed: userId={UserId}", userId);
+                        context.Fail("Session version check failed");
+                    }
+
+                    return;
+                }
 
                 if (!Guid.TryParse(tokenIdClaim.Value, out var tokenId))
                 {
                     context.Fail("Service account token has an invalid TokenId claim");
                     return;
                 }
-
-                var logger = context.HttpContext.RequestServices
-                    .GetRequiredService<ILoggerFactory>()
-                    .CreateLogger("AvaluxAuth.Api.ServiceAccountTokens");
 
                 try
                 {

@@ -1,6 +1,7 @@
 ﻿using AvaluxAuth.Abstractions;
 using AvaluxAuth.Models;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace AvaluxAuth.Services;
 
@@ -10,7 +11,8 @@ public class PasswordService(
     IProviderRepository providerRepository,
     IPasswordRepository passwordRepository,
     IConfiguration configuration,
-    IImageService imageService) : IPasswordService
+    IImageService imageService,
+    ILogger<PasswordService> logger) : IPasswordService
 {
     // Verified against for unknown logins, so a failed sign-in always pays the
     // BCrypt cost and its duration does not reveal whether the account exists
@@ -72,8 +74,18 @@ public class PasswordService(
             return account.UserId;
         }
 
+        // A supplied userId means the caller is linking this new password account to
+        // an existing user (link_code flow), not creating a user (M-03).
+        var linkedToExistingUser = userId.HasValue;
         userId ??= await userRepository.CreateUserAsync(applicationId, ct);
         await accountRepository.CreateAccountAsync(userId.Value, providerInfo.Id, userInfo, null, ct);
+
+        // M-03: linking a credential to an existing account revokes its sessions.
+        // The caller re-issues tokens for the new account right after this call, so
+        // the flow that performed the link keeps working with a fresh token.
+        if (linkedToExistingUser)
+            await RevokeSessionsAsync(userId.Value, "account-linked", ct);
+
         return userId.Value;
     }
 
@@ -117,7 +129,8 @@ public class PasswordService(
         return result;
     }
 
-    public async Task<bool> ChangePasswordAsync(PasswordUser user, string oldPassword, string newPassword, CancellationToken ct = default)
+    public async Task<bool> ChangePasswordAsync(Guid userId, PasswordUser user, string oldPassword, string newPassword,
+        CancellationToken ct = default)
     {
         var policyError = PasswordPolicy.Validate(newPassword);
         if (policyError != null)
@@ -126,7 +139,25 @@ public class PasswordService(
         if (string.IsNullOrEmpty(oldPassword) || !VerifyHash(oldPassword, user.PasswordHash))
             throw new Exception("Wrong old password");
         var hash = BCrypt.Net.BCrypt.HashPassword(newPassword);
-        return await passwordRepository.ChangePasswordAsync(user.Id, hash, ct);
+        var changed = await passwordRepository.ChangePasswordAsync(user.Id, hash, ct);
+        if (changed)
+            await RevokeSessionsAsync(userId, "password-changed", ct);
+        return changed;
+    }
+
+    /// <summary>
+    /// M-03: a credential change invalidates every session of the user — refresh
+    /// tokens are deleted and the session version is bumped, so access tokens
+    /// issued before the change are rejected by the API.
+    /// </summary>
+    private async Task RevokeSessionsAsync(Guid userId, string reason, CancellationToken ct)
+    {
+        var revoked = await userRepository.RevokeSessionsAsync(userId, ct);
+        if (revoked)
+            logger.LogWarning("All sessions revoked: userId={UserId}, reason={Reason}", userId, reason);
+        else
+            logger.LogWarning("Session revocation skipped for a missing user: userId={UserId}, reason={Reason}",
+                userId, reason);
     }
 
     private static bool VerifyHash(string password, string hash)

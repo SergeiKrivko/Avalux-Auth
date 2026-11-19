@@ -13,4 +13,12 @@ public class AuthCode
     public string? RedirectUri { get; init; }
     public string? CodeChallenge { get; init; }
     public string? CodeChallengeMethod { get; init; }
+
+    /// <summary>
+    /// Session generation of the user when the code was issued (M-03). A code
+    /// issued before a password change or a credential link cannot be exchanged
+    /// afterwards. Codes stored before this field existed deserialize as 0, which
+    /// is also the initial generation, so pending codes survive the upgrade.
+    /// </summary>
+    public int SessionVersion { get; init; }
 }

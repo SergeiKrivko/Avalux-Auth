@@ -1,4 +1,5 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+﻿using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using AvaluxAuth.Abstractions;
@@ -38,6 +39,10 @@ public class AuthorizationService(
             RedirectUri = redirectUri,
             CodeChallenge = codeChallenge,
             CodeChallengeMethod = codeChallengeMethod,
+            // M-03: a code cannot outlive the credential it was issued for. Codes minted
+            // during a linking flow are created after that flow's revocation, so they
+            // carry the new generation and still work.
+            SessionVersion = await userRepository.GetSessionVersionAsync(userId, ct) ?? 0,
         });
         return code;
     }
@@ -52,6 +57,15 @@ public class AuthorizationService(
         var user = await userRepository.GetUserWithSubscriptionsAsync(userId, ct);
         if (user == null)
             throw new Exception("User not found");
+
+        // M-03: the code was issued before the user's credentials changed, so it must
+        // not turn into a token that would carry the new session generation.
+        if (codeData.SessionVersion != user.SessionVersion)
+        {
+            logger.LogWarning("Authorization code was issued before the user's sessions were revoked");
+            return null;
+        }
+
         var application = await applicationRepository.GetApplicationByIdAsync(user.ApplicationId, ct);
         if (application == null)
             throw new Exception("Application not found");
@@ -147,7 +161,10 @@ public class AuthorizationService(
         List<Claim> claims =
         [
             new("UserId", user.Id.ToString()),
-            new("Subscriptions", string.Join(';', user.Subscriptions.Select(e => e.Plan)))
+            new("Subscriptions", string.Join(';', user.Subscriptions.Select(e => e.Plan))),
+            // M-03: the token is only valid while this is the user's current session
+            // version. Changing the password or linking a credential bumps it.
+            new("SessionVersion", user.SessionVersion.ToString(CultureInfo.InvariantCulture)),
         ];
         return await CreateJwt(application, claims, expiresAt, ct);
     }

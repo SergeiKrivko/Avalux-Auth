@@ -14,6 +14,7 @@ internal class UserConfiguration : IEntityTypeConfiguration<UserEntity>
         builder.Property(x => x.ApplicationId).IsRequired();
         builder.Property(x => x.CreatedAt).IsRequired();
         builder.Property(x => x.DeletedAt);
+        builder.Property(x => x.SessionVersion).IsRequired();
 
         builder.HasMany(x => x.Accounts)
             .WithOne(x => x.User)
