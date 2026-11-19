@@ -1,6 +1,7 @@
 # Mirror of the live Portainer stack `auth` (endpoint `local`, stack id 10),
-# updated 2026-11-19 with the H-07 fix. Secrets are not kept here: the
-# ${...} values live in the Portainer stack environment. See deploy/README.md.
+# updated 2026-11-19 with the H-07 fix and the R-02 e-mail confirmation routes.
+# Secrets are not kept here: the ${...} values live in the Portainer stack
+# environment. See deploy/README.md.
 
 x-logging:
   &default-logging
@@ -32,7 +33,7 @@ services:
       # left /api/v1/ADMIN/... reachable on the public host (VPN bypass).
       # Admin API is served only on auth-admin.reportchecker.ru (VPN-only,
       # see auth-admin-api below).
-      - "traefik.http.routers.auth.rule=Host(`auth.reportchecker.ru`) && !PathRegexp(`(?i)^/api/v1/admin`) && (PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/password`) || PathPrefix(`/api/v1/avatar`) || PathPrefix(`/api/v1/apps`) || PathPrefix(`/api/v1/service`) || PathPrefix(`/api/v1/.well-known`) || PathPrefix(`/static`) || PathPrefix(`/login`) || PathPrefix(`/profile`) || PathPrefix(`/recover`) || PathPrefix(`/auth`))"
+      - "traefik.http.routers.auth.rule=Host(`auth.reportchecker.ru`) && !PathRegexp(`(?i)^/api/v1/admin`) && (PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/password`) || PathPrefix(`/api/v1/avatar`) || PathPrefix(`/api/v1/apps`) || PathPrefix(`/api/v1/service`) || PathPrefix(`/api/v1/.well-known`) || PathPrefix(`/static`) || PathPrefix(`/login`) || PathPrefix(`/profile`) || PathPrefix(`/recover`) || PathPrefix(`/confirm`) || PathPrefix(`/auth`))"
       - traefik.http.routers.auth.priority=100
       - traefik.http.routers.auth.service=auth
       - traefik.http.routers.auth.tls.certresolver=le
@@ -74,6 +75,11 @@ services:
       Email__FromName: "${Email__FromName:-Avalux Auth}"
       PasswordRecovery__LinkBaseUrl: "${PasswordRecovery__LinkBaseUrl:-}"
       PasswordRecovery__TokenLifetimeMinutes: "${PasswordRecovery__TokenLifetimeMinutes:-30}"
+      # R-02: optional e-mail confirmation. The link base falls back to
+      # PasswordRecovery__LinkBaseUrl and then Api__ApiUrl; the lifetime is
+      # bounded to 15..10080 minutes (default 1440 = 24 hours).
+      EmailConfirmation__LinkBaseUrl: "${EmailConfirmation__LinkBaseUrl:-}"
+      EmailConfirmation__TokenLifetimeMinutes: "${EmailConfirmation__TokenLifetimeMinutes:-1440}"
       # The pinned build predates the explicit CA support, so it trusts the
       # bundle through SSL_CERT_FILE. Security__RedisCaCertificatePath is what
       # a :master build (with H-07 code) uses instead.

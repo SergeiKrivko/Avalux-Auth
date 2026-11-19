@@ -22,12 +22,14 @@
 | `S3__Buckets__Avatars` | бакет аватаров |
 | `S3__Buckets__Icons` | бакет иконок приложений (загружаются на странице `/app/:id/config`) |
 | `Security__RedisCaCertificatePath` | CA для явной проверки TLS Redis (используется сборкой `:master`) |
-| `Email__Mode` | `Disabled` (по умолчанию), `Smtp` — боевой, `Log` — только стенд: письма и ссылки сброса пишутся в лог |
+| `Email__Mode` | `Disabled` (по умолчанию), `Smtp` — боевой, `Log` — только стенд: письма целиком (одноразовые ссылки сброса и подтверждения) пишутся в лог |
 | `Email__Host`, `Email__Port`, `Email__Security` | SMTP-сервер, порт (587) и режим TLS: `StartTls`, `SslOnConnect`, `Auto`; из контейнера нужен egress |
 | `Email__User`, `Email__Password` | SMTP-аутентификация (для relay может быть пустой); пароль — только переменная стека |
 | `Email__FromAddress`, `Email__FromName` | отправитель писем о восстановлении пароля |
 | `PasswordRecovery__LinkBaseUrl` | база ссылки из письма; по умолчанию `Api__ApiUrl` |
 | `PasswordRecovery__TokenLifetimeMinutes` | срок жизни ссылки, по умолчанию 30 (5–120) |
+| `EmailConfirmation__LinkBaseUrl` | база ссылки подтверждения email; по умолчанию `PasswordRecovery__LinkBaseUrl`, затем `Api__ApiUrl` |
+| `EmailConfirmation__TokenLifetimeMinutes` | срок жизни ссылки подтверждения, по умолчанию 1440 (24 часа), допустимо 15–10080 |
 
 ## Сеть
 
@@ -138,7 +140,37 @@ database system» — скрипт переводит только прикла�
 
 Ограничения: email в аккаунте необязателен (`Passwords.Email`, не более 50
 символов); аккаунты без email и аккаунты, созданные только через внешний
-провайдер, восстановить нельзя — им доступен вход прежним способом.
+провайдер, восстановить нельзя — им доступен вход прежним способом. Адрес можно
+подтвердить письмом (R-02), но подтверждение необязательно и на восстановление
+не влияет.
+
+## Подтверждение email (R-02)
+
+Регистрация с email ставит в очередь письмо со ссылкой
+`/confirm#token=...`; страница предлагает перейти по ней (и тогда вход
+завершается автоматически, без повторного пароля) или сразу продолжить в
+приложение. Подтверждение необязательно: без SMTP, без адреса или при
+пропуске страницы вход работает как раньше, а `Passwords.EmailConfirmedAt`
+просто остаётся `NULL`.
+
+Что нужно для включения на живом контуре:
+
+1. `Email__Mode=Smtp` и остальные `Email__*` — та же почта, что использует
+   восстановление пароля (R-01). Без рабочего отправителя страница
+   подтверждения не показывается.
+2. В allowlist публичного роутера `auth` добавить `PathPrefix(/confirm)`:
+   новый публичный префикс при fail-closed allowlist иначе отдаёт 404.
+   В `deploy/auth-stack.yml` правило и переменные уже обновлены.
+3. Образ должен содержать миграцию `EmailConfirmation` (колонка
+   `Passwords.EmailConfirmedAt`): она применяется при старте автоматически.
+   `EmailConfirmation__LinkBaseUrl` можно не задавать; срок жизни ссылки —
+   `EmailConfirmation__TokenLifetimeMinutes` (по умолчанию 24 часа).
+
+Токен одноразовый, в Redis лежит только SHA-256, живёт 24 часа и передаётся во
+фрагменте; `POST /api/v1/password/confirm` ограничен 20 попытками на IP за
+10 минут. Ссылка после смены адреса в профиле подтверждает только новый ящик
+(без входа). Подробности и остаточные риски (login CSRF, PKCE при переходе на
+другом устройстве) — в `SECURITY-AUDIT.md`, раздел 12.
 
 ## Иконки приложений
 
@@ -165,6 +197,7 @@ database system» — скрипт переводит только прикла�
 # снаружи: формы и OIDC
 curl -s -o /dev/null -w '%{http_code}\n' https://auth.reportchecker.ru/login
 curl -s -o /dev/null -w '%{http_code}\n' https://auth.reportchecker.ru/recover
+curl -s -o /dev/null -w '%{http_code}\n' https://auth.reportchecker.ru/confirm
 curl -s -o /dev/null -w '%{http_code}\n' https://auth.reportchecker.ru/api/v1/.well-known/jwks.json
 
 # Redis: plaintext закрыт, TLS+AUTH работает
