@@ -6,6 +6,10 @@
 # dotenv files
 .env
 
+# DataProtection key ring created by a local run (L-09). It protects the signing
+# keys and provider tokens, so it must never be committed.
+**/keys/
+
 # User-specific files
 *.rsuser
 *.suo
