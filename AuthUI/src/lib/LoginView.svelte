@@ -28,6 +28,11 @@
   let formError = $state<string | null>(null)
   let submitting = $state(false)
 
+  // R-02: set when sign-up queued a confirmation letter. The page then offers
+  // the same redirect the API returned as a skip action.
+  let sentEmail = $state<string | null>(null)
+  let pendingRedirect = $state<string | null>(null)
+
   const pageTitle = $derived(
     `${mode === 'signin' ? 'Вход' : 'Регистрация'} — ${clientName ?? 'Avalux Auth'}`,
   )
@@ -110,12 +115,24 @@
         return
       }
 
+      // Confirmation is optional: when a letter was queued, show the "check your
+      // e-mail" page and keep the redirect for the skip action.
+      if (mode === 'signup' && response.emailConfirmation) {
+        sentEmail = response.emailConfirmation.email
+        pendingRedirect = response.redirectUrl
+        return
+      }
+
       redirectTo(response.redirectUrl)
     } catch (error) {
       formError = friendlyError(error, mode === 'signin' ? 'signin' : 'signup')
     } finally {
       submitting = false
     }
+  }
+
+  function continueWithoutConfirmation() {
+    if (pendingRedirect) redirectTo(pendingRedirect)
   }
 </script>
 
@@ -154,6 +171,28 @@
         </div>
       {/if}
 
+      {#if sentEmail}
+        <div class="heading">
+          <h1 id="auth-title">Проверьте почту</h1>
+          <p>
+            Мы отправили письмо на <strong>{sentEmail}</strong>. Перейдите по ссылке из него — вы
+            сразу вернётесь в приложение, входить заново не нужно.
+          </p>
+        </div>
+
+        <div class="alert alert--success" role="status">
+          Подтверждение необязательно. Если письмо не пришло сразу, проверьте папку «Спам» или
+          продолжите без него.
+        </div>
+
+        <button class="button" type="button" onclick={continueWithoutConfirmation}>
+          Продолжить в приложение
+        </button>
+
+        <p class="fineprint">
+          Ссылка из письма действует ограниченное время и срабатывает один раз.
+        </p>
+      {:else}
       <div class="tabs" role="tablist" aria-label="Режим авторизации">
         <button
           type="button"
@@ -271,6 +310,7 @@
       </form>
 
       <p class="fineprint">Avalux Auth · безопасный вход без передачи пароля приложению</p>
+      {/if}
     {/if}
   </section>
 </main>

@@ -2,6 +2,7 @@
   import LoginView from './lib/LoginView.svelte'
   import ProfileView from './lib/ProfileView.svelte'
   import RecoverView from './lib/RecoverView.svelte'
+  import ConfirmView from './lib/ConfirmView.svelte'
   import {getView} from './lib/routing'
 
   const view = getView()
@@ -9,6 +10,8 @@
 
 {#if view === 'recover'}
   <RecoverView />
+{:else if view === 'confirm'}
+  <ConfirmView />
 {:else if view === 'profile'}
   <ProfileView />
 {:else}

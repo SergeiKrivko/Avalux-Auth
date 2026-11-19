@@ -9,7 +9,23 @@ export interface PasswordUserInfo {
   avatarId?: string | null
 }
 
+// R-02: the profile also reports whether the stored address was confirmed.
+export interface PasswordProfile extends PasswordUserInfo {
+  emailConfirmed: boolean
+}
+
+// R-02: set by the API only when a confirmation letter was queued after sign-up.
+export interface EmailConfirmationInfo {
+  email: string
+  expiresAt: string
+}
+
 export interface AuthResponse {
+  redirectUrl?: string | null
+  emailConfirmation?: EmailConfirmationInfo | null
+}
+
+export interface EmailConfirmationResponse {
   redirectUrl?: string | null
 }
 
@@ -113,7 +129,7 @@ export function signUp(
 }
 
 export function getProfile(state: string) {
-  return request<PasswordUserInfo | null>(`/password/profile${withState(state)}`)
+  return request<PasswordProfile | null>(`/password/profile${withState(state)}`)
 }
 
 export function updateProfile(state: string, payload: UpdateProfilePayload) {
@@ -131,7 +147,7 @@ export async function uploadAvatar(file: File, state: string): Promise<string> {
   return request<string>(`/avatar${withState(state)}`, {method: 'POST', body})
 }
 
-export type ErrorContext = 'signin' | 'signup' | 'profile' | 'state' | 'recover' | 'reset'
+export type ErrorContext = 'signin' | 'signup' | 'profile' | 'state' | 'recover' | 'reset' | 'confirm'
 
 // R-01: the recovery endpoints never say whether an account exists, so the
 // request form always reports the same neutral outcome.
@@ -149,6 +165,15 @@ export function completePasswordReset(token: string, password: string) {
   })
 }
 
+// R-02: redeems the single-use link from the confirmation letter. The answer
+// carries a redirect URL when the link also finishes the interrupted sign-in.
+export function confirmEmail(token: string) {
+  return request<EmailConfirmationResponse>(`/password/confirm`, {
+    method: 'POST',
+    body: JSON.stringify({token}),
+  })
+}
+
 export function friendlyError(error: unknown, context: ErrorContext): string {
   if (error instanceof ApiError) {
     if (error.status === 0) {
@@ -157,6 +182,9 @@ export function friendlyError(error: unknown, context: ErrorContext): string {
     if (error.status === 400) {
       if (context === 'reset') {
         return 'Ссылка недействительна или устарела. Запросите восстановление заново.'
+      }
+      if (context === 'confirm') {
+        return 'Ссылка недействительна или устарела. Подтверждение необязательно: вернитесь в приложение и войдите как обычно.'
       }
       if (context === 'recover') return 'Проверьте логин или email.'
     }
@@ -173,6 +201,9 @@ export function friendlyError(error: unknown, context: ErrorContext): string {
     }
     if (error.status === 503) {
       return 'Восстановление пароля временно недоступно. Попробуйте позже или обратитесь к администратору.'
+    }
+    if (error.status === 500 && context === 'confirm') {
+      return 'Не удалось подтвердить email. Вернитесь в приложение и войдите как обычно.'
     }
     if (error.status >= 500) {
       if (/old password/i.test(error.message)) return 'Неверный старый пароль.'

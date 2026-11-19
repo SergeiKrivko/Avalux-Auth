@@ -2,7 +2,7 @@
   import {onMount} from 'svelte'
   import Field from './Field.svelte'
   import {ApiError, completePasswordReset, friendlyError, requestPasswordReset} from './api'
-  import {clearResetHash, getResetToken} from './routing'
+  import {clearFragmentToken, getFragmentToken} from './routing'
   import {validateNewPassword, type FieldErrors} from './validation'
 
   type Mode = 'request' | 'reset' | 'invalid' | 'done'
@@ -22,10 +22,10 @@
   // R-01: the token is read from the URL fragment, then the address bar is
   // cleaned so the one-time secret is not kept in history or copied by accident.
   onMount(() => {
-    const value = getResetToken()
+    const value = getFragmentToken()
     if (!value) return
 
-    clearResetHash()
+    clearFragmentToken()
     if (!/^[0-9a-f]{64}$/.test(value)) {
       mode = 'invalid'
       return

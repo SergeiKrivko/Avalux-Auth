@@ -15,6 +15,10 @@
 
   let username = $state('')
   let email = $state('')
+  // R-02: the confirmation state belongs to the address that was loaded; once
+  // the field is edited the hint describes the new, still unconfirmed value.
+  let loadedEmail = $state('')
+  let emailConfirmed = $state(false)
   let avatarId = $state<string | null>(null)
   let avatarUploading = $state(false)
 
@@ -51,6 +55,8 @@
       clientIconUrl = info?.iconUrl?.trim() || null
       username = profile.name ?? ''
       email = profile.email ?? ''
+      loadedEmail = email
+      emailConfirmed = profile.emailConfirmed === true
       avatarId = profile.avatarId ?? null
     } catch (error) {
       fatal = friendlyError(error, 'state')
@@ -58,6 +64,14 @@
       loading = false
     }
   }
+
+  const emailHint = $derived(
+    !email.trim()
+      ? 'Нужен для восстановления пароля.'
+      : emailConfirmed && email.trim().toLowerCase() === loadedEmail.trim().toLowerCase()
+        ? 'Адрес подтверждён.'
+        : 'Адрес не подтверждён. Проверьте почту или укажите новый адрес — мы отправим письмо.',
+  )
 
   function validatePasswordChange(): boolean {
     const next: FieldErrors = {}
@@ -216,7 +230,7 @@
               inputmode="email"
               placeholder="you@example.com"
               error={errors.email}
-              hint="Нужен для восстановления пароля."
+              hint={emailHint}
               disabled={submitting}
             />
 

@@ -1,4 +1,4 @@
-export type View = 'login' | 'profile' | 'recover'
+export type View = 'login' | 'profile' | 'recover' | 'confirm'
 
 /**
  * Returns the relative path inside the application (without the base path).
@@ -13,6 +13,7 @@ export function relativePath(): string {
 export function getView(): View {
   const path = relativePath()
   if (path.startsWith('recover')) return 'recover'
+  if (path.startsWith('confirm')) return 'confirm'
   return path.startsWith('profile') ? 'profile' : 'login'
 }
 
@@ -21,16 +22,17 @@ export function getState(): string {
 }
 
 /**
- * The one-time password reset token is delivered in the URL fragment. A
- * fragment never reaches the server (access logs, Referer) and is removed from
- * the address bar by `clearResetHash` as soon as the page has read it.
+ * One-time secrets (a password reset token, an e-mail confirmation token) are
+ * delivered in the URL fragment. A fragment never reaches the server (access
+ * logs, Referer) and is removed from the address bar by `clearFragmentToken` as
+ * soon as the page has read it.
  */
-export function getResetToken(): string {
+export function getFragmentToken(): string {
   const raw = window.location.hash.replace(/^#/, '')
   return new URLSearchParams(raw).get('token')?.trim() ?? ''
 }
 
-export function clearResetHash(): void {
+export function clearFragmentToken(): void {
   if (!window.location.hash) return
   window.history.replaceState(null, '', window.location.pathname + window.location.search)
 }
