@@ -1,9 +1,9 @@
 # Аудит безопасности AvaluxAuth
 
-- **Дата:** 2026-11-18 (Europe/Moscow); исправления H-07 и M-01 — 2026-11-19.
-- **Ревизия:** `ab6731d` (`master`) — аудит; `9c6575c` — код H-07 (валидация TLS Redis по приватному CA); `4a09914` — код H-06 (rate limiting/lockout, сжигание state, политика пароля); `f6651e7` — код M-01 (state/квоты/rate limit для загрузки аватаров, очистка сирот). На живом контуре — образ `c4c9617` (см. H-07, раздел «Порядок деплоя»).
+- **Дата:** 2026-11-18 (Europe/Moscow); исправления H-07 и M-01 — 2026-11-19; M-02 — 2026-11-19.
+- **Ревизия:** `ab6731d` (`master`) — аудит; `9c6575c` — код H-07 (валидация TLS Redis по приватному CA); `4a09914` — код H-06 (rate limiting/lockout, сжигание state, политика пароля); `f6651e7` — код M-01 (state/квоты/rate limit для загрузки аватаров, очистка сирот); `6dfe8c0` — код M-02 (учёт `StartsAt` в claim `Subscriptions` и в админ-проекции). На живом контуре — образ `c4c9617` (см. H-07, раздел «Порядок деплоя»).
 - **Область:** `Api/*` (API, сервисы, провайдеры, DataAccess, S3), `AuthUI`, `UI`, Docker/CI, клиентские библиотеки, живой контур в Portainer (стек `auth`).
-- **Статус:** H-01 и H-07 исправлены; H-02, H-04, H-05, H-06 и M-01 исправлены в коде, но ещё не задеплоены на живой контур; H-03 открыт (пакеты и загрузка закрыты, остаётся ограничение декодирования).
+- **Статус:** H-01 и H-07 исправлены; H-02, H-04, H-05, H-06, M-01 и M-02 исправлены в коде, но ещё не задеплоены на живой контур; H-03 открыт (пакеты и загрузка закрыты, остаётся ограничение декодирования).
 - **Методика:** статический разбор кода и миграций, `dotnet list package --vulnerable --include-transitive`, `npm audit`, сверка с OSV/NuGet, безопасные проверки живого контура (GET/негативные POST без побочных эффектов, один инертный XSS-payload).
 - **Ограничения:** не выполнялись брутфорс, разрушительные действия, массовое сканирование и выгрузка секретов; полноценный пентест бизнес-логики не проводился.
 
@@ -35,7 +35,7 @@
 | H-06 | High | Нет rate limiting/lockout, переиспользование state, перечисление логинов | **Исправлено в коде** |
 | H-07 | High | Redis без auth и Postgres на общей сети `proxy` | **Исправлено** |
 | M-01 | Medium | Анонимная запись в S3 без квот и очистки | **Исправлено в коде** |
-| M-02 | Medium | Будущие подписки выдаются сразу (`StartsAt` не учитывается) | Открыто |
+| M-02 | Medium | Будущие подписки выдаются сразу (`StartsAt` не учитывается) | **Исправлено в коде** |
 | M-03 | Medium | Смена пароля не инвалидирует сессии; refresh-токены бессрочные | Открыто |
 | M-04 | Medium | Ротация signing key не инвалидирует старые ключи/JWKS | Открыто |
 | M-05 | Medium | Секреты и PII в логах (`Console.WriteLine`) | Открыто |
@@ -375,9 +375,42 @@ Cache-Control: no-store
 - Удаляются только объекты; `Accounts.AvatarUrl`/`Passwords.AvatarId`, указывающие на уже удалённый объект, не чинятся (скачивание отвечает 500 — это M-08/L-11).
 - Декодерные лимиты ImageSharp (пиксели/TIFF-бомбы) не добавлены — остаток H-03.
 
-### M-02. Будущие подписки выдаются сразу
+### M-02. Будущие подписки выдаются сразу — ИСПРАВЛЕНО В КОДЕ
 
-[UserRepository.cs:170](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L170) и [:192](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L192) фильтруют только `ExpiresAt > UtcNow`, но не `StartsAt <= UtcNow`. Подписка, запланированная на будущее, уже попадает в claim `Subscriptions` JWT. Добавить проверку `StartsAt`.
+**Где:** проекции подписок [UserRepository.cs:171](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L171) (`UserWithAccounts`) и [:194](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L194) (`UserWithSubscriptions`); потребитель claim — [AuthorizationService.cs:150](Api/AvaluxAuth.Services/AuthorizationService.cs#L150).
+
+**Причина.** Обе проекции фильтровали только `ExpiresAt > DateTime.UtcNow`, а `StartsAt` использовался лишь при выводе поля (`StartsAt = e.StartsAt ?? e.CreatedAt`). Поэтому подписка, оформленная с будущим `StartsAt` (предоплаченное продление, заранее согласованный апгрейд), сразу попадала в claim `Subscriptions` access-токена — то есть план выдавался до начала оплаченного периода. Тот же фильтр без `StartsAt` отдавал её и в админ-API (`GET …/users/{id}`, список пользователей).
+
+**Влияние.** Пользователь получал entitlements будущего плана досрочно: «продление со следующего месяца» работало как немедленный апгрейд, а весь период до `StartsAt` не оплачен. Эксплуатация требует создать подписку с будущим `StartsAt` через админ-API `POST /api/v1/admin/apps/{applicationId}/users/{userId}/subscriptions` ([UsersController.cs:71](Api/AvaluxAuth.Api/Controllers/UsersController.cs#L71)); текущий админ-UI поле `StartsAt` не передаёт (`giveSubscription` отправляет только `expiresAt`, и сам метод нигде не вызывается), поэтому на практике это сценарий интеграций и ручных API-вызовов.
+
+**Что сделано (2026-11-19, коммит `6dfe8c0`).**
+
+- Обе проекции переведены на общий предикат [IsActiveAt](Api/AvaluxAuth.DataAccess/Repositories/UserRepository.cs#L210): `(StartsAt ?? CreatedAt) <= now && ExpiresAt > now` — интервал активности полуоткрытый `[StartsAt, ExpiresAt)`, граница `StartsAt == now` включена.
+- `StartsAt = null` (строки до миграции `20260317070709_UserSubscription.StartsAt`) трактуется как `CreatedAt` — ровно то значение, которое проекция уже отдавала наружу как `StartsAt`, поэтому поведение для старых строк не изменилось.
+- `now` вычисляется один раз на проекцию, чтобы все подписки одного ответа оценивались в один момент времени.
+- Покрыты обе точки: claim `Subscriptions` (`GetUserWithSubscriptionsAsync` → `AuthorizationService.CreateAccessToken`, а значит и `/auth/token`, и `/auth/refresh`) и ответы админ-API (`GetUserWithAccountsAsync`, `GetUsersAsync`).
+
+**Проверка (2026-11-19).** Временный harness вне репозитория: реальная EF-схема (миграции проекта) на Postgres 17 из dev-контура, отдельная БД `m02_check`, вызовы настоящего `UserRepository`. Один пользователь, 7 подписок разных состояний.
+
+| Подписка | До фикса | После фикса |
+|---|---|---|
+| активная (`StartsAt` −1 дн, `ExpiresAt` +10 дн) | в claim | в claim |
+| будущая (`StartsAt` +10 дн) | **в claim** | не в claim |
+| `StartsAt` null, `CreatedAt` +5 дн | **в claim** | не в claim |
+| `StartsAt` ровно сейчас (граница) | в claim | в claim (включительно) |
+| legacy: `StartsAt` null, `CreatedAt` −10 дн | в claim, `StartsAt` = `CreatedAt` | так же |
+| истёкшая (`ExpiresAt` −10 дн) / вывернутая (`StartsAt` > `ExpiresAt`) | нет | нет |
+| claim `Subscriptions` | `legacy-future;future;boundary;active;legacy` (5) | `active;boundary;legacy` (3) |
+| админ-проекция `GetUserWithAccountsAsync` / `GetUsersAsync` | 5 подписок | 3 |
+
+`dotnet build AvaluxAuth.slnx` — 0 ошибок (2 прежних предупреждения CS8774 в `UserClient`, к изменению не относятся).
+
+**Остаточный риск.**
+
+- Claim — снимок на момент выпуска токена: подписка, начинающаяся внутри жизни access-токена (1 ч), появится в claim только в следующем access/refresh-токене. Это fail-closed — досрочного доступа не даёт, задержка ограничена часом.
+- Админ-API больше не показывает ещё не начавшиеся подписки: в `GET …/users/{id}` и в списке их нет, пока не наступит `StartsAt`. В БД записи сохраняются (`SELECT * FROM "UserSubscriptions" WHERE "StartsAt" > now()`), а админ-UI подписки пользователя сейчас не рендерит — видимой регрессии в интерфейсе нет. Если понадобится показывать запланированные подписки администратору, нужен отдельный DTO/флаг активности, а не общий фильтр.
+- `StartsAt >= ExpiresAt` при создании подписки не валидируется ([AddSubscriptionRequestSchema](Api/AvaluxAuth.Api/Schemas/AddSubscriptionRequestSchema.cs)): такая подписка просто никогда не активна — это вопрос поддержки/UX, а не безопасности.
+- Отзыв доступа раньше `ExpiresAt` (сокращение срока подписки) по-прежнему ждёт истечения уже выданного access-токена (до 1 ч) — это жизненный цикл сессий (M-03), не M-02.
 
 ### M-03. Смена пароля не инвалидирует сессии; refresh-токены бессрочные
 
@@ -501,7 +534,7 @@ Cache-Control: no-store
 6. ~~Определиться с client authentication: secret для конфиденциального клиента, привязка code/refresh к клиенту, PKCE (H-05).~~ **Сделано в коде (H-05), ждёт деплоя и обновления десктоп-клиентов.**
 7. ~~Вынести Redis/Postgres в internal-сеть, включить auth/TLS для Redis (H-07).~~ **Сделано 2026-11-19** (TLS также для Postgres, least-privilege DB-роль).
 
-**P1 (неделя):** фильтр `StartsAt`; revoke сессий при смене пароля/absolute expiry; ротация ключей с окном; security-заголовки; убрать PII/секреты из логов; 401 вместо 500 на state; `700` на keys; почистить redirect URI; constant-time/fail-closed admin login; unique index на `Passwords.Login`.
+**P1 (неделя):** ~~фильтр `StartsAt`~~ **сделано (M-02, `6dfe8c0`)**; revoke сессий при смене пароля/absolute expiry; ротация ключей с окном; security-заголовки; убрать PII/секреты из логов; 401 вместо 500 на state; `700` на keys; почистить redirect URI; constant-time/fail-closed admin login; unique index на `Passwords.Login`.
 
 **P2:** Angular 21.2.17+, Microsoft.OpenApi 2.7.5+, AWSSDK 4.0.3.3+; пагинация; CI/digest/scanning; `keys/` в ignore; аудит-лог; клиентские библиотеки; defense-in-depth для админки на уровне приложения.
 
