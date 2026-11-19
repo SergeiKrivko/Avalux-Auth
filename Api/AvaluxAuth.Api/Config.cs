@@ -15,6 +15,11 @@ public static class Config
     public const string AuthRateLimitPolicy = "AuthEndpoints";
     public const string AdminLoginRateLimitPolicy = "AdminLogin";
 
+    // M-01: anonymous avatar uploads. Uploads require a live authorization state
+    // and are additionally capped per state and per client IP.
+    public const string AvatarUploadRateLimitPolicy = "AvatarUpload";
+    public const int MaxAvatarUploadsPerState = 5;
+
     // Scopes of the failed-login counters in Redis.
     public const string PasswordSignInScope = "password-signin";
     public const string PasswordSignUpScope = "password-signup";

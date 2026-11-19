@@ -20,4 +20,13 @@ public interface IAccountRepository
 
     public Task<bool> UpdateAccountInfoAsync(Guid accountId, UserInfo info, CancellationToken ct = default);
     public Task<bool> DeleteAccountAsync(Guid accountId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Avatar URLs of all accounts that contain <paramref name="avatarUrlMarker"/>
+    /// (e.g. <c>/api/v1/avatar/</c>). Provider avatars are external URLs and are
+    /// not stored in the file repository, so they are not returned. Used by the
+    /// avatar cleanup (M-01 in SECURITY-AUDIT.md).
+    /// </summary>
+    public Task<IReadOnlyList<string>> GetAvatarUrlsAsync(string avatarUrlMarker,
+        CancellationToken ct = default);
 }

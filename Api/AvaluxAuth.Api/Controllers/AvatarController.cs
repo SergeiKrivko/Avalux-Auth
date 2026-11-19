@@ -2,12 +2,18 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using SixLabors.ImageSharp;
 
 namespace AvaluxAuth.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/avatar")]
-public class AvatarController(IImageService imageService, IFileRepository fileRepository) : ControllerBase
+public class AvatarController(
+    IImageService imageService,
+    IFileRepository fileRepository,
+    IStateRepository stateRepository,
+    ILogger<AvatarController> logger) : ControllerBase
 {
     [HttpGet]
     [AllowAnonymous]
@@ -19,17 +25,50 @@ public class AvatarController(IImageService imageService, IFileRepository fileRe
         return File(stream, "image/png");
     }
 
+    /// <summary>
+    /// M-01 in SECURITY-AUDIT.md: uploads are not anonymous. A request must carry
+    /// the <c>state</c> of a live authorization flow (the auth UI uploads the
+    /// avatar during sign-up/profile editing), and each state may upload only
+    /// <see cref="Config.MaxAvatarUploadsPerState"/> times. Together with the
+    /// per-IP rate limit and the orphan cleanup this bounds the bucket as a free
+    /// image host. Files that are never attached to an account are removed by
+    /// <see cref="AvatarCleanupService"/>.
+    /// </summary>
     [HttpPost]
     [RequestSizeLimit(10 * 1024 * 1024)]
     [EnableCors(PolicyName = Config.AdminPolicy)]
-    public async Task<ActionResult<Guid>> UploadAvatar(IFormFile file, CancellationToken ct = default)
+    [EnableRateLimiting(Config.AvatarUploadRateLimitPolicy)]
+    public async Task<ActionResult<Guid>> UploadAvatar([FromQuery] string? state, IFormFile file,
+        CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(state) || await stateRepository.GetStateAsync(state) == null)
+            return Unauthorized();
+
+        // The attempt is counted before decoding, so a malformed image cannot be
+        // used to bypass the per-state quota.
+        if (!await stateRepository.TryRegisterUploadAsync(state, Config.MaxAvatarUploadsPerState))
+            return StatusCode(StatusCodes.Status429TooManyRequests,
+                "Too many avatar uploads for this session.");
+
+        if (file.Length == 0)
+            return BadRequest("Empty file");
+
         var id = Guid.NewGuid();
+        try
+        {
+            await using var notPngStream = file.OpenReadStream();
+            await using var pngStream = await imageService.ConvertToPng(notPngStream, ct);
+            await fileRepository.UploadFileAsync(FileRepositoryBucket.Avatars, id, "avatar.png", pngStream, ct);
+        }
+        catch (Exception e) when (e is UnknownImageFormatException or InvalidImageContentException)
+        {
+            // A non-image or a truncated image is a client error, not a 500.
+            logger.LogWarning("Rejected avatar upload: {Type}", e.GetType().Name);
+            return BadRequest("Unsupported image");
+        }
 
-        await using var notPngStream = file.OpenReadStream();
-        await using var pngStream = await imageService.ConvertToPng(notPngStream, ct);
-        await fileRepository.UploadFileAsync(FileRepositoryBucket.Avatars, id, "avatar.png", pngStream, ct);
-
+        logger.LogInformation("Avatar uploaded: avatarId={AvatarId}, ip={ClientIp}", id,
+            HttpContext.GetClientIpAddress());
         return Ok(id);
     }
 

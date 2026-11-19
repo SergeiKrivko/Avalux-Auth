@@ -1,15 +1,17 @@
 <script lang="ts">
-  import {uploadAvatar} from './api'
+  import {ApiError, uploadAvatar} from './api'
 
   let {
     value = $bindable<string | null>(null),
     uploading = $bindable(false),
     name = '',
+    stateParam = '',
     disabled = false,
   }: {
     value?: string | null
     uploading?: boolean
     name?: string
+    stateParam?: string
     disabled?: boolean
   } = $props()
 
@@ -34,12 +36,22 @@
       error = 'Изображение не должно быть больше 10 МБ.'
       return
     }
+    if (!stateParam) {
+      error = 'Ссылка недействительна. Вернитесь в приложение и начните вход заново.'
+      return
+    }
 
     uploading = true
     try {
-      value = await uploadAvatar(file)
-    } catch {
-      error = 'Не удалось загрузить изображение. Попробуйте ещё раз.'
+      value = await uploadAvatar(file, stateParam)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        error = 'Слишком много загрузок. Подождите немного и попробуйте ещё раз.'
+      } else if (err instanceof ApiError && err.status === 401) {
+        error = 'Ссылка недействительна или устарела. Вернитесь в приложение и начните вход заново.'
+      } else {
+        error = 'Не удалось загрузить изображение. Попробуйте ещё раз.'
+      }
     } finally {
       uploading = false
     }

@@ -237,6 +237,7 @@
               bind:value={avatarId}
               bind:uploading={avatarUploading}
               name={username || login}
+              stateParam={stateParam}
               disabled={submitting}
             />
           </div>

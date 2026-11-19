@@ -81,6 +81,16 @@ public class PasswordRepository(AvaluxAuthDbContext dbContext) : IPasswordReposi
         return count > 0;
     }
 
+    public async Task<IReadOnlyList<Guid>> GetAvatarIdsAsync(CancellationToken ct = default)
+    {
+        // Soft-deleted rows are included on purpose: restoring an account must
+        // not point at an avatar that has already been cleaned up.
+        return await dbContext.Passwords
+            .Where(p => p.AvatarId != null)
+            .Select(p => p.AvatarId!.Value)
+            .ToListAsync(ct);
+    }
+
     private static PasswordUser FromEntity(PasswordEntity entity)
     {
         return new PasswordUser

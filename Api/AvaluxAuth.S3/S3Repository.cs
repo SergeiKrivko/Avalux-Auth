@@ -191,22 +191,52 @@ public class S3Repository(ILogger<S3Repository> logger, IConfiguration configura
         return url;
     }
 
-    public async Task<int> ClearFilesCreatedBefore(FileRepositoryBucket bucket, DateTime beforeDate,
-        CancellationToken ct = default)
+    public async Task<int> ClearUnreferencedFilesAsync(FileRepositoryBucket bucket, DateTime createdBefore,
+        IReadOnlySet<Guid> keepFileIds, CancellationToken ct = default)
     {
         var count = 0;
         var bucketName = GetBucket(bucket);
-        var files = await RetryRequest(client => client.ListObjectsAsync(bucketName, ct), ct);
-        foreach (var file in files?.S3Objects ?? [])
+        string? continuationToken = null;
+        do
         {
-            if (file != null && file.LastModified < beforeDate)
+            var request = new ListObjectsV2Request
             {
+                BucketName = bucketName,
+                ContinuationToken = continuationToken,
+            };
+
+            var files = await RetryRequest(client => client.ListObjectsV2Async(request, ct), ct);
+            foreach (var file in files?.S3Objects ?? [])
+            {
+                if (file?.Key == null || file.LastModified is not { } lastModified || lastModified >= createdBefore)
+                    continue;
+
+                var fileId = ParseFileId(file.Key);
+                if (fileId != null && keepFileIds.Contains(fileId.Value))
+                    continue;
+
                 await DeleteFileAsync(bucketName, file.Key, ct);
                 count++;
             }
-        }
+
+            // A bucket can hold more objects than one listing returns; without
+            // following the continuation token the cleanup would stop at the
+            // first page and leave everything after it forever.
+            continuationToken = files?.IsTruncated == true ? files.NextContinuationToken : null;
+        } while (!string.IsNullOrEmpty(continuationToken));
 
         return count;
+    }
+
+    /// <summary>
+    /// Object keys are <c>{fileId}/{fileName}</c> (or the legacy flat
+    /// <c>{fileId}.{extension}</c>), so the id is the leading GUID.
+    /// </summary>
+    private static Guid? ParseFileId(string key)
+    {
+        var end = key.IndexOfAny(['/', '.']);
+        var idPart = end < 0 ? key : key[..end];
+        return Guid.TryParse(idPart, out var fileId) ? fileId : null;
     }
 
     private string AvatarsBucket { get; } = configuration["S3:Buckets:Avatars"] ?? "avatars";

@@ -36,6 +36,8 @@ builder.Services.AddScoped<ISigningKeyRepository, SigningKeyRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<IPasswordRepository, PasswordRepository>();
 builder.Services.AddSingleton<IFileRepository, S3Repository>();
+// M-01: drop avatar uploads that were never attached to an account.
+builder.Services.AddHostedService<AvatarCleanupService>();
 
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(builder.Configuration["Security:KeysPath"] ?? "./keys"));
@@ -210,6 +212,20 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = 10,
                 Window = TimeSpan.FromMinutes(5),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
+
+    // M-01: the avatar upload is reachable before sign-in, so it is capped per
+    // IP as well. The per-state quota counts successful states, this limits how
+    // many states one client can burn through.
+    options.AddPolicy(Config.AvatarUploadRateLimitPolicy, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.GetClientIpAddress(),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(10),
                 QueueLimit = 0,
                 AutoReplenishment = true,
             }));

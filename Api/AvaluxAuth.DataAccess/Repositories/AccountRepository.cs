@@ -110,6 +110,17 @@ public class AccountRepository(AvaluxAuthDbContext dbContext) : IAccountReposito
         return count > 0;
     }
 
+    public async Task<IReadOnlyList<string>> GetAvatarUrlsAsync(string avatarUrlMarker,
+        CancellationToken ct = default)
+    {
+        // Soft-deleted rows are included on purpose: restoring an account must
+        // not point at an avatar that has already been cleaned up.
+        return await dbContext.Accounts
+            .Where(a => a.AvatarUrl != null && a.AvatarUrl.Contains(avatarUrlMarker))
+            .Select(a => a.AvatarUrl!)
+            .ToListAsync(ct);
+    }
+
     private static Account FromEntity(AccountEntity entity)
     {
         return new Account

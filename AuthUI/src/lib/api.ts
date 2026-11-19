@@ -122,10 +122,12 @@ export function updateProfile(state: string, payload: UpdateProfilePayload) {
   })
 }
 
-export async function uploadAvatar(file: File): Promise<string> {
+// M-01: the upload is only accepted inside a live authorization flow, so the
+// state of the page is sent along with the image.
+export async function uploadAvatar(file: File, state: string): Promise<string> {
   const body = new FormData()
   body.append('file', file, file.name)
-  return request<string>('/avatar', {method: 'POST', body})
+  return request<string>(`/avatar${withState(state)}`, {method: 'POST', body})
 }
 
 export function friendlyError(

@@ -9,11 +9,15 @@ public class RedisStateRepository(IConnectionMultiplexer redis) : IStateReposito
 {
     private const string RedisKeyPrefix = "AuthorizationState-";
     private const string FailureKeySuffix = "-failed-attempts";
+    private const string UploadKeySuffix = "-avatar-uploads";
+
+    // Matches the TTL of the state itself: counters die with the state.
+    private static readonly TimeSpan StateTtl = TimeSpan.FromHours(1);
 
     public async Task SaveStateAsync(AuthorizationState state)
     {
         var db = redis.GetDatabase();
-        await db.StringSetAsync(RedisKeyPrefix + state.State, JsonSerializer.Serialize(state), TimeSpan.FromHours(1));
+        await db.StringSetAsync(RedisKeyPrefix + state.State, JsonSerializer.Serialize(state), StateTtl);
     }
 
     public async Task<AuthorizationState?> GetStateAsync(string state)
@@ -28,7 +32,7 @@ public class RedisStateRepository(IConnectionMultiplexer redis) : IStateReposito
     public async Task DeleteStateAsync(string state)
     {
         var db = redis.GetDatabase();
-        await db.KeyDeleteAsync([RedisKeyPrefix + state, FailureKey(state)]);
+        await db.KeyDeleteAsync([RedisKeyPrefix + state, FailureKey(state), UploadKey(state)]);
     }
 
     public async Task<AuthorizationState?> TakeStateAsync(string state)
@@ -37,7 +41,7 @@ public class RedisStateRepository(IConnectionMultiplexer redis) : IStateReposito
         var result = await db.StringGetAsync(RedisKeyPrefix + state);
         if (!result.HasValue)
             return null;
-        await db.KeyDeleteAsync([RedisKeyPrefix + state, FailureKey(state)]);
+        await db.KeyDeleteAsync([RedisKeyPrefix + state, FailureKey(state), UploadKey(state)]);
         return JsonSerializer.Deserialize<AuthorizationState>(result.ToString());
     }
 
@@ -46,9 +50,22 @@ public class RedisStateRepository(IConnectionMultiplexer redis) : IStateReposito
         var db = redis.GetDatabase();
         var key = FailureKey(state);
         var failures = await db.StringIncrementAsync(key);
-        await db.KeyExpireAsync(key, TimeSpan.FromHours(1), ExpireWhen.HasNoExpiry);
+        await db.KeyExpireAsync(key, StateTtl, ExpireWhen.HasNoExpiry);
         return failures;
     }
 
+    public async Task<bool> TryRegisterUploadAsync(string state, int limit)
+    {
+        var db = redis.GetDatabase();
+        var key = UploadKey(state);
+        var uploads = await db.StringIncrementAsync(key);
+        // HasNoExpiry also repairs a key left without a TTL (e.g. process died
+        // between INCR and EXPIRE).
+        await db.KeyExpireAsync(key, StateTtl, ExpireWhen.HasNoExpiry);
+        return uploads <= limit;
+    }
+
     private static string FailureKey(string state) => RedisKeyPrefix + state + FailureKeySuffix;
+
+    private static string UploadKey(string state) => RedisKeyPrefix + state + UploadKeySuffix;
 }

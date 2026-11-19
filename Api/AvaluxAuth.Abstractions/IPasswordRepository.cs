@@ -12,4 +12,11 @@ public interface IPasswordRepository
     public Task<bool> UpdateInfoAsync(Guid id, PasswordUserInfo info, CancellationToken ct = default);
     public Task<bool> ChangePasswordAsync(Guid id, string newPasswordHash, CancellationToken ct = default);
     public Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Every avatar id referenced by a password account, including soft-deleted
+    /// ones. Used by the avatar cleanup (M-01 in SECURITY-AUDIT.md) to tell
+    /// claimed uploads from orphans.
+    /// </summary>
+    public Task<IReadOnlyList<Guid>> GetAvatarIdsAsync(CancellationToken ct = default);
 }
