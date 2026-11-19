@@ -1,9 +1,9 @@
 # Аудит безопасности AvaluxAuth
 
-- **Дата:** 2026-11-18 (Europe/Moscow); исправления H-07 и M-01 — 2026-11-19; M-02 и M-03 — 2026-11-19.
-- **Ревизия:** `ab6731d` (`master`) — аудит; `9c6575c` — код H-07 (валидация TLS Redis по приватному CA); `4a09914` — код H-06 (rate limiting/lockout, сжигание state, политика пароля); `f6651e7` — код M-01 (state/квоты/rate limit для загрузки аватаров, очистка сирот); `6dfe8c0` — код M-02 (учёт `StartsAt` в claim `Subscriptions` и в админ-проекции); `5090e0b` — код M-03 (поколение сессии `Users.SessionVersion`, отзыв всех сессий при смене пароля/линковке, привязка кода авторизации к поколению). На живом контуре — образ `c4c9617` (см. H-07, раздел «Порядок деплоя»).
+- **Дата:** 2026-11-18 (Europe/Moscow); исправления H-07 и M-01 — 2026-11-19; M-02, M-03 и M-05 — 2026-11-19.
+- **Ревизия:** `ab6731d` (`master`) — аудит; `9c6575c` — код H-07 (валидация TLS Redis по приватному CA); `4a09914` — код H-06 (rate limiting/lockout, сжигание state, политика пароля); `f6651e7` — код M-01 (state/квоты/rate limit для загрузки аватаров, очистка сирот); `6dfe8c0` — код M-02 (учёт `StartsAt` в claim `Subscriptions` и в админ-проекции); `5090e0b` — код M-03 (поколение сессии `Users.SessionVersion`, отзыв всех сессий при смене пароля/линковке, привязка кода авторизации к поколению); `90a23db` — код M-05 (логирование через `ILogger` без секретов и PII, `LogSanitizer` для недоверенного текста). На живом контуре — образ `c4c9617` (см. H-07, раздел «Порядок деплоя»).
 - **Область:** `Api/*` (API, сервисы, провайдеры, DataAccess, S3), `AuthUI`, `UI`, Docker/CI, клиентские библиотеки, живой контур в Portainer (стек `auth`).
-- **Статус:** H-01 и H-07 исправлены; H-02, H-04, H-05, H-06, M-01, M-02 и M-03 исправлены в коде, но ещё не задеплоены на живой контур; H-03 открыт (пакеты и загрузка закрыты, остаётся ограничение декодирования).
+- **Статус:** H-01 и H-07 исправлены; H-02, H-04, H-05, H-06, M-01, M-02, M-03 и M-05 исправлены в коде, но ещё не задеплоены на живой контур; H-03 открыт (пакеты и загрузка закрыты, остаётся ограничение декодирования).
 - **Методика:** статический разбор кода и миграций, `dotnet list package --vulnerable --include-transitive`, `npm audit`, сверка с OSV/NuGet, безопасные проверки живого контура (GET/негативные POST без побочных эффектов, один инертный XSS-payload).
 - **Ограничения:** не выполнялись брутфорс, разрушительные действия, массовое сканирование и выгрузка секретов; полноценный пентест бизнес-логики не проводился.
 
@@ -38,7 +38,7 @@
 | M-02 | Medium | Будущие подписки выдаются сразу (`StartsAt` не учитывается) | **Исправлено в коде** |
 | M-03 | Medium | Смена пароля не инвалидирует сессии; refresh-токены бессрочные | **Исправлено в коде** |
 | M-04 | Medium | Ротация signing key не инвалидирует старые ключи/JWKS | Открыто |
-| M-05 | Medium | Секреты и PII в логах (`Console.WriteLine`) | Открыто |
+| M-05 | Medium | Секреты и PII в логах (`Console.WriteLine`) | **Исправлено в коде** |
 | M-06 | Medium | Нет security-заголовков (CSP/HSTS/frame/nosniff/referrer) | Открыто |
 | M-07 | Medium | DataProtection keys: каталог 777, ключи без шифрования at rest | Открыто |
 | M-08 | Medium | Вербозные 500 и необработанные исключения (state, color) | Открыто |
@@ -143,7 +143,7 @@ Cache-Control: no-store
 
 **Деплой.** Изменение закоммичено в `master` (`501a9da`), CI пересобрал `ghcr.io/sergeikrivko/avalux-auth:master`. На момент записи живой контур всё ещё работает на старом образе (`State not found` отражается, статус 200) — нужен re-pull + redeploy стека `auth` в Portainer (`pull_policy` не задан, обычный redeploy образ не обновит).
 
-**Остаточный риск.** Глобальных security-заголовков по-прежнему нет (M-06) — защищена только страница ошибки. Сырой `error_description` теперь попадает в логи, поэтому санитайзинг логов остаётся в рамках M-05.
+**Остаточный риск.** Глобальных security-заголовков по-прежнему нет (M-06) — защищена только страница ошибки. Сырой `error_description` попадает не в разметку, а в лог; **исправлено вместе с M-05 (`90a23db`)**: `error`/`error_description` и тело ответа провайдера проходят через `LogSanitizer`, поэтому перевод строки в payload не подделывает строку лога.
 
 ---
 
@@ -466,9 +466,42 @@ Cache-Control: no-store
 
 [SigningKeyRepository.cs](Api/AvaluxAuth.DataAccess/Repositories/SigningKeyRepository.cs): `AddAsync` деактивирует старый ключ, но `GetAllAsync`/JWKS отдают его вечно, `ExpiresAt` не проверяется. Утёкший старый приватный ключ остаётся валидным. Публиковать только ключи в окне overlap и удалять/истекать старые.
 
-### M-05. Секреты и PII в логах
+### M-05. Секреты и PII в логах — ИСПРАВЛЕНО В КОДЕ
 
-[GoogleAuthProvider.cs:24,32](Api/AvaluxAuth.Providers/GoogleAuthProvider.cs#L24) — полный authorization URL со `state`; [MicrosoftAuthProvider.cs:204](Api/AvaluxAuth.Providers/MicrosoftAuthProvider.cs#L204) — фото пользователя в base64; [OauthService.cs:50,55](Api/AvaluxAuth.Services/OauthService.cs#L50); [ImageService.cs:66](Api/AvaluxAuth.Services/ImageService.cs#L66). Убрать `Console.WriteLine`, использовать `ILogger` с редактированием.
+**Где:** [GoogleAuthProvider.cs](Api/AvaluxAuth.Providers/GoogleAuthProvider.cs) — две `Console.WriteLine` выводили redirect URL и полный authorization URL вместе с одноразовым `state`; [MicrosoftAuthProvider.cs](Api/AvaluxAuth.Providers/MicrosoftAuthProvider.cs) — в stdout писалось фото пользователя в base64 (`data:image/jpeg;base64,…`); [OauthService.cs](Api/AvaluxAuth.Services/OauthService.cs) — две `Console.WriteLine` с признаками link-кода и уже привязанного аккаунта; [ImageService.cs](Api/AvaluxAuth.Services/ImageService.cs) — список embedded-ресурсов на каждый рендер аватара.
+
+**Влияние.** `state` — одноразовый секрет потока авторизации (вместе с PKCE и сжиганием state из H-06 он защищает от CSRF и подмены кода), и полный auth URL в логе обесценивает эту защиту для того, кто читает логи. Base64-фото — это PII в открытом виде и раздувание лога на каждый вход. Признаки link-состояния — утечка бизнес-логики. Кроме того, `Console.WriteLine` обходил настроенные уровни логирования и структурирование: такие строки нельзя ни отфильтровать, ни отредактировать.
+
+**Что сделано (2026-11-19, коммит `90a23db`).**
+
+- **`Console` в API больше нет.** Все четыре площадки переведены на `ILogger`; `grep -rn "Console\." Api --include=*.cs` пуст. `Console` в `AvaluxAuth.TestCli` — это штатный вывод CLI для оператора (его же данные), к логам сервера отношения не имеет и остаётся в рамках C-03.
+- **Google.** В `GoogleAuthProvider` внедрён `ILogger<GoogleAuthProvider>`; вместо URL пишется `LogDebug("Google authorization URL built: redirectUri={RedirectUri}")` — только redirect URI, то есть публичная конфигурация приложения. `state`, `client_id` и `client_secret` в лог не попадают, `UrlBuilder.ToString()` вычисляется один раз.
+- **Microsoft.** Удалён `Console.WriteLine(await GetUserPhotoAsync(...))`. Побочно исчез второй запрос `GET /me/photo` в Graph на каждый вход: фото и так запрашивалось для `AvatarUrl`.
+- **OauthService.** Две `Console.WriteLine(bool)` заменены одним `LogDebug` со структурными булевыми полями `LinkCodePresent`/`AccountAlreadyLinked`; код линковки, `userId` и данные аккаунта не логируются.
+- **ImageService.** Внедрён `ILogger<ImageService>`; список embedded-ресурсов пишется `LogError` только на ветке «шрифт не найден» (диагностика сохранена, секретов и PII там нет), а не на каждый рендер аватара.
+- **Санитайзинг недоверенного текста.** Новый [LogSanitizer.cs](Api/AvaluxAuth.Utils/LogSanitizer.cs): управляющие символы (`\r`, `\n`, `\t`, `NUL`, `DEL`) заменяются пробелом, значение обрезается (512 символов по умолчанию, 64 для `error`), пустое значение превращается в `[empty]`/`[blank]`. Применён в [GitLabAuthProvider.cs](Api/AvaluxAuth.Providers/GitLabAuthProvider.cs) и [MicrosoftAuthProvider.cs](Api/AvaluxAuth.Providers/MicrosoftAuthProvider.cs) там, где в текст исключения попадают `error`/`error_description` из query и тело ответа провайдера. Это закрывает хвост H-02 («сырой `error_description` в логах») и исключает log forging (подделку строки лога переводом строки) и log flooding (неограниченный размер записи).
+- **Проверено, что стандартное request-логирование не светит коды и state.** `Microsoft.AspNetCore.Hosting.Diagnostics` пишет query string на уровне `Information`, но в [appsettings.json](Api/AvaluxAuth.Api/appsettings.json) категория `Microsoft.AspNetCore` поднята до `Warning`, а стек `auth` не переопределяет `Logging__*`. Значит, GET-callback с `?code=…&state=…` в лог не попадает. Это условие зафиксировано: если кто-то включит `Microsoft.AspNetCore=Information`, коды авторизации и state окажутся в логах.
+
+**Проверка после фикса** (локальный прогон провайдеров с тестовым `ILogger` и пустым `IHttpClientFactory`, без внешних вызовов):
+
+| Проверка | Результат |
+|---|---|
+| `GoogleAuthProvider.GetAuthUrl` со `state=STATE-SECRET-…`, тестовым `client_id` и secret | URL содержит state; в логе `log_leaks_state=false`, `log_leaks_client_id=false`, `log_leaks_secret=false`, единственная строка — про `redirectUri` |
+| `MicrosoftAuthProvider.GetTokenAsync` с `error_description="invalid_request\r\n… Forged admin sign-in succeeded\t"` | исключение из одной строки, `\r`/`\n` отсутствуют; payload остаётся текстом с пробелами |
+| То же с `error_description` длиной 5000 символов | сообщение 551 символ (512 + маркер `…`) |
+| `GitLabAuthProvider.GetTokenAsync` с `error=invalid_scope`, `error_description` с `\r\n` | в тексте исключения нет `\r`/`\n` |
+| `LogSanitizer.Sanitize` на `null`, `""`, `"   "` | `[empty]`, `[empty]`, `[blank]` |
+| `grep -rn "Console\." Api --include=*.cs` | совпадений нет |
+| `dotnet build AvaluxAuth.slnx`, `dotnet build -c Release` (API) | 0 ошибок (прежние предупреждения CS8774/CS9113 в файлах, которые не менялись) |
+
+**Деплой.** Изменение в `master` (`90a23db`). Для API это чисто логирование: контракты, коды ответов и формат данных не менялись, миграций нет. Уедет на живой контур вместе с H-02/H-04/H-05/H-06/M-01/M-02/M-03 при переводе стека на `:master`; откат безопасен в обе стороны.
+
+**Остаточный риск.**
+
+- **Аудит-след неудачных входов.** `PasswordController` и `AdminController` по-прежнему пишут IP и хеш логина (H-06). Это осознанный security-лог, логин хешируется, но IP остаётся персональными данными; срок хранения ограничен ротацией `json-file` 1m×1, централизованного хранилища и политики ретенции нет (L-10).
+- **Стек и сообщения исключений.** `AuthController.ErrorHtml` пишет исключение целиком, включая stack trace: сообщения провайдеров санитайзятся на источнике, но любое новое место, где в текст исключения попадёт недоверенный ввод, нужно проводить через `LogSanitizer`. Это договорённость, а не принудительный механизм.
+- **PII вне логов.** Base64-фото Microsoft по-прежнему возвращается провайдером как `data:`-URL и попадает в `UserInfo.AvatarUrl`. M-05 убрал его только из лога; хранение PII — отдельный вопрос.
+- **Сторонние сборщики логов.** Если контейнерный лог начнут отправлять во внешнюю систему, политику ретенции и редактирование нужно настраивать там же; в приложении редактирование сейчас точечное (санитайзер + отказ от логирования секретов).
 
 ### M-06. Нет security-заголовков
 
@@ -580,7 +613,7 @@ Cache-Control: no-store
 6. ~~Определиться с client authentication: secret для конфиденциального клиента, привязка code/refresh к клиенту, PKCE (H-05).~~ **Сделано в коде (H-05), ждёт деплоя и обновления десктоп-клиентов.**
 7. ~~Вынести Redis/Postgres в internal-сеть, включить auth/TLS для Redis (H-07).~~ **Сделано 2026-11-19** (TLS также для Postgres, least-privilege DB-роль).
 
-**P1 (неделя):** ~~фильтр `StartsAt`~~ **сделано (M-02, `6dfe8c0`)**; ~~revoke сессий при смене пароля/absolute expiry~~ **сделано (H-05 + M-03, `5090e0b`)**; ротация ключей с окном; security-заголовки; убрать PII/секреты из логов; 401 вместо 500 на state; `700` на keys; почистить redirect URI; constant-time/fail-closed admin login; unique index на `Passwords.Login`.
+**P1 (неделя):** ~~фильтр `StartsAt`~~ **сделано (M-02, `6dfe8c0`)**; ~~revoke сессий при смене пароля/absolute expiry~~ **сделано (H-05 + M-03, `5090e0b`)**; ротация ключей с окном; security-заголовки; убрать PII/секреты из логов; 401 вместо 500 на state; `700` на keys; ~~убрать PII/секреты из логов~~ **сделано (M-05, `90a23db`)**; почистить redirect URI; constant-time/fail-closed admin login; unique index на `Passwords.Login`.
 
 **P2:** Angular 21.2.17+, Microsoft.OpenApi 2.7.5+, AWSSDK 4.0.3.3+; пагинация; CI/digest/scanning; `keys/` в ignore; аудит-лог; клиентские библиотеки; defense-in-depth для админки на уровне приложения.
 
