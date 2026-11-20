@@ -115,6 +115,18 @@ public class OauthService(
         info.AvatarUrl ??= imageService.CreateRandomAvatarUrl(info.Name ?? info.Login ?? "");
 
         var account = await accountRepository.GetAccountByProviderIdAsync(providerSettings.Id, info.Id, ct);
+        if (account != null && await userRepository.GetUserAsync(account.UserId, ct) is null)
+        {
+            // The account outlived its user: deleting a user used to leave the linked
+            // accounts behind, and such a stale account would send us to a user that no
+            // longer exists — /token then answered 500 instead of signing the person in.
+            // Drop the orphan so this sign-in starts from a fresh user.
+            logger.LogWarning("Discarding an account whose user was deleted: provider={Provider}",
+                providerSettings.ProviderId);
+            await accountRepository.DeleteAccountAsync(account.Id, ct);
+            account = null;
+        }
+
         Guid userId;
         if (account == null)
         {

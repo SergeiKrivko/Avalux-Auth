@@ -56,7 +56,13 @@ public class AuthorizationService(
     {
         var user = await userRepository.GetUserWithSubscriptionsAsync(userId, ct);
         if (user == null)
-            throw new Exception("User not found");
+        {
+            // The code was issued for a user that has been deleted since. That is a stale
+            // grant, not a server fault: the caller must see invalid_grant (400) instead of
+            // an unhandled 500.
+            logger.LogWarning("Authorization code refers to a user that no longer exists");
+            return null;
+        }
 
         // M-03: the code was issued before the user's credentials changed, so it must
         // not turn into a token that would carry the new session generation.

@@ -64,6 +64,14 @@ public class PasswordService(
                            throw new Exception("Password authorization is not added for this client");
 
         var account = await accountRepository.GetAccountByProviderIdAsync(providerInfo.Id, password.Id.ToString(), ct);
+        if (account != null && await userRepository.GetUserAsync(account.UserId, ct) == null)
+        {
+            // Same orphan as in the OAuth flow: the password account survived its user, so
+            // signing in through it would issue a grant for a user that no longer exists.
+            logger.LogWarning("Discarding a password account whose user was deleted");
+            await accountRepository.DeleteAccountAsync(account.Id, ct);
+            account = null;
+        }
         var userInfo = new UserInfo
         {
             Id = password.Id.ToString(),

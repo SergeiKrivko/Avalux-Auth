@@ -51,10 +51,32 @@ public class UserRepository(AvaluxAuthDbContext dbContext) : IUserRepository
 
     public async Task<bool> DeleteUserAsync(Guid userId, CancellationToken ct = default)
     {
+        // Accounts and refresh tokens must go with the user. A surviving account still
+        // matches its provider identity at the next sign-in, so the callback would mint
+        // an authorization code for a user that no longer exists and /token would fail
+        // with "User not found" on every retry (an orphaned identity the user cannot
+        // recover from). Both statements run in one transaction with the user row.
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(ct);
+        var deletedAt = DateTime.UtcNow;
+
         var count = await dbContext.Users
             .Where(x => x.Id == userId && x.DeletedAt == null)
-            .ExecuteUpdateAsync(x => x.SetProperty(e => e.DeletedAt, DateTime.UtcNow), ct);
-        return count > 0;
+            .ExecuteUpdateAsync(x => x.SetProperty(e => e.DeletedAt, deletedAt), ct);
+        if (count == 0)
+        {
+            await transaction.RollbackAsync(ct);
+            return false;
+        }
+
+        await dbContext.Accounts
+            .Where(x => x.UserId == userId && x.DeletedAt == null)
+            .ExecuteUpdateAsync(x => x.SetProperty(e => e.DeletedAt, deletedAt), ct);
+        await dbContext.RefreshTokens
+            .Where(e => e.UserId == userId)
+            .ExecuteDeleteAsync(ct);
+
+        await transaction.CommitAsync(ct);
+        return true;
     }
 
     public async Task<IEnumerable<UserWithAccounts>> GetUsersAsync(Guid applicationId, CancellationToken ct = default)
