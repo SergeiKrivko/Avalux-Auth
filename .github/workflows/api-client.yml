@@ -1,8 +1,19 @@
-﻿name: Build and publish Avalux.Auth.ApiClient Nuget package
+name: Build and publish Avalux.Auth.ApiClient Nuget package
 on:
   push:
+    branches: [ master ]
     paths:
+      # Bumping PackageVersion is the release trigger.
       - AvaluxAuth.ApiClient/AvaluxAuth.ApiClient.csproj
+      # Allow the first run (and future changes) of this workflow to be tested.
+      - .github/workflows/api-client.yml
+  workflow_dispatch:
+
+# Trusted Publishing (OIDC): the job exchanges a GitHub OIDC token for a
+# short-lived nuget.org API key. No long-lived NUGET_API_KEY secret is used.
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   build-package:
@@ -23,7 +34,26 @@ jobs:
           dotnet build AvaluxAuth.ApiClient -c Release
           dotnet pack AvaluxAuth.ApiClient -o nuget
 
+      # Requires a trusted publishing policy on nuget.org for
+      # SergeiKrivko/Avalux-Auth + workflow file api-client.yml.
+      # Override the NuGet profile name with the NUGET_USER repository variable.
+      - name: NuGet login (OIDC -> short-lived API key)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER || 'SergeiKrivko' }}
+
       - name: Publish on nuget.org
         run: |
-          dotnet nuget push nuget/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
-    
+          set -euo pipefail
+          shopt -s nullglob
+          for package in nuget/*.nupkg; do
+            # Legacy .symbols.nupkg is a side artifact, not a package to publish.
+            case "$package" in
+              *.symbols.nupkg) continue ;;
+            esac
+            dotnet nuget push "$package" \
+              --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done
