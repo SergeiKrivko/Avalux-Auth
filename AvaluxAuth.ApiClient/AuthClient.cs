@@ -57,7 +57,11 @@ public class AuthClient(HttpClient httpClient) : IAuthClient
 
     public async Task<AccountCredentials> GetAccessTokenAsync(Guid id, string provider, CancellationToken ct = default)
     {
-        var resp = await httpClient.GetAsync($"api/v1/service/users/{id}/accessToken", ct);
+        // The endpoint refuses a request without providerId or providerKey, and the
+        // provider is what selects the linked account: silently dropping it made every
+        // call answer 400 ("providerId or providerKey is required").
+        var resp = await httpClient.GetAsync(
+            $"api/v1/service/users/{id}/accessToken?providerKey={Uri.EscapeDataString(provider)}", ct);
         resp.EnsureSuccessStatusCode();
         var data = await resp.Content.ReadFromJsonAsync<AccountCredentials>(JsonOptions, ct);
         return data ?? throw new Exception("Invalid response");
